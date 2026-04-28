@@ -1,0 +1,74 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Flutter / Dart / Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+pubspec.lock
+
+# Symbols
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Generated localization
+lib/l10n/generated/
+
+# Local secrets — never commit
+.env
+.env.*
+*.keystore
+*.jks
+
+# Coverage
+coverage/
+
+# Claude Code local tooling — never commit
+.claude/
+
+# Build artifacts (kept locally, distributed via Releases)
+Eshary.apk
+
+# Working-session scratch (debug screenshots, prompt notes)
+/task.md
+/task2.md
+/task22.md
+/task23.md
+/task3.md
+/task4.md
+/error.jpeg
+/problem.PNG
+/222.PNG
+/example.jpeg
