@@ -16,6 +16,7 @@ import '../../clients/presentation/clients_providers.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
+import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
@@ -32,6 +33,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   Client? _client;
   Company? _myCompany;
   Exchange? _exchange;
+  String? _exchangeCompanyName;
 
   final _usd = TextEditingController();
   final _rate = TextEditingController();
@@ -143,6 +145,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   }
 
   Future<void> _archiveAll() async {
+    final pendingCount =
+        (ref.read(pendingBuysProvider).value ?? const <CurrencyBuy>[])
+            .length;
+    if (pendingCount > 0) {
+      _snack('لا يمكن الترحيل: لديك $pendingCount عملية معلّقة.');
+      return;
+    }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -204,13 +213,20 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     }
   }
 
+  void _onExchangeCompanyChanged(String? name) {
+    setState(() {
+      _exchangeCompanyName = name;
+      _myCompany = null;
+      _exchange = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final clientsAsync = ref.watch(clientsListProvider);
     final companiesAsync = ref.watch(companiesListProvider);
-    final exchangesAsync = _myCompany == null
-        ? const AsyncValue<List<Exchange>>.data([])
-        : ref.watch(exchangesByCompanyProvider(_myCompany!.id));
+    final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
+    final allExchangesAsync = ref.watch(allExchangesProvider);
     final pendingAsync = ref.watch(pendingBuysProvider);
     final dailyAsync = ref.watch(dailyBuysProvider);
 
@@ -284,10 +300,56 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 16),
         _SectionTitle('توجيه الشراء إلى حساب'),
+        exchangeCompaniesAsync.when(
+          data: (items) {
+            final names = items.map((ec) => ec.name).toList();
+            final liveValue = names.contains(_exchangeCompanyName)
+                ? _exchangeCompanyName
+                : null;
+            if (liveValue == null && _exchangeCompanyName != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _onExchangeCompanyChanged(null);
+              });
+            }
+            return DropdownButtonFormField<String>(
+              value: liveValue,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'شركة الصرافة المستلمة',
+                hintText: 'اختر شركة الصرافة',
+              ),
+              items: names
+                  .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                  .toList(),
+              onChanged: _onExchangeCompanyChanged,
+            );
+          },
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        ),
+        const SizedBox(height: 14),
         companiesAsync.when(
           data: (companies) {
-            final liveCompany =
-                companies.any((x) => x == _myCompany) ? _myCompany : null;
+            final allExchanges =
+                allExchangesAsync.value ?? const <Exchange>[];
+            final filteredExchanges = _exchangeCompanyName == null
+                ? const <Exchange>[]
+                : allExchanges
+                    .where((e) => e.name == _exchangeCompanyName)
+                    .toList();
+            final filteredCompanies = <Company>[];
+            for (final ex in filteredExchanges) {
+              for (final c in companies) {
+                if (c.id == ex.companyId &&
+                    !filteredCompanies.contains(c)) {
+                  filteredCompanies.add(c);
+                  break;
+                }
+              }
+            }
+            final liveCompany = filteredCompanies.any((x) => x == _myCompany)
+                ? _myCompany
+                : null;
             if (liveCompany == null && _myCompany != null) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
@@ -298,53 +360,35 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 }
               });
             }
-            return Row(children: [
-              Expanded(
-                child: DropdownButtonFormField<Company>(
-                  value: liveCompany,
-                  isExpanded: true,
-                  decoration:
-                      const InputDecoration(labelText: 'شركتك الخاصة'),
-                  items: companies
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c.name)))
-                      .toList(),
-                  onChanged: (c) => setState(() {
-                    _myCompany = c;
-                    _exchange = null;
-                  }),
-                ),
+            return DropdownButtonFormField<Company>(
+              value: liveCompany,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'شركتك الخاصة',
+                hintText: _exchangeCompanyName == null
+                    ? 'اختر شركة الصرافة أولاً'
+                    : 'اختر الحساب',
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: exchangesAsync.when(
-                  data: (exchanges) {
-                    final liveExchange =
-                        exchanges.any((x) => x == _exchange)
-                            ? _exchange
-                            : null;
-                    if (liveExchange == null && _exchange != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _exchange = null);
+              items: filteredCompanies
+                  .map((c) =>
+                      DropdownMenuItem(value: c, child: Text(c.name)))
+                  .toList(),
+              onChanged: _exchangeCompanyName == null
+                  ? null
+                  : (c) {
+                      Exchange? matched;
+                      for (final ex in filteredExchanges) {
+                        if (c != null && ex.companyId == c.id) {
+                          matched = ex;
+                          break;
+                        }
+                      }
+                      setState(() {
+                        _myCompany = c;
+                        _exchange = matched;
                       });
-                    }
-                    return DropdownButtonFormField<Exchange>(
-                      value: liveExchange,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                          labelText: 'شركة الصرافة المستلمة'),
-                      items: exchanges
-                          .map((e) =>
-                              DropdownMenuItem(value: e, child: Text(e.name)))
-                          .toList(),
-                      onChanged: (e) => setState(() => _exchange = e),
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-            ]);
+                    },
+            );
           },
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('$e'),
@@ -536,18 +580,22 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-class _PendingTable extends StatelessWidget {
+class _PendingTable extends ConsumerWidget {
   const _PendingTable({required this.rows});
   final List<CurrencyBuy> rows;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
         child: Text('لا توجد عمليات معلقة'),
       );
     }
+    final clients = ref.watch(clientsListProvider);
+    final clientById = <String, String>{
+      for (final c in (clients.value ?? const <Client>[])) c.id: c.name,
+    };
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
@@ -558,7 +606,9 @@ class _PendingTable extends StatelessWidget {
         ],
         rows: rows
             .map((b) => DataRow(cells: [
-                  DataCell(Text(b.clientFromAccount ?? '-')),
+                  DataCell(Text(
+                    clientById[b.clientId] ?? b.clientFromAccount ?? '—',
+                  )),
                   DataCell(Text(formatMoney(b.usdAmount))),
                   const DataCell(
                     Text(
@@ -573,18 +623,22 @@ class _PendingTable extends StatelessWidget {
   }
 }
 
-class _DailyBuysTable extends StatelessWidget {
+class _DailyBuysTable extends ConsumerWidget {
   const _DailyBuysTable({required this.rows});
   final List<CurrencyBuy> rows;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
         child: Text('لا توجد سجلات'),
       );
     }
+    final clients = ref.watch(clientsListProvider);
+    final clientById = <String, String>{
+      for (final c in (clients.value ?? const <Client>[])) c.id: c.name,
+    };
     final df = DateFormat('yyyy-MM-dd');
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -598,7 +652,9 @@ class _DailyBuysTable extends StatelessWidget {
             .map((b) => DataRow(cells: [
                   DataCell(Text(df.format(b.createdAt))),
                   DataCell(Text(formatMoney(b.usdAmount))),
-                  DataCell(Text(b.clientFromAccount ?? '-')),
+                  DataCell(Text(
+                    clientById[b.clientId] ?? b.clientFromAccount ?? '—',
+                  )),
                 ]))
             .toList(),
       ),

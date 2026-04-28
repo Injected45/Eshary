@@ -9,6 +9,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../countries/data/countries_repository.dart';
 import '../../countries/presentation/countries_providers.dart';
+import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
@@ -207,12 +208,10 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Row 1: [الدولة | شركة الصرافة]  (swapped positions)
-                    Row(children: [
-                      Expanded(child: _buildCountryField()),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildExchangeCompanyField()),
-                    ]),
+                    // Row 1: country first, then exchange-company filtered by country
+                    _buildCountryField(),
+                    const SizedBox(height: 14),
+                    _buildExchangeCompanyField(),
                     const SizedBox(height: 14),
                     // Row 2: [إسم الحساب | كود الحساب]
                     Row(children: [
@@ -299,10 +298,15 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
     final asyncList = ref.watch(exchangeCompaniesListProvider);
     return asyncList.when(
       data: (items) {
-        if (items.isEmpty) {
+        final filtered = _country.text.trim().isEmpty
+            ? <ExchangeCompany>[]
+            : items
+                .where((ec) => ec.country == _country.text.trim())
+                .toList();
+        if (filtered.isEmpty) {
           return _buildEmptyExchangeCompanyAddPill();
         }
-        final names = items.map((ec) => ec.name).toList();
+        final names = filtered.map((ec) => ec.name).toList();
         final currentValue =
             (_exName.text.isNotEmpty && names.contains(_exName.text))
                 ? _exName.text
@@ -412,10 +416,13 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
             onTap: () async {
               final picked = await showGlassDialog<String>(
                 context: context,
-                builder: (_) => const _CountryPickerDialog(),
+                builder: (_) => const CountryPickerDialog(),
               );
               if (picked != null && mounted) {
-                setState(() => _country.text = picked);
+                setState(() {
+                  _country.text = picked;
+                  _exName.text = '';
+                });
               }
             },
             child: Container(
@@ -455,16 +462,16 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
   }
 }
 
-class _CountryPickerDialog extends ConsumerStatefulWidget {
-  const _CountryPickerDialog();
+class CountryPickerDialog extends ConsumerStatefulWidget {
+  const CountryPickerDialog({super.key});
 
   @override
-  ConsumerState<_CountryPickerDialog> createState() =>
-      _CountryPickerDialogState();
+  ConsumerState<CountryPickerDialog> createState() =>
+      CountryPickerDialogState();
 }
 
-class _CountryPickerDialogState
-    extends ConsumerState<_CountryPickerDialog> {
+class CountryPickerDialogState
+    extends ConsumerState<CountryPickerDialog> {
   final _newName = TextEditingController();
   bool _busy = false;
   String? _error;

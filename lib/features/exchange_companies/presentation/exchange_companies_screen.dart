@@ -6,6 +6,8 @@ import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../companies/presentation/add_company_dialog.dart'
+    show CountryPickerDialog;
 import '../data/exchange_companies_repository.dart';
 import '../domain/exchange_company.dart';
 import 'exchange_companies_providers.dart';
@@ -209,6 +211,7 @@ class AddExchangeCompanyDialog extends ConsumerStatefulWidget {
 class AddExchangeCompanyDialogState
     extends ConsumerState<AddExchangeCompanyDialog> {
   final _name = TextEditingController();
+  String? _country;
   bool _busy = false;
   String? _error;
 
@@ -219,6 +222,7 @@ class AddExchangeCompanyDialogState
     super.initState();
     if (_isEdit) {
       _name.text = widget.existing!.name;
+      _country = widget.existing!.country;
     }
   }
 
@@ -234,6 +238,10 @@ class AddExchangeCompanyDialogState
       setState(() => _error = 'الاسم مطلوب');
       return;
     }
+    if (_country == null || _country!.isEmpty) {
+      setState(() => _error = 'اختر الدولة');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -243,6 +251,7 @@ class AddExchangeCompanyDialogState
         await ref.read(exchangeCompaniesRepositoryProvider).update(
               id: widget.existing!.id,
               name: name,
+              country: _country,
             );
       } else {
         final ownerId = ref.read(currentUserIdProvider);
@@ -250,6 +259,7 @@ class AddExchangeCompanyDialogState
         await ref.read(exchangeCompaniesRepositoryProvider).create(
               ownerId: ownerId,
               name: name,
+              country: _country,
             );
       }
       widget.onSaved();
@@ -321,6 +331,59 @@ class AddExchangeCompanyDialogState
                 ],
               ),
               const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsetsDirectional.only(start: 12, bottom: 4),
+                child: Text(
+                  'الدولة',
+                  style: TextStyle(color: AppColors.textLow, fontSize: 12),
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () async {
+                    final picked = await showGlassDialog<String>(
+                      context: context,
+                      builder: (_) => const CountryPickerDialog(),
+                    );
+                    if (picked != null && mounted) {
+                      setState(() => _country = picked);
+                    }
+                  },
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.glassFill,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.glassBorder),
+                    ),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(
+                          (_country == null || _country!.isEmpty)
+                              ? 'اختر الدولة'
+                              : _country!,
+                          style: TextStyle(
+                            color: (_country == null || _country!.isEmpty)
+                                ? AppColors.textDim
+                                : AppColors.textHigh,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const FaIcon(
+                        FontAwesomeIcons.globe,
+                        size: 14,
+                        color: AppColors.accent,
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: _name,
                 decoration: const InputDecoration(

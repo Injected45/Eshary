@@ -24,6 +24,10 @@ import 'beneficiaries_providers.dart';
 import 'transfers_providers.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
+final _section1Key = GlobalKey<_CollapsibleSectionState>();
+final _section2Key = GlobalKey<_CollapsibleSectionState>();
+final _section3Key = GlobalKey<_CollapsibleSectionState>();
+final _logSectionKey = GlobalKey<_CollapsibleSectionState>();
 
 class TransfersScreen extends ConsumerStatefulWidget {
   const TransfersScreen({super.key});
@@ -47,7 +51,23 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   List<String>? _composedMessages;
 
   @override
+  void initState() {
+    super.initState();
+    _amount.addListener(_onAmountChanged);
+  }
+
+  void _onAmountChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _overBalance {
+    if (_exchange == null) return false;
+    return parseMoney(_amount.text) > (_exchange?.balance ?? 0);
+  }
+
+  @override
   void dispose() {
+    _amount.removeListener(_onAmountChanged);
     _amount.dispose();
     _beneficiaryName.dispose();
     _beneficiaryAccount.dispose();
@@ -157,6 +177,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('المبلغ غير صحيح');
       return;
     }
+    final amount = parseMoney(_amount.text);
+    final balance = _exchange?.balance ?? 0;
+    if (amount > balance) {
+      _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
+      return;
+    }
     if (_beneficiaryName.text.trim().isEmpty) {
       _snack('اسم المستفيد مطلوب');
       return;
@@ -166,6 +192,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   Future<void> _saveToDaily() async {
     if (_company == null || _exchange == null || _reference == null) return;
+    final amount = parseMoney(_amount.text);
+    final balance = _exchange?.balance ?? 0;
+    if (amount > balance) {
+      _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ref.read(transfersRepositoryProvider).create(
@@ -192,8 +224,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         _beneficiaryAccount.clear();
         _beneficiaryCode.clear();
         _reference = next;
+        _exchangeCompanyName = null;
+        _exchange = null;
+        _company = null;
       });
       playAlert();
+      _section1Key.currentState?.collapse();
+      _section2Key.currentState?.collapse();
+      _section3Key.currentState?.collapse();
+      _logSectionKey.currentState?.collapse();
       _snack('تم الحفظ في السجل اليومي');
     } catch (e, st) {
       AppLogger.error('transfers.saveToDaily', e, st);
@@ -334,6 +373,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       children: [
         // Section 1 — الجهة المنفذة
         _CollapsibleSection(
+          key: _section1Key,
           header: const _NumberedSectionTitle(1, 'الجهة المنفذة'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -469,6 +509,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
         // Section 2 — جهة الاستلام
         _CollapsibleSection(
+          key: _section2Key,
           header: const _NumberedSectionTitle(2, 'جهة الاستلام'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -529,6 +570,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
         // Section 3 — قيمة التحويل
         _CollapsibleSection(
+          key: _section3Key,
           header: const _NumberedSectionTitle(3, 'قيمة التحويل'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -543,12 +585,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                     fontWeight: FontWeight.w700,
                     color: AppColors.textHigh,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'أدخل قيمة التحويل',
-                    suffixIcon: _IconBox(
+                    suffixIcon: const _IconBox(
                       FontAwesomeIcons.dollarSign,
                       color: AppColors.positive,
                     ),
+                    errorText: _overBalance
+                        ? 'المبلغ يتجاوز رصيد الحساب (${formatMoney(_exchange?.balance ?? 0)} \$)'
+                        : null,
                   ),
                 ),
               ),
@@ -575,12 +620,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          onPressed: _generate,
+          onPressed: _overBalance ? null : _generate,
           icon: const FaIcon(FontAwesomeIcons.paperPlane, size: 16),
           label: const Text('حفظ وإرسال'),
         ),
         const SizedBox(height: 24),
         _CollapsibleSection(
+          key: _logSectionKey,
           header: Row(children: [
             Expanded(
               child: _SectionTitle('سجل الحوالات المنفذة'),
@@ -843,6 +889,7 @@ class _IconBox extends StatelessWidget {
 
 class _CollapsibleSection extends StatefulWidget {
   const _CollapsibleSection({
+    super.key,
     required this.header,
     required this.child,
     this.initiallyExpanded = true,
@@ -860,6 +907,10 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
   late bool _expanded = widget.initiallyExpanded;
 
   void _toggle() => setState(() => _expanded = !_expanded);
+
+  void collapse() {
+    if (_expanded) setState(() => _expanded = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1187,7 +1238,9 @@ class _SavedBeneficiariesDialogState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item.name,
+                                          (item.account?.isEmpty ?? true)
+                                              ? '—'
+                                              : item.account!,
                                           style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
@@ -1196,9 +1249,7 @@ class _SavedBeneficiariesDialogState
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          (item.account?.isEmpty ?? true)
-                                              ? '—'
-                                              : item.account!,
+                                          item.name,
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: AppColors.textLow,

@@ -117,6 +117,10 @@ class AppLogger {
 /// Translate a raw exception into a short Arabic user-facing message.
 String friendlyError(Object e) {
   final s = e.toString();
+  if (s.contains('pending currency buy') ||
+      (s.contains('check_violation') && s.contains('pending'))) {
+    return 'لا يمكن الترحيل: توجد عمليات شراء معلّقة. أكملها أو احذفها أولًا.';
+  }
   if (s.contains('23503') || s.contains('foreign key constraint')) {
     return 'لا يمكن إتمام العملية: توجد بيانات مرتبطة. احذف العناصر التابعة أو رحّلها أولًا.';
   }

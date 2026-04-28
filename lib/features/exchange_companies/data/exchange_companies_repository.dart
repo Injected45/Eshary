@@ -21,10 +21,15 @@ class ExchangeCompaniesRepository {
   Future<ExchangeCompany> create({
     required String ownerId,
     required String name,
+    String? country,
   }) async {
     final row = await _client
         .from('exchange_companies')
-        .insert({'owner_id': ownerId, 'name': name})
+        .insert({
+          'owner_id': ownerId,
+          'name': name,
+          'country': country,
+        })
         .select()
         .single();
     return ExchangeCompany.fromJson(row);
@@ -33,10 +38,14 @@ class ExchangeCompaniesRepository {
   Future<ExchangeCompany> update({
     required String id,
     required String name,
+    String? country,
   }) async {
     final row = await _client
         .from('exchange_companies')
-        .update({'name': name})
+        .update({
+          'name': name,
+          'country': country,
+        })
         .eq('id', id)
         .select()
         .single();

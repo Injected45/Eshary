@@ -316,53 +316,54 @@ class _SoldTable extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final date in sortedDates) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                const FaIcon(
-                  FontAwesomeIcons.calendar,
-                  size: 12,
-                  color: AppColors.textLow,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  date,
-                  style: const TextStyle(
-                    color: AppColors.textLow,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+          Builder(builder: (context) {
+            final dayTotal = grouped[date]!
+                .fold<double>(0, (s, t) => s + t.amount);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _openSoldDay(context, date, grouped[date]!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.glassFill,
+                      border: Border.all(color: AppColors.glassBorder),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(children: [
+                      const FaIcon(FontAwesomeIcons.calendar,
+                          size: 12, color: AppColors.textLow),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          date,
+                          style: const TextStyle(
+                            color: AppColors.textHigh,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '-${formatMoney(dayTotal)}',
+                        style: const TextStyle(
+                          color: AppColors.negative,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const FaIcon(FontAwesomeIcons.chevronLeft,
+                          size: 12, color: AppColors.textLow),
+                    ]),
                   ),
                 ),
-              ],
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              columns: const [
-                DataColumn(label: Text('اسم الشركة')),
-                DataColumn(label: Text('الإشاري')),
-                DataColumn(label: Text('القيمة \$')),
-              ],
-              rows: grouped[date]!
-                  .map((t) => DataRow(
-                        onSelectChanged: (_) =>
-                            _openSoldDetail(context, t),
-                        cells: [
-                          DataCell(Text(t.beneficiaryName)),
-                          DataCell(Text(t.reference)),
-                          DataCell(Text(
-                            '-${formatMoney(t.amount)}',
-                            style:
-                                const TextStyle(color: AppColors.negative),
-                          )),
-                        ],
-                      ))
-                  .toList(),
-            ),
-          ),
+              ),
+            );
+          }),
         ],
         const SizedBox(height: 8),
         SingleChildScrollView(
@@ -416,48 +417,98 @@ class _BoughtTable extends StatelessWidget {
             style: TextStyle(color: AppColors.textLow)),
       );
     }
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        showCheckboxColumn: false,
-        columns: const [
-          DataColumn(label: Text('التاريخ')),
-          DataColumn(label: Text('القيمة \$')),
-        ],
-        rows: [
-          ...rows.map(
-            (b) => DataRow(
-              onSelectChanged: (_) => _openBoughtDetail(context, b),
-              cells: [
-                DataCell(
-                    Text(dateOnly.format(b.archivedAt ?? b.createdAt))),
-                DataCell(Text(
-                  '+${formatMoney(b.usdAmount)}',
-                  style: const TextStyle(color: AppColors.positive),
-                )),
-              ],
-            ),
-          ),
-          DataRow(
-            color: WidgetStateProperty.all(
-              AppColors.positive.withValues(alpha: 0.08),
-            ),
-            cells: [
-              const DataCell(
-                Text('الإجمالي',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              DataCell(Text(
-                formatMoney(total),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.positive,
+    final grouped = <String, List<CurrencyBuy>>{};
+    for (final b in rows) {
+      final key = dateOnly.format(b.archivedAt ?? b.createdAt);
+      grouped.putIfAbsent(key, () => <CurrencyBuy>[]).add(b);
+    }
+    final sortedDates = grouped.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final date in sortedDates)
+          Builder(builder: (context) {
+            final dayTotal = grouped[date]!
+                .fold<double>(0, (s, b) => s + b.usdAmount);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _openBoughtDay(context, date, grouped[date]!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.glassFill,
+                      border: Border.all(color: AppColors.glassBorder),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(children: [
+                      const FaIcon(FontAwesomeIcons.calendar,
+                          size: 12, color: AppColors.textLow),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          date,
+                          style: const TextStyle(
+                            color: AppColors.textHigh,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '+${formatMoney(dayTotal)}',
+                        style: const TextStyle(
+                          color: AppColors.positive,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const FaIcon(FontAwesomeIcons.chevronLeft,
+                          size: 12, color: AppColors.textLow),
+                    ]),
+                  ),
                 ),
-              )),
+              ),
+            );
+          }),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columns: const [
+              DataColumn(label: Text('')),
+              DataColumn(label: Text('')),
+            ],
+            headingRowHeight: 0,
+            rows: [
+              DataRow(
+                color: WidgetStateProperty.all(
+                  AppColors.positive.withValues(alpha: 0.08),
+                ),
+                cells: [
+                  const DataCell(
+                    Text('الإجمالي',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                  DataCell(Text(
+                    formatMoney(total),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.positive,
+                    ),
+                  )),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -584,6 +635,197 @@ class _BuyArchiveDetailScreen extends StatelessWidget {
                       : (b.status == CurrencyBuyStatus.pending
                           ? 'معلّقة'
                           : 'يومية'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _openSoldDay(
+    BuildContext context, String date, List<Transfer> dayRows) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _SoldDayDetailScreen(date: date, rows: dayRows),
+    ),
+  );
+}
+
+void _openBoughtDay(
+    BuildContext context, String date, List<CurrencyBuy> dayRows) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _BuyDayDetailScreen(date: date, rows: dayRows),
+    ),
+  );
+}
+
+class _SoldDayDetailScreen extends StatelessWidget {
+  const _SoldDayDetailScreen({required this.date, required this.rows});
+  final String date;
+  final List<Transfer> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayTotal = rows.fold<double>(0, (s, t) => s + t.amount);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text('تفاصيل $date'),
+        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          GlassCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    showCheckboxColumn: false,
+                    columns: const [
+                      DataColumn(label: Text('اسم الشركة')),
+                      DataColumn(label: Text('الإشاري')),
+                      DataColumn(label: Text('القيمة \$')),
+                    ],
+                    rows: rows
+                        .map((t) => DataRow(
+                              onSelectChanged: (_) =>
+                                  _openSoldDetail(context, t),
+                              cells: [
+                                DataCell(Text(t.beneficiaryName)),
+                                DataCell(Text(t.reference)),
+                                DataCell(Text(
+                                  '-${formatMoney(t.amount)}',
+                                  style: const TextStyle(
+                                      color: AppColors.negative),
+                                )),
+                              ],
+                            ))
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.negative.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'إجمالي اليوم',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textHigh,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '-${formatMoney(dayTotal)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.negative,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BuyDayDetailScreen extends StatelessWidget {
+  const _BuyDayDetailScreen({required this.date, required this.rows});
+  final String date;
+  final List<CurrencyBuy> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayTotal = rows.fold<double>(0, (s, b) => s + b.usdAmount);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text('تفاصيل $date'),
+        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          GlassCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    showCheckboxColumn: false,
+                    columns: const [
+                      DataColumn(label: Text('الحساب')),
+                      DataColumn(label: Text('القيمة \$')),
+                    ],
+                    rows: rows
+                        .map((b) => DataRow(
+                              onSelectChanged: (_) =>
+                                  _openBoughtDetail(context, b),
+                              cells: [
+                                DataCell(
+                                    Text(b.clientFromAccount ?? '—')),
+                                DataCell(Text(
+                                  '+${formatMoney(b.usdAmount)}',
+                                  style: const TextStyle(
+                                      color: AppColors.positive),
+                                )),
+                              ],
+                            ))
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.positive.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'إجمالي اليوم',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textHigh,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '+${formatMoney(dayTotal)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.positive,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
