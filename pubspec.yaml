@@ -16,7 +16,7 @@ dependencies:
   flutter_riverpod: ^2.5.1
   supabase_flutter: ^2.5.6
   go_router: ^14.2.7
-  intl: ^0.19.0
+  intl: ^0.20.2
   share_plus: ^10.0.2
   pdf: ^3.11.1
   printing: ^5.13.2
@@ -29,6 +29,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
@@ -57,3 +58,11 @@ flutter:
           weight: 600
         - asset: assets/fonts/NotoNaskhArabic-Bold.ttf
           weight: 700
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "app_icon.jpeg"
+  min_sdk_android: 21
+  adaptive_icon_background: "#020617"
+  adaptive_icon_foreground: "app_icon.jpeg"

@@ -16,6 +16,8 @@ import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../exchange_companies/presentation/exchange_companies_screen.dart'
+    show AddExchangeCompanyDialog;
 import '../data/beneficiaries_repository.dart';
 import '../data/transfers_repository.dart';
 import '../domain/beneficiary.dart';
@@ -24,10 +26,6 @@ import 'beneficiaries_providers.dart';
 import 'transfers_providers.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
-final _section1Key = GlobalKey<_CollapsibleSectionState>();
-final _section2Key = GlobalKey<_CollapsibleSectionState>();
-final _section3Key = GlobalKey<_CollapsibleSectionState>();
-final _logSectionKey = GlobalKey<_CollapsibleSectionState>();
 
 class TransfersScreen extends ConsumerStatefulWidget {
   const TransfersScreen({super.key});
@@ -41,6 +39,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   Exchange? _exchange;
   String? _reference;
   String? _exchangeCompanyName;
+  int? _activeSection;
+  bool _logExpanded = false;
+  bool _autoArchiveChecked = false;
 
   final _amount = TextEditingController();
   final _beneficiaryName = TextEditingController();
@@ -54,6 +55,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void initState() {
     super.initState();
     _amount.addListener(_onAmountChanged);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeAutoArchivePreviousDay(),
+    );
   }
 
   void _onAmountChanged() {
@@ -89,6 +93,21 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _exchange = null;
       _company = null;
       _reference = null;
+    });
+  }
+
+  void _resetTransferForm() {
+    setState(() {
+      _composedMessages = null;
+      _amount.clear();
+      _beneficiaryName.clear();
+      _beneficiaryAccount.clear();
+      _beneficiaryCode.clear();
+      _reference = null;
+      _exchangeCompanyName = null;
+      _exchange = null;
+      _company = null;
+      _activeSection = null;
     });
   }
 
@@ -132,38 +151,44 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final benCode = _beneficiaryCode.text;
     final ref = _reference ?? '';
 
-    final card1 = '🇹🇷السادة شركة $exchange\n'
-        'نرجوا منكم تأكيد استلام الحوالة\n'
-        'القادمة من شركة * $company *\n'
-        'من حساب : $bank\n'
-        'كود :$benCode\n'
-        'اشاري ( $ref ) \n'
-        '———————————————-\n'
-        '🏦 لحساب: شركة $company \n'
-        '🔢  كود: $code  \n'
-        '💵 المبلغ: (  $amount ) \$🇹🇷  \n'
-        'مع خالص الشكر.';
+    final card1 = 'السادة ؛ $exchange 🇹🇷\n'
+        'نرجوا تسليم شركة : $beneficiary\n'
+        'في حساب : $bank\n'
+        '🔢 كود الحساب : $benCode\n'
+        '————————————————\n'
+        '🏦 من حساب : $company\n'
+        '🔢 كود : $code\n'
+        '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
+        '📄 الرقم الإشاري : $ref\n'
+        '————————————————\n'
+        'شكراً علي تعاونكم معنا 🤝';
 
-    final card2 = 'السادة شركة : $beneficiary\n\n'
-        'نرجو تسليم شركة:  $exchange - 🇹🇷\n'
-        '———————————————\n'
-        '🏦 لحساب: شركة $company\n'
-        '🔢 كود: $code  \n'
-        '💵 المبلغ: ( $amount \$ )🇺🇸🇹🇷\n'
-        'شكرًا لتعاونكم';
+    final card2 = 'تفضلوا بالإستلام من : $exchange 🇹🇷\n'
+        '🏦 من حساب : $company\n'
+        '🔢 كود : $code\n'
+        '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
+        '📄 الرقم الإشاري : $ref\n'
+        '————————————————\n'
+        '🏦 تسليمكم في شركة : $beneficiary\n'
+        'إسم الحساب : $bank\n'
+        '🔢 كود : $benCode\n'
+        '————————————————\n'
+        'شكراً علي تعاملكم معنا 🤝';
 
-    final card3 = 'الي قسم الحسابات\n'
-        ' ------------------------------\n'
-        'تم دخول قيمة ( $amount \$ )\n'
-        '🏦 لحساب شركة: $company\n'
-        '🔢 كود: $code\n'
-        'لدى شركة : $exchange🇹🇷🇹🇷\n'
+    final card3 = 'إلى قسم الحسابات\n'
         '------------------------------\n'
-        'من حساب شركة $beneficiary\n'
-        'من حساب : $bank\n'
-        '🔢 كود المستفيد: $benCode\n'
-        '💵 المبلغ( $amount\$ ) 🇺🇸\n'
-        '📄 الرقم الإشاري: $ref';
+        'يطلب تسجيل خروج بقيمة ( $amount \$ ) 🇹🇷\n'
+        '🏦 من حساب : $company\n'
+        '🔢 كود : $code\n'
+        'لدى شركة : $exchange 🇹🇷\n'
+        '------------------------------\n'
+        'إلى حساب شركة : $beneficiary\n'
+        'إسم الحساب : $bank\n'
+        '🔢 كود : $benCode\n'
+        '💵 المبلغ : ( $amount \$ ) 🇹🇷\n'
+        '📄 الرقم الإشاري : $ref\n'
+        '------------------------------\n'
+        'شاكر لكم حسن انتباهكم';
 
     return [card1, card2, card3];
   }
@@ -212,27 +237,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       ref.invalidate(dailyTransfersProvider);
       ref.invalidate(allExchangesProvider);
       ref.invalidate(exchangesByCompanyProvider(_company!.id));
-      // Refresh next reference for follow-up entries.
-      final next = await ref
-          .read(companiesRepositoryProvider)
-          .nextReference(_company!.id);
       if (!mounted) return;
-      setState(() {
-        _composedMessages = null;
-        _amount.clear();
-        _beneficiaryName.clear();
-        _beneficiaryAccount.clear();
-        _beneficiaryCode.clear();
-        _reference = next;
-        _exchangeCompanyName = null;
-        _exchange = null;
-        _company = null;
-      });
+      _resetTransferForm();
       playAlert();
-      _section1Key.currentState?.collapse();
-      _section2Key.currentState?.collapse();
-      _section3Key.currentState?.collapse();
-      _logSectionKey.currentState?.collapse();
       _snack('تم الحفظ في السجل اليومي');
     } catch (e, st) {
       AppLogger.error('transfers.saveToDaily', e, st);
@@ -285,6 +292,31 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     }
   }
 
+  Future<void> _maybeAutoArchivePreviousDay() async {
+    if (_autoArchiveChecked) return;
+    _autoArchiveChecked = true;
+    try {
+      final rows = await ref.read(dailyTransfersProvider.future);
+      final now = DateTime.now();
+      bool isStale(Transfer r) {
+        final c = r.createdAt.toLocal();
+        if (c.year != now.year) return c.year < now.year;
+        if (c.month != now.month) return c.month < now.month;
+        return c.day < now.day;
+      }
+
+      if (rows.any(isStale)) {
+        await ref.read(archiveTransfersActionProvider)();
+        ref.invalidate(dailyTransfersProvider);
+        ref.invalidate(allExchangesProvider);
+        if (mounted) _snack('تم الإقفال التلقائي لحوالات اليوم السابق');
+      }
+    } catch (e, st) {
+      AppLogger.error('transfers.autoArchive', e, st);
+      if (mounted) _snack(friendlyError(e));
+    }
+  }
+
   void _snack(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -302,6 +334,21 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         _beneficiaryAccount.text = picked.account ?? '';
         _beneficiaryCode.text = picked.code ?? '';
       });
+    }
+  }
+
+  Future<void> _openAddExchangeCompanyDialog() async {
+    await showGlassDialog<void>(
+      context: context,
+      builder: (_) => AddExchangeCompanyDialog(
+        onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
+      ),
+    );
+    if (!mounted) return;
+    final updated = await ref.read(exchangeCompaniesListProvider.future);
+    if (!mounted) return;
+    if (updated.isNotEmpty) {
+      _onExchangeCompanyChanged(updated.first.name);
     }
   }
 
@@ -328,19 +375,19 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       return;
     }
     try {
+      final companies = ref.read(companiesListProvider).value ?? const [];
+      final exchanges = ref.read(allExchangesProvider).value ?? const [];
+      final companyNameById = <String, String>{
+        for (final c in companies) c.id: c.name,
+      };
+      final exchangeNameById = <String, String>{
+        for (final e in exchanges) e.id: e.name,
+      };
       final pdf = await PdfExport.load();
-      final df = DateFormat('yyyy-MM-dd');
-      final bytes = await pdf.buildTable(
-        title: 'سجل الحوالات اليومي',
-        headers: const ['التاريخ', 'الإشاري', 'المستفيد', 'المبلغ \$'],
-        rows: rows
-            .map((t) => [
-                  df.format(t.createdAt),
-                  t.reference,
-                  t.beneficiaryName,
-                  formatMoney(t.amount),
-                ])
-            .toList(),
+      final bytes = await pdf.buildDailyTransfersReport(
+        rows: rows,
+        companyNameById: companyNameById,
+        exchangeNameById: exchangeNameById,
       );
       await PdfExport.sharePdf(bytes, 'daily_transfers.pdf');
     } catch (e, st) {
@@ -373,8 +420,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       children: [
         // Section 1 — الجهة المنفذة
         _CollapsibleSection(
-          key: _section1Key,
           header: const _NumberedSectionTitle(1, 'الجهة المنفذة'),
+          expanded: _activeSection == 1,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 1 ? null : 1,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -382,6 +432,27 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 label: 'شركة الصرافة',
                 child: exchangeCompaniesAsync.when(
                   data: (items) {
+                    if (items.isEmpty) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _openAddExchangeCompanyDialog,
+                          icon: const FaIcon(
+                            FontAwesomeIcons.plus,
+                            size: 14,
+                          ),
+                          label: const Text('إضافة شركة صرافة جديدة'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.accent,
+                            side: BorderSide(
+                              color: AppColors.accent.withValues(alpha: 0.5),
+                            ),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      );
+                    }
                     final names = items.map((ec) => ec.name).toList();
                     final liveValue =
                         names.contains(_exchangeCompanyName)
@@ -509,8 +580,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
         // Section 2 — جهة الاستلام
         _CollapsibleSection(
-          key: _section2Key,
           header: const _NumberedSectionTitle(2, 'جهة الاستلام'),
+          expanded: _activeSection == 2,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 2 ? null : 2,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -570,8 +644,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
         // Section 3 — قيمة التحويل
         _CollapsibleSection(
-          key: _section3Key,
           header: const _NumberedSectionTitle(3, 'قيمة التحويل'),
+          expanded: _activeSection == 3,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 3 ? null : 3,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -626,7 +703,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         ),
         const SizedBox(height: 24),
         _CollapsibleSection(
-          key: _logSectionKey,
           header: Row(children: [
             Expanded(
               child: _SectionTitle('سجل الحوالات المنفذة'),
@@ -638,6 +714,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   _exportDailyPdf(dailyAsync.value ?? const []),
             ),
           ]),
+          expanded: _logExpanded,
+          onToggle: () => setState(() => _logExpanded = !_logExpanded),
           child: dailyAsync.when(
             data: (rows) => _DailyTransfersTable(rows: rows),
             loading: () => const LinearProgressIndicator(),
@@ -683,13 +761,32 @@ class _MessagesPreview extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSave;
 
-  static const _arabicIndex = ['الرسالة ١', 'الرسالة ٢', 'الرسالة ٣'];
+  static const _cardTitles = [
+    'للشركة المنفذة',
+    'للمستفيد',
+    'لقسم الحسابات',
+  ];
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: Center(
+            child: Text(
+              'واجهة رسائل التنفيذ',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textHigh,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
         for (var i = 0; i < messages.length; i++)
           GlassCard(
             padding: const EdgeInsets.all(20),
@@ -698,12 +795,13 @@ class _MessagesPreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  i < _arabicIndex.length
-                      ? _arabicIndex[i]
+                  i < _cardTitles.length
+                      ? _cardTitles[i]
                       : 'الرسالة ${i + 1}',
                   style: const TextStyle(
-                    color: AppColors.textLow,
-                    fontSize: 12,
+                    color: AppColors.accent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -887,30 +985,19 @@ class _IconBox extends StatelessWidget {
   }
 }
 
-class _CollapsibleSection extends StatefulWidget {
+class _CollapsibleSection extends StatelessWidget {
   const _CollapsibleSection({
     super.key,
     required this.header,
     required this.child,
-    this.initiallyExpanded = true,
+    required this.expanded,
+    required this.onToggle,
   });
 
   final Widget header;
   final Widget child;
-  final bool initiallyExpanded;
-
-  @override
-  State<_CollapsibleSection> createState() => _CollapsibleSectionState();
-}
-
-class _CollapsibleSectionState extends State<_CollapsibleSection> {
-  late bool _expanded = widget.initiallyExpanded;
-
-  void _toggle() => setState(() => _expanded = !_expanded);
-
-  void collapse() {
-    if (_expanded) setState(() => _expanded = false);
-  }
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -921,12 +1008,12 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _toggle,
+            onTap: onToggle,
             child: Row(
               children: [
-                Expanded(child: widget.header),
+                Expanded(child: header),
                 FaIcon(
-                  _expanded
+                  expanded
                       ? FontAwesomeIcons.chevronUp
                       : FontAwesomeIcons.chevronDown,
                   size: 14,
@@ -938,7 +1025,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
           AnimatedSize(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            child: _expanded ? widget.child : const SizedBox.shrink(),
+            child: expanded ? child : const SizedBox.shrink(),
           ),
         ],
       ),
@@ -966,31 +1053,43 @@ class _DailyTransfersTable extends ConsumerWidget {
     final exchangeById = <String, Exchange>{
       for (final e in exchangesAsync.value ?? const <Exchange>[]) e.id: e,
     };
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        showCheckboxColumn: false,
-        columns: const [
-          DataColumn(label: Text('من حساب')),
-          DataColumn(label: Text('شركة')),
-          DataColumn(label: Text('المبلغ')),
-        ],
-        rows: rows
-            .map((t) => DataRow(
-                  onSelectChanged: (_) => _showTransferDetails(
-                    context,
-                    transfer: t,
-                    companyName: companyById[t.companyId],
-                    exchangeName: exchangeById[t.exchangeId]?.name,
-                  ),
-                  cells: [
-                    DataCell(Text(companyById[t.companyId] ?? '—')),
-                    DataCell(
-                        Text(exchangeById[t.exchangeId]?.name ?? '—')),
-                    DataCell(Text(formatMoney(t.amount))),
-                  ],
-                ))
-            .toList(),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            showCheckboxColumn: false,
+            columns: const [
+              DataColumn(label: Text('الإشاري')),
+              DataColumn(label: Text('شركة')),
+              DataColumn(label: Text('من حساب')),
+              DataColumn(label: Text('المستفيد')),
+            ],
+            rows: rows
+                .map((t) => DataRow(
+                      onSelectChanged: (_) => _showTransferDetails(
+                        context,
+                        transfer: t,
+                        companyName: companyById[t.companyId],
+                        exchangeName: exchangeById[t.exchangeId]?.name,
+                      ),
+                      cells: [
+                        DataCell(Text(t.reference)),
+                        DataCell(Text(
+                            exchangeById[t.exchangeId]?.name ?? '—')),
+                        DataCell(Text(companyById[t.companyId] ?? '—')),
+                        DataCell(Text(
+                          (t.beneficiaryAccountCompany?.isEmpty ?? true)
+                              ? '—'
+                              : t.beneficiaryAccountCompany!,
+                        )),
+                      ],
+                    ))
+                .toList(),
+          ),
+        ),
       ),
     );
   }

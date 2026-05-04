@@ -5,83 +5,69 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
-import '../../../shared/logger.dart';
-import '../../../shared/pdf_export.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
-import 'archive_providers.dart';
+import 'history_details_screen.dart';
 
 class ArchiveScreen extends ConsumerWidget {
   const ArchiveScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final soldAsync = ref.watch(archivedTransfersProvider);
-    final boughtAsync = ref.watch(archivedBuysProvider);
-    final soldTotalAsync = ref.watch(archivedSoldTotalProvider);
-    final boughtTotalAsync = ref.watch(archivedBoughtTotalProvider);
+    final dailyBuys =
+        ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[];
+    final archivedBuys =
+        ref.watch(archivedBuysProvider).value ?? const <CurrencyBuy>[];
+    final dailyTransfers =
+        ref.watch(dailyTransfersProvider).value ?? const <Transfer>[];
+    final archivedTransfers =
+        ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
+
+    final incomeTotal = [...dailyBuys, ...archivedBuys]
+        .fold<double>(0, (s, b) => s + b.usdAmount);
+    final outgoingTotal = [...dailyTransfers, ...archivedTransfers]
+        .fold<double>(0, (s, t) => s + t.amount);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        _SummaryRow(
-          sold: soldTotalAsync.value ?? 0,
-          bought: boughtTotalAsync.value ?? 0,
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                income: true,
+                total: incomeTotal,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                income: false,
+                total: outgoingTotal,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _SectionHeader(
-                icon: FontAwesomeIcons.arrowTrendDown,
-                color: AppColors.negative,
-                text: '1- إجمالي خروج قيم \$ من الحسابات',
-                onExport: () => _exportSold(
-                  context,
-                  soldAsync.value ?? const [],
-                  soldTotalAsync.value ?? 0,
-                ),
-              ),
-              soldAsync.when(
-                data: (rows) => _SoldTable(
-                  rows: rows,
-                  total: soldTotalAsync.value ?? 0,
-                ),
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('$e'),
-              ),
-            ],
+        _DetailNavTile(
+          income: true,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  const HistoryDetailsScreen(kind: HistoryKind.income),
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        GlassCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _SectionHeader(
-                icon: FontAwesomeIcons.arrowTrendUp,
-                color: AppColors.positive,
-                text: '2- إجمالي قيم \$ المشتراة (المرحلة)',
-                onExport: () => _exportBought(
-                  context,
-                  boughtAsync.value ?? const [],
-                  boughtTotalAsync.value ?? 0,
-                ),
-              ),
-              boughtAsync.when(
-                data: (rows) => _BoughtTable(
-                  rows: rows,
-                  total: boughtTotalAsync.value ?? 0,
-                ),
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('$e'),
-              ),
-            ],
+        const SizedBox(height: 12),
+        _DetailNavTile(
+          income: false,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  const HistoryDetailsScreen(kind: HistoryKind.outgoing),
+            ),
           ),
         ),
         const Padding(
@@ -95,780 +81,133 @@ class ArchiveScreen extends ConsumerWidget {
       ],
     );
   }
-
-  Future<void> _exportSold(
-    BuildContext context,
-    List<Transfer> rows,
-    double total,
-  ) async {
-    if (rows.isEmpty) return;
-    try {
-      final pdf = await PdfExport.load();
-      final bytes = await pdf.buildTable(
-        title: 'الأرشيف العام — المباعة',
-        headers: const ['التاريخ', 'الإشاري', 'القيمة \$'],
-        rows: rows
-            .map((t) => [
-                  dateOnly.format(t.archivedAt ?? t.createdAt),
-                  t.reference,
-                  '-${formatMoney(t.amount)}',
-                ])
-            .toList(),
-        totalLabel: 'الإجمالي',
-        totalValue: formatMoney(total),
-      );
-      await PdfExport.sharePdf(bytes, 'archive_sold.pdf');
-    } catch (e, st) {
-      AppLogger.error('archive.exportSold', e, st);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    }
-  }
-
-  Future<void> _exportBought(
-    BuildContext context,
-    List<CurrencyBuy> rows,
-    double total,
-  ) async {
-    if (rows.isEmpty) return;
-    try {
-      final pdf = await PdfExport.load();
-      final bytes = await pdf.buildTable(
-        title: 'الأرشيف العام — المشتراة',
-        headers: const ['التاريخ', 'القيمة \$', 'الحساب المستلم'],
-        rows: rows
-            .map((b) => [
-                  dateOnly.format(b.archivedAt ?? b.createdAt),
-                  '+${formatMoney(b.usdAmount)}',
-                  b.clientFromAccount ?? '-',
-                ])
-            .toList(),
-        totalLabel: 'الإجمالي',
-        totalValue: formatMoney(total),
-      );
-      await PdfExport.sharePdf(bytes, 'archive_bought.pdf');
-    } catch (e, st) {
-      AppLogger.error('archive.exportBought', e, st);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    }
-  }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.sold, required this.bought});
-  final double sold;
-  final double bought;
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.income, required this.total});
+  final bool income;
+  final double total;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatTile(
-            icon: FontAwesomeIcons.arrowTrendDown,
-            label: 'مباع',
-            value: formatMoney(sold),
-            tint: AppColors.negative,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatTile(
-            icon: FontAwesomeIcons.arrowTrendUp,
-            label: 'مشتراة',
-            value: formatMoney(bought),
-            tint: AppColors.positive,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.tint,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color tint;
-
-  @override
-  Widget build(BuildContext context) {
+    final tint = income ? AppColors.positive : AppColors.negative;
     return GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      child: Column(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 56,
+            height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: tint.withValues(alpha: 0.15),
-              border: Border.all(color: tint.withValues(alpha: 0.4)),
+              border: Border.all(color: tint, width: 1.5),
+              color: tint.withValues(alpha: 0.08),
             ),
-            child: FaIcon(icon, size: 16, color: tint),
+            child: FaIcon(
+              income
+                  ? FontAwesomeIcons.arrowTrendDown
+                  : FontAwesomeIcons.arrowTrendUp,
+              size: 22,
+              color: tint,
+            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                      color: AppColors.textLow, fontSize: 11),
+          const SizedBox(height: 12),
+          Text(
+            income ? 'إجمالي الدخول' : 'إجمالي الخروج',
+            style: const TextStyle(
+              color: AppColors.textMid,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '\$${formatMoney(total)}',
+            style: TextStyle(
+              color: tint,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailNavTile extends StatelessWidget {
+  const _DetailNavTile({required this.income, required this.onTap});
+  final bool income;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = income ? AppColors.positive : AppColors.negative;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: tint, width: 1.5),
+                  color: tint.withValues(alpha: 0.08),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '\$$value',
-                  style: const TextStyle(
-                    color: AppColors.textHigh,
-                    fontSize: 16,
+                child: FaIcon(
+                  income
+                      ? FontAwesomeIcons.arrowTrendDown
+                      : FontAwesomeIcons.arrowTrendUp,
+                  size: 14,
+                  color: tint,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  income
+                      ? 'عرض تفاصيل الدخول'
+                      : 'عرض تفاصيل الخروج',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: tint,
                     fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.icon,
-    required this.color,
-    required this.text,
-    required this.onExport,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String text;
-  final VoidCallback onExport;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          FaIcon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: color,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'تصدير PDF',
-            icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
-            onPressed: onExport,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SoldTable extends StatelessWidget {
-  const _SoldTable({required this.rows, required this.total});
-  final List<Transfer> rows;
-  final double total;
-
-  @override
-  Widget build(BuildContext context) {
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text('لا توجد سجلات',
-            style: TextStyle(color: AppColors.textLow)),
-      );
-    }
-
-    // Group rows by date string of archivedAt ?? createdAt.
-    final grouped = <String, List<Transfer>>{};
-    for (final t in rows) {
-      final key = dateOnly.format(t.archivedAt ?? t.createdAt);
-      grouped.putIfAbsent(key, () => <Transfer>[]).add(t);
-    }
-    final sortedDates = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // newest-first
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final date in sortedDates) ...[
-          Builder(builder: (context) {
-            final dayTotal = grouped[date]!
-                .fold<double>(0, (s, t) => s + t.amount);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => _openSoldDay(context, date, grouped[date]!),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.glassFill,
-                      border: Border.all(color: AppColors.glassBorder),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(children: [
-                      const FaIcon(FontAwesomeIcons.calendar,
-                          size: 12, color: AppColors.textLow),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          date,
-                          style: const TextStyle(
-                            color: AppColors.textHigh,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '-${formatMoney(dayTotal)}',
-                        style: const TextStyle(
-                          color: AppColors.negative,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const FaIcon(FontAwesomeIcons.chevronLeft,
-                          size: 12, color: AppColors.textLow),
-                    ]),
+                    fontSize: 15,
                   ),
                 ),
               ),
-            );
-          }),
-        ],
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('')),
-              DataColumn(label: Text('')),
-              DataColumn(label: Text('')),
-            ],
-            headingRowHeight: 0,
-            rows: [
-              DataRow(
-                color: WidgetStateProperty.all(
-                  AppColors.negative.withValues(alpha: 0.08),
+              const SizedBox(width: 12),
+              Container(
+                width: 32,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.glassFillStrong,
+                  border: Border.all(color: AppColors.glassBorder),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                cells: [
-                  const DataCell(
-                    Text('الإجمالي',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                  const DataCell(Text('-')),
-                  DataCell(Text(
-                    formatMoney(total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.negative,
-                    ),
-                  )),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BoughtTable extends StatelessWidget {
-  const _BoughtTable({required this.rows, required this.total});
-  final List<CurrencyBuy> rows;
-  final double total;
-
-  @override
-  Widget build(BuildContext context) {
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text('لا توجد سجلات',
-            style: TextStyle(color: AppColors.textLow)),
-      );
-    }
-    final grouped = <String, List<CurrencyBuy>>{};
-    for (final b in rows) {
-      final key = dateOnly.format(b.archivedAt ?? b.createdAt);
-      grouped.putIfAbsent(key, () => <CurrencyBuy>[]).add(b);
-    }
-    final sortedDates = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final date in sortedDates)
-          Builder(builder: (context) {
-            final dayTotal = grouped[date]!
-                .fold<double>(0, (s, b) => s + b.usdAmount);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => _openBoughtDay(context, date, grouped[date]!),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.glassFill,
-                      border: Border.all(color: AppColors.glassBorder),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(children: [
-                      const FaIcon(FontAwesomeIcons.calendar,
-                          size: 12, color: AppColors.textLow),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          date,
-                          style: const TextStyle(
-                            color: AppColors.textHigh,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '+${formatMoney(dayTotal)}',
-                        style: const TextStyle(
-                          color: AppColors.positive,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const FaIcon(FontAwesomeIcons.chevronLeft,
-                          size: 12, color: AppColors.textLow),
-                    ]),
-                  ),
+                child: const FaIcon(
+                  FontAwesomeIcons.filePdf,
+                  size: 14,
+                  color: AppColors.textMid,
                 ),
               ),
-            );
-          }),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: const [
-              DataColumn(label: Text('')),
-              DataColumn(label: Text('')),
-            ],
-            headingRowHeight: 0,
-            rows: [
-              DataRow(
-                color: WidgetStateProperty.all(
-                  AppColors.positive.withValues(alpha: 0.08),
-                ),
-                cells: [
-                  const DataCell(
-                    Text('الإجمالي',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                  DataCell(Text(
-                    formatMoney(total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.positive,
-                    ),
-                  )),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-void _openSoldDetail(BuildContext context, Transfer t) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => _TransferArchiveDetailScreen(t: t),
-    ),
-  );
-}
-
-void _openBoughtDetail(BuildContext context, CurrencyBuy b) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => _BuyArchiveDetailScreen(b: b),
-    ),
-  );
-}
-
-class _TransferArchiveDetailScreen extends StatelessWidget {
-  const _TransferArchiveDetailScreen({required this.t});
-  final Transfer t;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('تفاصيل الحوالة'),
-        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          GlassCard(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _DetailKv(
-                  label: 'التاريخ',
-                  value: dateTime.format(t.archivedAt ?? t.createdAt),
-                ),
-                _DetailKv(label: 'الرقم الإشاري', value: t.reference),
-                _DetailKv(label: 'المستفيد', value: t.beneficiaryName),
-                _DetailKv(
-                  label: 'حساب المستفيد',
-                  value: (t.beneficiaryAccountCompany?.isEmpty ?? true)
-                      ? '—'
-                      : t.beneficiaryAccountCompany!,
-                ),
-                _DetailKv(
-                  label: 'كود حساب المستفيد',
-                  value: (t.beneficiaryCode?.isEmpty ?? true)
-                      ? '—'
-                      : t.beneficiaryCode!,
-                ),
-                _DetailKv(
-                  label: 'المبلغ',
-                  value: '${formatMoney(t.amount)} \$',
-                ),
-                _DetailKv(
-                  label: 'الحالة',
-                  value: t.status == TransferStatus.archived
-                      ? 'مرحّلة'
-                      : 'يومية',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BuyArchiveDetailScreen extends StatelessWidget {
-  const _BuyArchiveDetailScreen({required this.b});
-  final CurrencyBuy b;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('تفاصيل عملية الشراء'),
-        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          GlassCard(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _DetailKv(
-                  label: 'التاريخ',
-                  value: dateTime.format(b.archivedAt ?? b.createdAt),
-                ),
-                _DetailKv(
-                  label: 'الحساب المستلم',
-                  value: b.clientFromAccount ?? '—',
-                ),
-                _DetailKv(
-                  label: 'القيمة بالدولار',
-                  value: '${formatMoney(b.usdAmount)} \$',
-                ),
-                _DetailKv(
-                  label: 'سعر الصرف',
-                  value: formatMoney(b.rate),
-                ),
-                _DetailKv(
-                  label: 'القيمة بالدينار',
-                  value: formatMoney(b.lydAmount),
-                ),
-                _DetailKv(
-                  label: 'الحالة',
-                  value: b.status == CurrencyBuyStatus.archived
-                      ? 'مرحّلة'
-                      : (b.status == CurrencyBuyStatus.pending
-                          ? 'معلّقة'
-                          : 'يومية'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-void _openSoldDay(
-    BuildContext context, String date, List<Transfer> dayRows) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => _SoldDayDetailScreen(date: date, rows: dayRows),
-    ),
-  );
-}
-
-void _openBoughtDay(
-    BuildContext context, String date, List<CurrencyBuy> dayRows) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => _BuyDayDetailScreen(date: date, rows: dayRows),
-    ),
-  );
-}
-
-class _SoldDayDetailScreen extends StatelessWidget {
-  const _SoldDayDetailScreen({required this.date, required this.rows});
-  final String date;
-  final List<Transfer> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final dayTotal = rows.fold<double>(0, (s, t) => s + t.amount);
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text('تفاصيل $date'),
-        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          GlassCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    showCheckboxColumn: false,
-                    columns: const [
-                      DataColumn(label: Text('اسم الشركة')),
-                      DataColumn(label: Text('الإشاري')),
-                      DataColumn(label: Text('القيمة \$')),
-                    ],
-                    rows: rows
-                        .map((t) => DataRow(
-                              onSelectChanged: (_) =>
-                                  _openSoldDetail(context, t),
-                              cells: [
-                                DataCell(Text(t.beneficiaryName)),
-                                DataCell(Text(t.reference)),
-                                DataCell(Text(
-                                  '-${formatMoney(t.amount)}',
-                                  style: const TextStyle(
-                                      color: AppColors.negative),
-                                )),
-                              ],
-                            ))
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.negative.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'إجمالي اليوم',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textHigh,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '-${formatMoney(dayTotal)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.negative,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BuyDayDetailScreen extends StatelessWidget {
-  const _BuyDayDetailScreen({required this.date, required this.rows});
-  final String date;
-  final List<CurrencyBuy> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final dayTotal = rows.fold<double>(0, (s, b) => s + b.usdAmount);
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text('تفاصيل $date'),
-        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          GlassCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    showCheckboxColumn: false,
-                    columns: const [
-                      DataColumn(label: Text('الحساب')),
-                      DataColumn(label: Text('القيمة \$')),
-                    ],
-                    rows: rows
-                        .map((b) => DataRow(
-                              onSelectChanged: (_) =>
-                                  _openBoughtDetail(context, b),
-                              cells: [
-                                DataCell(
-                                    Text(b.clientFromAccount ?? '—')),
-                                DataCell(Text(
-                                  '+${formatMoney(b.usdAmount)}',
-                                  style: const TextStyle(
-                                      color: AppColors.positive),
-                                )),
-                              ],
-                            ))
-                        .toList(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.positive.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'إجمالي اليوم',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textHigh,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '+${formatMoney(dayTotal)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.positive,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailKv extends StatelessWidget {
-  const _DetailKv({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
+              const SizedBox(width: 6),
+              const FaIcon(
+                FontAwesomeIcons.chevronLeft,
+                size: 12,
                 color: AppColors.textLow,
               ),
-            ),
+            ],
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textHigh,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

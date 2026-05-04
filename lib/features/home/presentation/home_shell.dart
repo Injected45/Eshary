@@ -6,6 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
 import '../../archive/presentation/archive_screen.dart';
+import '../../companies/presentation/accounts_screen.dart';
 import '../../currency_buy/presentation/currency_buy_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../transfers/presentation/transfers_screen.dart';
@@ -22,8 +23,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static const _titles = [
     'تنفيذ حوالة جديدة',
-    'شراء عملة',
-    'الأرشيف العام',
+    'تنفيذ دخول حوالة',
+    'سجل الحوالات',
+    'حساباتي',
     'الإعدادات',
   ];
 
@@ -31,6 +33,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     TransfersScreen(key: transfersScreenKey),
     const CurrencyBuyScreen(),
     const ArchiveScreen(),
+    const AccountsScreen(),
     const SettingsScreen(),
   ];
 
@@ -126,7 +129,11 @@ class _GlassBottomNav extends StatelessWidget {
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.boxArchive, size: 18),
-                    label: 'الأرشيف',
+                    label: 'سجل الحوالات',
+                  ),
+                  NavigationDestination(
+                    icon: FaIcon(FontAwesomeIcons.wallet, size: 18),
+                    label: 'حساباتي',
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.gear, size: 18),

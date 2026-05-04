@@ -6,8 +6,6 @@ import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
-import '../../companies/presentation/add_company_dialog.dart'
-    show CountryPickerDialog;
 import '../data/exchange_companies_repository.dart';
 import '../domain/exchange_company.dart';
 import 'exchange_companies_providers.dart';
@@ -208,6 +206,13 @@ class AddExchangeCompanyDialog extends ConsumerStatefulWidget {
       AddExchangeCompanyDialogState();
 }
 
+const _exchangeCompanyCountries = <String>[
+  'تركيا',
+  'الامارات',
+  'مصر',
+  'ليبيا',
+];
+
 class AddExchangeCompanyDialogState
     extends ConsumerState<AddExchangeCompanyDialog> {
   final _name = TextEditingController();
@@ -331,57 +336,21 @@ class AddExchangeCompanyDialogState
                 ],
               ),
               const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsetsDirectional.only(start: 12, bottom: 4),
-                child: Text(
-                  'الدولة',
-                  style: TextStyle(color: AppColors.textLow, fontSize: 12),
+              DropdownButtonFormField<String>(
+                value: (_country != null &&
+                        _exchangeCompanyCountries.contains(_country))
+                    ? _country
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'الدولة',
+                  hintText: 'اختر الدولة',
                 ),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () async {
-                    final picked = await showGlassDialog<String>(
-                      context: context,
-                      builder: (_) => const CountryPickerDialog(),
-                    );
-                    if (picked != null && mounted) {
-                      setState(() => _country = picked);
-                    }
-                  },
-                  child: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.glassFill,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.glassBorder),
-                    ),
-                    child: Row(children: [
-                      Expanded(
-                        child: Text(
-                          (_country == null || _country!.isEmpty)
-                              ? 'اختر الدولة'
-                              : _country!,
-                          style: TextStyle(
-                            color: (_country == null || _country!.isEmpty)
-                                ? AppColors.textDim
-                                : AppColors.textHigh,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const FaIcon(
-                        FontAwesomeIcons.globe,
-                        size: 14,
-                        color: AppColors.accent,
-                      ),
-                    ]),
-                  ),
-                ),
+                items: _exchangeCompanyCountries
+                    .map((c) =>
+                        DropdownMenuItem<String>(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (v) => setState(() => _country = v),
               ),
               const SizedBox(height: 12),
               TextField(

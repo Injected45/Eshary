@@ -69,7 +69,7 @@ ThemeData buildAppTheme() {
         letterSpacing: 0.2,
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.glassFill,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
@@ -172,7 +172,7 @@ ThemeData buildAppTheme() {
         side: const BorderSide(color: AppColors.glassBorder),
       ),
     ),
-    dialogTheme: DialogTheme(
+    dialogTheme: DialogThemeData(
       backgroundColor: AppColors.bgPanel,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
