@@ -145,8 +145,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final company = _company?.name ?? '';
     final code = _exchange?.ourCode ?? '';
     final exchange = _exchange?.name ?? '';
-    final beneficiary = _beneficiaryName.text;
-    final bank = _beneficiaryAccount.text;
+    final beneficiary = _beneficiaryAccount.text;
+    final bank = _beneficiaryName.text;
     final benCode = _beneficiaryCode.text;
     final ref = _reference ?? '';
 
@@ -704,7 +704,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         _CollapsibleSection(
           header: Row(children: [
             Expanded(
-              child: _SectionTitle('سجل الحوالات المنفذة'),
+              child: _SectionTitle('خروج منفذ'),
             ),
             IconButton(
               tooltip: 'تصدير PDF',
@@ -1088,9 +1088,7 @@ class _DailyTransfersTable extends ConsumerWidget {
                           ),
                         )),
                         DataCell(Text(
-                          (t.beneficiaryAccountCompany?.isEmpty ?? true)
-                              ? '—'
-                              : t.beneficiaryAccountCompany!,
+                          t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName,
                         )),
                       ],
                     ))
