@@ -5,6 +5,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
+import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../exchange_companies/domain/exchange_company.dart';
+import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../transfers/presentation/transfers_providers.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
 import 'companies_providers.dart';
@@ -38,33 +42,78 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   Widget build(BuildContext context) {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
+    final exchangeCompaniesAsync =
+        ref.watch(exchangeCompaniesListProvider);
+    final archivedBuys = ref.watch(archivedBuysProvider).value ?? const [];
+    final archivedTransfers =
+        ref.watch(archivedTransfersProvider).value ?? const [];
+    final hasArchive =
+        archivedBuys.isNotEmpty || archivedTransfers.isNotEmpty;
 
-    if (companiesAsync.isLoading || exchangesAsync.isLoading) {
+    if (!hasArchive) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Padding(
+          padding:
+              const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+          child: Center(
+            child: GlassCard(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 28,
+              ),
+              child: const Text(
+                'لا توجد إقفالات بعد',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textLow,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (companiesAsync.isLoading ||
+        exchangesAsync.isLoading ||
+        exchangeCompaniesAsync.isLoading) {
       return const Padding(
         padding: EdgeInsets.only(top: kToolbarHeight + 24),
         child: LinearProgressIndicator(),
       );
     }
-    if (companiesAsync.hasError) {
-      return _errorBody(companiesAsync.error);
-    }
-    if (exchangesAsync.hasError) {
-      return _errorBody(exchangesAsync.error);
+    if (companiesAsync.hasError) return _errorBody(companiesAsync.error);
+    if (exchangesAsync.hasError) return _errorBody(exchangesAsync.error);
+    if (exchangeCompaniesAsync.hasError) {
+      return _errorBody(exchangeCompaniesAsync.error);
     }
 
     final companies = companiesAsync.value ?? const <Company>[];
     final exchanges = exchangesAsync.value ?? const <Exchange>[];
-    final exchangesByCompany = <String, List<Exchange>>{};
+    final exchangeCompanies =
+        exchangeCompaniesAsync.value ?? const <ExchangeCompany>[];
+
+    final companyNameById = <String, String>{
+      for (final c in companies) c.id: c.name,
+    };
+
+    // Group exchanges by exchange-company name (Exchange.name == ExchangeCompany.name).
+    final exchangesByEcName = <String, List<Exchange>>{};
     for (final ex in exchanges) {
-      exchangesByCompany.putIfAbsent(ex.companyId, () => <Exchange>[]).add(ex);
+      exchangesByEcName.putIfAbsent(ex.name, () => <Exchange>[]).add(ex);
     }
 
-    final companiesWithAccounts = companies
-        .where((c) => (exchangesByCompany[c.id]?.isNotEmpty ?? false))
+    // Cards: one per ExchangeCompany that has at least one matching exchange.
+    final ecsWithAccounts = exchangeCompanies
+        .where((ec) => (exchangesByEcName[ec.name]?.isNotEmpty ?? false))
         .toList();
-    final totalBalance = exchanges.fold<double>(0, (s, e) => s + e.balance);
+
+    final totalBalance =
+        exchanges.fold<double>(0, (s, e) => s + e.balance);
     final accountsCount = exchanges.length;
-    final companiesCount = companiesWithAccounts.length;
+    final ecCount = ecsWithAccounts.length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
@@ -89,10 +138,10 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         _TotalBalanceCard(
           total: totalBalance,
           accountsCount: accountsCount,
-          companiesCount: companiesCount,
+          companiesCount: ecCount,
         ),
         const SizedBox(height: 16),
-        if (companiesWithAccounts.isEmpty)
+        if (ecsWithAccounts.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(
@@ -103,24 +152,19 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
             ),
           )
         else
-          for (var i = 0; i < companiesWithAccounts.length; i++)
+          for (var i = 0; i < ecsWithAccounts.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _CompanyCard(
-                company: companiesWithAccounts[i],
+              child: _ExchangeCompanyCard(
+                exchangeCompany: ecsWithAccounts[i],
                 exchanges:
-                    exchangesByCompany[companiesWithAccounts[i].id] ??
-                        const [],
+                    exchangesByEcName[ecsWithAccounts[i].name] ?? const [],
+                companyNameById: companyNameById,
                 accent: _accentCycle[i % _accentCycle.length],
-                flag: _resolveFlag(
-                  exchangesByCompany[companiesWithAccounts[i].id],
-                ),
-                country: _resolveCountry(
-                  exchangesByCompany[companiesWithAccounts[i].id],
-                ),
-                expanded: _expanded.contains(companiesWithAccounts[i].id),
+                flag: _flagByCountry[ecsWithAccounts[i].country ?? ''],
+                expanded: _expanded.contains(ecsWithAccounts[i].id),
                 onToggle: () => setState(() {
-                  final id = companiesWithAccounts[i].id;
+                  final id = ecsWithAccounts[i].id;
                   if (_expanded.contains(id)) {
                     _expanded.remove(id);
                   } else {
@@ -142,21 +186,6 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           ),
         ),
       );
-
-  String? _resolveCountry(List<Exchange>? exs) {
-    if (exs == null || exs.isEmpty) return null;
-    for (final e in exs) {
-      final c = e.country;
-      if (c != null && c.isNotEmpty) return c;
-    }
-    return null;
-  }
-
-  String? _resolveFlag(List<Exchange>? exs) {
-    final c = _resolveCountry(exs);
-    if (c == null) return null;
-    return _flagByCountry[c];
-  }
 }
 
 class _TotalBalanceCard extends StatelessWidget {
@@ -198,7 +227,7 @@ class _TotalBalanceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'إجمالي $accountsCount حسابات في $companiesCount شركات',
+                  'إجمالي $accountsCount حسابات في $companiesCount شركات صرافة',
                   style: const TextStyle(
                     color: AppColors.textLow,
                     fontSize: 11,
@@ -232,28 +261,29 @@ class _TotalBalanceCard extends StatelessWidget {
   }
 }
 
-class _CompanyCard extends StatelessWidget {
-  const _CompanyCard({
-    required this.company,
+class _ExchangeCompanyCard extends StatelessWidget {
+  const _ExchangeCompanyCard({
+    required this.exchangeCompany,
     required this.exchanges,
+    required this.companyNameById,
     required this.accent,
     required this.flag,
-    required this.country,
     required this.expanded,
     required this.onToggle,
   });
 
-  final Company company;
+  final ExchangeCompany exchangeCompany;
   final List<Exchange> exchanges;
+  final Map<String, String> companyNameById;
   final Color accent;
   final String? flag;
-  final String? country;
   final bool expanded;
   final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final total = exchanges.fold<double>(0, (s, e) => s + e.balance);
+    final country = exchangeCompany.country;
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -286,7 +316,7 @@ class _CompanyCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      company.name,
+                      exchangeCompany.name,
                       style: const TextStyle(
                         color: AppColors.textHigh,
                         fontWeight: FontWeight.w700,
@@ -297,9 +327,9 @@ class _CompanyCard extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (country != null)
+                        if (country != null && country.isNotEmpty)
                           Text(
-                            'دولة ${country!}',
+                            'دولة $country',
                             style: const TextStyle(
                               color: AppColors.textMid,
                               fontSize: 11,
@@ -359,6 +389,7 @@ class _CompanyCard extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 12),
                     child: _ExchangesTable(
                       exchanges: exchanges,
+                      companyNameById: companyNameById,
                       accent: accent,
                     ),
                   )
@@ -373,10 +404,12 @@ class _CompanyCard extends StatelessWidget {
 class _ExchangesTable extends StatelessWidget {
   const _ExchangesTable({
     required this.exchanges,
+    required this.companyNameById,
     required this.accent,
   });
 
   final List<Exchange> exchanges;
+  final Map<String, String> companyNameById;
   final Color accent;
 
   @override
@@ -446,7 +479,7 @@ class _ExchangesTable extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      ex.name,
+                      companyNameById[ex.companyId] ?? '—',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.textHigh,

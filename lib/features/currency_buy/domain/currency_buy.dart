@@ -33,6 +33,7 @@ class CurrencyBuy {
     required this.usdAmount,
     required this.rate,
     required this.lydAmount,
+    required this.reference,
     required this.status,
     required this.createdAt,
     required this.archivedAt,
@@ -47,6 +48,7 @@ class CurrencyBuy {
   final double usdAmount;
   final double rate;
   final double lydAmount;
+  final String reference;
   final CurrencyBuyStatus status;
   final DateTime createdAt;
   final DateTime? archivedAt;
@@ -61,6 +63,7 @@ class CurrencyBuy {
         usdAmount: (json['usd_amount'] as num).toDouble(),
         rate: (json['rate'] as num).toDouble(),
         lydAmount: (json['lyd_amount'] as num).toDouble(),
+        reference: (json['reference'] as String?) ?? '',
         status: _parseStatus(json['status'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),
         archivedAt: json['archived_at'] == null

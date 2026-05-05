@@ -66,27 +66,19 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
   }
 
   Widget _buildIncome() {
-    final dailyAsync = ref.watch(dailyBuysProvider);
     final archivedAsync = ref.watch(archivedBuysProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: _buildAppBar(),
-      body: _renderIncome(dailyAsync, archivedAsync),
+      body: _renderIncome(archivedAsync),
     );
   }
 
   Widget _renderIncome(
-    AsyncValue<List<CurrencyBuy>> dailyAsync,
     AsyncValue<List<CurrencyBuy>> archivedAsync,
   ) {
-    if (dailyAsync.isLoading || archivedAsync.isLoading) {
+    if (archivedAsync.isLoading) {
       return const LinearProgressIndicator();
-    }
-    if (dailyAsync.hasError) {
-      return Center(
-        child: Text('${dailyAsync.error}',
-            style: const TextStyle(color: AppColors.negative)),
-      );
     }
     if (archivedAsync.hasError) {
       return Center(
@@ -94,10 +86,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
             style: const TextStyle(color: AppColors.negative)),
       );
     }
-    final all = <CurrencyBuy>[
-      ...(dailyAsync.value ?? const <CurrencyBuy>[]),
-      ...(archivedAsync.value ?? const <CurrencyBuy>[]),
-    ];
+    final all = archivedAsync.value ?? const <CurrencyBuy>[];
     final filtered = all
         .where((b) => _withinFilter(b.archivedAt ?? b.createdAt))
         .toList()
@@ -729,44 +718,6 @@ class _RecordRow extends StatelessWidget {
   }
 }
 
-class _DetailKv extends StatelessWidget {
-  const _DetailKv({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textLow,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textHigh,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _BuyDetailDialog extends ConsumerWidget {
   const _BuyDetailDialog({required this.row});
   final CurrencyBuy row;
@@ -780,23 +731,38 @@ class _BuyDetailDialog extends ConsumerWidget {
     final clients =
         ref.watch(clientsListProvider).value ?? const <Client>[];
 
-    final companyName = companies
+    final myCompanyName = companies
             .where((c) => c.id == row.myCompanyId)
             .map((c) => c.name)
             .firstOrNull ??
         '—';
-    final exchangeName = exchanges
-            .where((e) => e.id == row.exchangeId)
-            .map((e) => e.name)
-            .firstOrNull ??
-        '—';
-    final resolvedClient = row.clientId == null
-        ? (row.clientFromAccount ?? '—')
-        : (clients
-                .where((c) => c.id == row.clientId)
-                .map((c) => c.name)
-                .firstOrNull ??
-            (row.clientFromAccount ?? '—'));
+    Exchange? exchange;
+    for (final e in exchanges) {
+      if (e.id == row.exchangeId) {
+        exchange = e;
+        break;
+      }
+    }
+    final exchangeName = exchange?.name ?? '—';
+    final myAccountCode = (exchange?.ourCode?.isEmpty ?? true)
+        ? '—'
+        : exchange!.ourCode!;
+
+    Client? client;
+    if (row.clientId != null) {
+      for (final c in clients) {
+        if (c.id == row.clientId) {
+          client = c;
+          break;
+        }
+      }
+    }
+    final senderCompany = client?.company ??
+        (row.clientFromAccount?.isNotEmpty ?? false
+            ? row.clientFromAccount!
+            : '—');
+    final senderAccount = client?.name ?? '—';
+    final senderCode = (client?.code?.isEmpty ?? true) ? '—' : client!.code!;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -809,52 +775,51 @@ class _BuyDetailDialog extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'تفاصيل عملية الشراء',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
+              _DetailDialogHeader(
+                title: 'تفاصيل عملية دخول',
+                accent: AppColors.positive,
+                icon: FontAwesomeIcons.chevronDown,
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  'التاريخ والوقت : ${dateTime.format(row.archivedAt ?? row.createdAt)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMid,
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _DetailDialogSection(
+                title: 'وجهة الدخول',
+                accent: AppColors.accent,
+                icon: FontAwesomeIcons.user,
+                rows: [
+                  _DetailKvData('اسم الشركة', exchangeName),
+                  _DetailKvData('اسم حسابي', myCompanyName),
+                  _DetailKvData('رقم حسابي', myAccountCode),
                 ],
               ),
-              const SizedBox(height: 8),
-              _DetailKv(
-                label: 'التاريخ',
-                value: dateTime.format(row.archivedAt ?? row.createdAt),
-              ),
-              _DetailKv(
-                label: 'الحالة',
-                value: row.status == CurrencyBuyStatus.archived
-                    ? 'مرحّلة'
-                    : (row.status == CurrencyBuyStatus.pending
-                        ? 'معلّقة'
-                        : 'يومية'),
-              ),
-              _DetailKv(label: 'شركتي', value: companyName),
-              _DetailKv(label: 'شركة الصرافة', value: exchangeName),
-              _DetailKv(label: 'العميل', value: resolvedClient),
-              _DetailKv(
-                label: 'القيمة بالدولار',
-                value: '${formatMoney(row.usdAmount)} \$',
-              ),
-              _DetailKv(
-                label: 'سعر الصرف',
-                value: formatMoney(row.rate),
-              ),
-              _DetailKv(
-                label: 'القيمة بالدينار',
-                value: formatMoney(row.lydAmount),
+              const SizedBox(height: 12),
+              _DetailDialogSection(
+                title: 'الجهة المرسلة',
+                accent: AppColors.accent,
+                icon: FontAwesomeIcons.paperPlane,
+                rows: [
+                  _DetailKvData('الشركة المرسلة', senderCompany),
+                  _DetailKvData('حساب المرسل', senderAccount),
+                  _DetailKvData('كود المرسل', senderCode),
+                  _DetailKvData(
+                    'الإشاري',
+                    row.reference.isEmpty ? '—' : row.reference,
+                  ),
+                  _DetailKvData(
+                    'القيمة',
+                    '\$ ${formatMoney(row.usdAmount)}',
+                  ),
+                ],
               ),
             ],
           ),
@@ -875,16 +840,32 @@ class _TransferDetailDialog extends ConsumerWidget {
     final exchanges =
         ref.watch(allExchangesProvider).value ?? const <Exchange>[];
 
-    final companyName = companies
+    final myCompanyName = companies
             .where((c) => c.id == row.companyId)
             .map((c) => c.name)
             .firstOrNull ??
         '—';
-    final exchangeName = exchanges
-            .where((e) => e.id == row.exchangeId)
-            .map((e) => e.name)
-            .firstOrNull ??
-        '—';
+    Exchange? exchange;
+    for (final e in exchanges) {
+      if (e.id == row.exchangeId) {
+        exchange = e;
+        break;
+      }
+    }
+    final exchangeName = exchange?.name ?? '—';
+    final myAccountCode = (exchange?.ourCode?.isEmpty ?? true)
+        ? '—'
+        : exchange!.ourCode!;
+
+    final beneficiaryCompany =
+        (row.beneficiaryAccountCompany?.isEmpty ?? true)
+            ? '—'
+            : row.beneficiaryAccountCompany!;
+    final beneficiaryName =
+        row.beneficiaryName.isEmpty ? '—' : row.beneficiaryName;
+    final beneficiaryCode = (row.beneficiaryCode?.isEmpty ?? true)
+        ? '—'
+        : row.beneficiaryCode!;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -897,61 +878,51 @@ class _TransferDetailDialog extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'تفاصيل الحوالة',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
+              _DetailDialogHeader(
+                title: 'تفاصيل عملية خروج',
+                accent: AppColors.negative,
+                icon: FontAwesomeIcons.chevronUp,
+              ),
+              const SizedBox(height: 10),
+              Center(
+                child: Text(
+                  'التاريخ والوقت : ${dateTime.format(row.archivedAt ?? row.createdAt)}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textMid,
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _DetailDialogSection(
+                title: 'الجهة المنفذة',
+                accent: AppColors.negative,
+                icon: FontAwesomeIcons.shop,
+                rows: [
+                  _DetailKvData('اسم الشركة', exchangeName),
+                  _DetailKvData('اسم حسابي', myCompanyName),
+                  _DetailKvData('رقم حسابي', myAccountCode),
+                  _DetailKvData(
+                    'الإشاري',
+                    row.reference.isEmpty ? '—' : row.reference,
+                  ),
+                  _DetailKvData(
+                    'القيمة',
+                    '\$ ${formatMoney(row.amount)}',
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              _DetailKv(
-                label: 'التاريخ',
-                value: dateTime.format(row.archivedAt ?? row.createdAt),
-              ),
-              _DetailKv(
-                label: 'الحالة',
-                value: row.status == TransferStatus.archived
-                    ? 'مرحّلة'
-                    : 'يومية',
-              ),
-              _DetailKv(
-                label: 'الرقم الإشاري',
-                value: row.reference,
-              ),
-              _DetailKv(label: 'شركتي', value: companyName),
-              _DetailKv(label: 'شركة الصرافة', value: exchangeName),
-              _DetailKv(
-                label: 'المستفيد',
-                value: row.beneficiaryName,
-              ),
-              _DetailKv(
-                label: 'حساب المستفيد',
-                value: (row.beneficiaryAccountCompany?.isEmpty ?? true)
-                    ? '—'
-                    : row.beneficiaryAccountCompany!,
-              ),
-              _DetailKv(
-                label: 'كود حساب المستفيد',
-                value: (row.beneficiaryCode?.isEmpty ?? true)
-                    ? '—'
-                    : row.beneficiaryCode!,
-              ),
-              _DetailKv(
-                label: 'القيمة بالدولار',
-                value: '${formatMoney(row.amount)} \$',
+              const SizedBox(height: 12),
+              _DetailDialogSection(
+                title: 'جهة الاستلام',
+                accent: AppColors.positive,
+                icon: FontAwesomeIcons.user,
+                rows: [
+                  _DetailKvData('الشركة المستفيدة', beneficiaryCompany),
+                  _DetailKvData('حساب المستلم', beneficiaryName),
+                  _DetailKvData('كود حساب المستلم', beneficiaryCode),
+                ],
               ),
             ],
           ),
@@ -960,3 +931,162 @@ class _TransferDetailDialog extends ConsumerWidget {
     );
   }
 }
+
+
+class _DetailKvData {
+  const _DetailKvData(this.label, this.value);
+  final String label;
+  final String value;
+}
+
+class _DetailDialogHeader extends StatelessWidget {
+  const _DetailDialogHeader({
+    required this.title,
+    required this.accent,
+    required this.icon,
+  });
+  final String title;
+  final Color accent;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: accent, width: 1.5),
+            color: accent.withValues(alpha: 0.10),
+          ),
+          child: FaIcon(icon, size: 13, color: accent),
+        ),
+        Expanded(
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textHigh,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
+          color: AppColors.textLow,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailDialogSection extends StatelessWidget {
+  const _DetailDialogSection({
+    required this.title,
+    required this.accent,
+    required this.icon,
+    required this.rows,
+  });
+  final String title;
+  final Color accent;
+  final IconData icon;
+  final List<_DetailKvData> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.glassFill,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              FaIcon(icon, size: 14, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                color: AppColors.glassBorder,
+                height: 1,
+                thickness: 1,
+              ),
+            _DetailDialogRow(label: rows[i].label, value: rows[i].value),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailDialogRow extends StatelessWidget {
+  const _DetailDialogRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textMid,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              ':',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textLow,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textHigh,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

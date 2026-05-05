@@ -206,7 +206,7 @@ class AddExchangeCompanyDialog extends ConsumerStatefulWidget {
       AddExchangeCompanyDialogState();
 }
 
-const _exchangeCompanyCountries = <String>[
+const kExchangeCompanyCountries = <String>[
   'تركيا',
   'الامارات',
   'مصر',
@@ -338,7 +338,7 @@ class AddExchangeCompanyDialogState
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: (_country != null &&
-                        _exchangeCompanyCountries.contains(_country))
+                        kExchangeCompanyCountries.contains(_country))
                     ? _country
                     : null,
                 isExpanded: true,
@@ -346,7 +346,7 @@ class AddExchangeCompanyDialogState
                   labelText: 'الدولة',
                   hintText: 'اختر الدولة',
                 ),
-                items: _exchangeCompanyCountries
+                items: kExchangeCompanyCountries
                     .map((c) =>
                         DropdownMenuItem<String>(value: c, child: Text(c)))
                     .toList(),

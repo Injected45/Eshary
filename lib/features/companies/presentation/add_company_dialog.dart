@@ -7,12 +7,10 @@ import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
-import '../../countries/data/countries_repository.dart';
-import '../../countries/presentation/countries_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
-    show AddExchangeCompanyDialog;
+    show AddExchangeCompanyDialog, kExchangeCompanyCountries;
 import '../data/companies_repository.dart';
 import '../data/exchanges_repository.dart';
 import '../domain/company.dart';
@@ -398,317 +396,26 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
         decoration: const InputDecoration(labelText: 'الدولة'),
       );
     }
-    final hasValue = _country.text.trim().isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Padding(
-          padding: EdgeInsetsDirectional.only(start: 12, bottom: 4),
-          child: Text(
-            'الدولة',
-            style: TextStyle(color: AppColors.textLow, fontSize: 12),
-          ),
-        ),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () async {
-              final picked = await showGlassDialog<String>(
-                context: context,
-                builder: (_) => const CountryPickerDialog(),
-              );
-              if (picked != null && mounted) {
-                setState(() {
-                  _country.text = picked;
-                  _exName.text = '';
-                });
-              }
-            },
-            child: Container(
-              height: 48,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.glassFill,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.glassBorder),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      hasValue ? _country.text : 'اختر الدولة',
-                      style: TextStyle(
-                        color: hasValue
-                            ? AppColors.textHigh
-                            : AppColors.textDim,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const FaIcon(
-                    FontAwesomeIcons.globe,
-                    size: 14,
-                    color: AppColors.accent,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class CountryPickerDialog extends ConsumerStatefulWidget {
-  const CountryPickerDialog({super.key});
-
-  @override
-  ConsumerState<CountryPickerDialog> createState() =>
-      CountryPickerDialogState();
-}
-
-class CountryPickerDialogState
-    extends ConsumerState<CountryPickerDialog> {
-  final _newName = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _newName.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final name = _newName.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'الاسم مطلوب');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final ownerId = ref.read(currentUserIdProvider);
-      if (ownerId == null) {
-        setState(() {
-          _error = 'لم يتم تسجيل الدخول';
-          _busy = false;
-        });
-        return;
-      }
-      await ref
-          .read(countriesRepositoryProvider)
-          .create(ownerId: ownerId, name: name);
-      ref.invalidate(countriesListProvider);
-      if (!mounted) return;
-      _newName.clear();
-      setState(() {
-        _error = null;
-        _busy = false;
-      });
-    } catch (e, st) {
-      AppLogger.error('companies.countryPicker.save', e, st);
-      if (!mounted) return;
-      setState(() {
-        _error = friendlyError(e);
-        _busy = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final listAsync = ref.watch(countriesListProvider);
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.30),
-                          AppColors.positive.withValues(alpha: 0.20),
-                        ],
-                      ),
-                      border: Border.all(color: AppColors.glassBorderStrong),
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.globe,
-                      size: 16,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'الدول',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _newName,
-                decoration: const InputDecoration(
-                  labelText: 'اسم الدولة',
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.negative.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.negative.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.negative),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: _busy ? null : _save,
-                icon: const FaIcon(FontAwesomeIcons.floppyDisk, size: 14),
-                label: Text(_busy ? '...' : 'حفظ في القائمة'),
-              ),
-              const Divider(color: AppColors.glassBorder, height: 24),
-              listAsync.when(
-                data: (items) {
-                  if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(
-                        child: Text(
-                          'لا توجد دول محفوظة',
-                          style: TextStyle(
-                            color: AppColors.textLow,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  return ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 280),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final country = items[i];
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () =>
-                                Navigator.of(context).pop(country.name),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.glassFill,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: AppColors.glassBorder),
-                              ),
-                              child: Row(
-                                children: [
-                                  const FaIcon(
-                                    FontAwesomeIcons.globe,
-                                    size: 14,
-                                    color: AppColors.accent,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      country.name,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textHigh,
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const FaIcon(
-                                      FontAwesomeIcons.trash,
-                                      size: 14,
-                                      color: AppColors.negative,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        await ref
-                                            .read(countriesRepositoryProvider)
-                                            .delete(country.id);
-                                        ref.invalidate(countriesListProvider);
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text('خطأ: $e'),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Text(
-                  '$e',
-                  style: const TextStyle(color: AppColors.negative),
-                ),
-              ),
-            ],
-          ),
-        ),
+    final current = _country.text.trim();
+    final value =
+        kExchangeCompanyCountries.contains(current) ? current : null;
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'الدولة',
+        hintText: 'اختر الدولة',
       ),
+      items: kExchangeCompanyCountries
+          .map((c) => DropdownMenuItem<String>(value: c, child: Text(c)))
+          .toList(),
+      onChanged: (picked) {
+        if (picked == null) return;
+        setState(() {
+          _country.text = picked;
+          _exName.text = '';
+        });
+      },
     );
   }
 }

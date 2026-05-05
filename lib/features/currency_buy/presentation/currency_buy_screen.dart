@@ -11,10 +11,11 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
-import '../../clients/data/clients_repository.dart';
+import '../../../shared/share.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/add_client_dialog.dart';
 import '../../clients/presentation/clients_providers.dart';
+import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
@@ -24,6 +25,8 @@ import '../../exchange_companies/presentation/exchange_companies_screen.dart'
 import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
+
+enum _PendingBuyKind { pending, execute }
 
 class CurrencyBuyScreen extends ConsumerStatefulWidget {
   const CurrencyBuyScreen({super.key});
@@ -38,6 +41,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   Company? _myCompany;
   Exchange? _exchange;
   String? _exchangeCompanyName;
+  String? _senderCompany;
 
   final _usd = TextEditingController();
   final _rate = TextEditingController(text: '1');
@@ -46,6 +50,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   bool _busy = false;
   int? _activeSection;
+  List<String>? _composedBuyMessages;
+  _PendingBuyKind? _pendingBuyKind;
 
   @override
   void initState() {
@@ -69,7 +75,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _lyd.text = formatMoney(u * r);
   }
 
-  Future<void> _markPending() async {
+  void _markPending() {
     if (parseMoney(_usd.text) <= 0) {
       _snack('قيمة الدولار غير صحيحة');
       return;
@@ -78,6 +84,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       _snack('اختر شركتك وشركة الصرافة');
       return;
     }
+    setState(() {
+      _composedBuyMessages = _composeBuyMessages();
+      _pendingBuyKind = _PendingBuyKind.pending;
+    });
+  }
+
+  Future<void> _executeMarkPending() async {
     setState(() => _busy = true);
     try {
       await ref.read(currencyBuysRepositoryProvider).createPending(
@@ -88,8 +101,18 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             usdAmount: parseMoney(_usd.text),
             rate: parseMoney(_rate.text),
             lydAmount: parseMoney(_lyd.text),
+            reference: _reference.text.trim(),
           );
       ref.invalidate(pendingBuysProvider);
+      if (!mounted) return;
+      setState(() {
+        _composedBuyMessages = null;
+        _pendingBuyKind = null;
+        _activeSection = null;
+        _usd.clear();
+        _reference.clear();
+      });
+      playAlert();
       _snack('تم إضافة العملية إلى قيد التنفيذ');
     } catch (e, st) {
       AppLogger.error('currencyBuy.markPending', e, st);
@@ -99,17 +122,52 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     }
   }
 
-  Future<void> _confirmExecuteBuy() async {
-    if (parseMoney(_usd.text) <= 0) {
-      _snack('قيمة الدولار غير صحيحة');
-      return;
-    }
-    if (_myCompany == null || _exchange == null) {
-      _snack('اختر شركتك وشركة الصرافة');
-      return;
-    }
-    final amountText = '${formatMoney(parseMoney(_usd.text))} \$';
-    final ok = await showGlassDialog<bool>(
+  List<String> _composeBuyMessages() {
+    final amount = formatMoney(parseMoney(_usd.text));
+    final exchangeCompany = _exchangeCompanyName ?? '—';
+    final senderCompany =
+        (_senderCompany != null && _senderCompany!.isNotEmpty)
+            ? _senderCompany!
+            : (_client?.company ?? '—');
+    final senderAccount = _client?.name ?? '—';
+    final senderCode = _client?.code ?? '—';
+    final myCompany = _myCompany?.name ?? '—';
+    final myCode = _exchange?.ourCode ?? '—';
+    final reference = _reference.text.trim().isEmpty
+        ? '—'
+        : _reference.text.trim();
+
+    final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
+        'نرجوا منكم تأكيد الدخول\n'
+        'القادم من شركة * $senderCompany *\n'
+        'حساب : $senderAccount\n'
+        'كود : $senderCode\n'
+        'اشاري ( $reference )\n'
+        '———————————————-\n'
+        '🏦 لحساب: $myCompany\n'
+        '🔢  كود: $myCode\n'
+        '💵 المبلغ: ( $amount ) \$🇹🇷\n'
+        '———————————————-\n'
+        'مع خالص الشكر 🤝';
+
+    final m2 = '‏يطلب تسجيل دخول ( $amount ) \$🇹🇷\n'
+        '🧾في حسابنا لدى* $exchangeCompany *🇹🇷\n'
+        '🏦 لحساب: $myCompany\n'
+        '🔢  كود : $myCode\n'
+        '———————————————-\n'
+        'مرسلة من شركة $senderCompany 🇹🇷\n'
+        'حساب : $senderAccount 🇹🇷\n'
+        '🔢  كود : $senderCode\n'
+        'الرقم الإشاري : $reference\n'
+        '———————————————-\n'
+        'شاكر لكم حسن انتباهكم 🫡';
+
+    return [m1, m2];
+  }
+
+  Future<bool?> _showBuyConfirmDialog({required double amountUsd}) {
+    final amountText = '${formatMoney(amountUsd)} \$';
+    return showGlassDialog<bool>(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
@@ -226,74 +284,36 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
       ),
     );
+  }
+
+  void _confirmExecuteBuy() {
+    if (parseMoney(_usd.text) <= 0) {
+      _snack('قيمة الدولار غير صحيحة');
+      return;
+    }
+    if (_myCompany == null || _exchange == null) {
+      _snack('اختر شركتك وشركة الصرافة');
+      return;
+    }
+    setState(() {
+      _composedBuyMessages = _composeBuyMessages();
+      _pendingBuyKind = _PendingBuyKind.execute;
+    });
+  }
+
+  Future<void> _onPreviewSubmit() async {
+    if (_pendingBuyKind == null) return;
+    final ok = await _showBuyConfirmDialog(amountUsd: parseMoney(_usd.text));
     if (ok != true || !mounted) return;
-    await _saveDailyBuy();
+    if (_pendingBuyKind == _PendingBuyKind.pending) {
+      await _executeMarkPending();
+    } else {
+      await _saveDailyBuy();
+    }
   }
 
   Future<void> _confirmPendingBuy(CurrencyBuy row) async {
-    final ok = await showGlassDialog<bool>(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(children: [
-                  const Expanded(
-                    child: Text(
-                      'تأكيد تنفيذ العملية',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ]),
-                const SizedBox(height: 8),
-                Text(
-                  'هل تريد إتمام عملية الشراء بقيمة '
-                  '${formatMoney(row.usdAmount)} \$ ؟',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textHigh,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('إلغاء'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      icon: const FaIcon(FontAwesomeIcons.check, size: 14),
-                      label: const Text('تنفيذ'),
-                    ),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    final ok = await _showBuyConfirmDialog(amountUsd: row.usdAmount);
     if (ok != true || !mounted) return;
 
     setState(() => _busy = true);
@@ -307,6 +327,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         usdAmount: row.usdAmount,
         rate: row.rate,
         lydAmount: row.lydAmount,
+        reference: row.reference,
       );
       final supabase = ref.read(supabaseClientProvider);
       await supabase.from('currency_buys').delete().eq('id', row.id);
@@ -314,6 +335,10 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       ref.invalidate(pendingBuysProvider);
       ref.invalidate(dailyBuysProvider);
       ref.invalidate(allExchangesProvider);
+      final messages = _composeBuyMessagesForRow(row);
+      if (mounted) {
+        setState(() => _composedBuyMessages = messages);
+      }
       playAlert();
       if (mounted) _snack('تم تنفيذ العملية');
     } catch (e, st) {
@@ -322,6 +347,76 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  List<String> _composeBuyMessagesForRow(CurrencyBuy row) {
+    final companies = ref.read(companiesListProvider).value ?? const <Company>[];
+    final exchanges =
+        ref.read(allExchangesProvider).value ?? const <Exchange>[];
+    final clients = ref.read(clientsListProvider).value ?? const <Client>[];
+
+    Company? myCompany;
+    for (final c in companies) {
+      if (c.id == row.myCompanyId) {
+        myCompany = c;
+        break;
+      }
+    }
+    Exchange? exchange;
+    for (final e in exchanges) {
+      if (e.id == row.exchangeId) {
+        exchange = e;
+        break;
+      }
+    }
+    Client? client;
+    if (row.clientId != null) {
+      for (final c in clients) {
+        if (c.id == row.clientId) {
+          client = c;
+          break;
+        }
+      }
+    }
+
+    final amount = formatMoney(row.usdAmount);
+    final exchangeCompany = exchange?.name ?? '—';
+    final senderCompany = client?.company ??
+        (row.clientFromAccount?.isNotEmpty ?? false
+            ? row.clientFromAccount!
+            : '—');
+    final senderAccount = client?.name ?? '—';
+    final senderCode = client?.code ?? '—';
+    final myCompanyName = myCompany?.name ?? '—';
+    final myCode = exchange?.ourCode ?? '—';
+    const reference = '—';
+
+    final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
+        'نرجوا منكم تأكيد الدخول\n'
+        'القادم من شركة * $senderCompany *\n'
+        'حساب : $senderAccount\n'
+        'كود : $senderCode\n'
+        'اشاري ( $reference )\n'
+        '———————————————-\n'
+        '🏦 لحساب: $myCompanyName\n'
+        '🔢  كود: $myCode\n'
+        '💵 المبلغ: ( $amount ) \$🇹🇷\n'
+        '———————————————-\n'
+        'مع خالص الشكر 🤝';
+
+    final m2 = '‏يطلب تسجيل دخول ( $amount ) \$🇹🇷\n'
+        '🧾في حسابنا لدى* $exchangeCompany *🇹🇷\n'
+        '🏦 لحساب: $myCompanyName\n'
+        '🔢  كود : $myCode\n'
+        '———————————————-\n'
+        'مرسلة من شركة $senderCompany 🇹🇷\n'
+        'حساب : $senderAccount 🇹🇷\n'
+        '🔢  كود : $senderCode\n'
+        'الرقم الإشاري : $reference\n'
+        '———————————————-\n'
+        'شاكر لكم حسن انتباهكم 🫡';
+
+    return [m1, m2];
   }
 
   Future<void> _saveDailyBuy() async {
@@ -336,6 +431,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             usdAmount: parseMoney(_usd.text),
             rate: parseMoney(_rate.text),
             lydAmount: parseMoney(_lyd.text),
+            reference: _reference.text.trim(),
           );
       ref.invalidate(dailyBuysProvider);
       ref.invalidate(allExchangesProvider);
@@ -345,6 +441,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         _usd.clear();
         _reference.clear();
         _activeSection = null;
+        _composedBuyMessages = null;
+        _pendingBuyKind = null;
       });
       playAlert();
       _snack('تم الحفظ في سجل المشتريات');
@@ -444,7 +542,10 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final updated = await ref.read(clientsListProvider.future);
     if (!mounted) return;
     if (updated.isNotEmpty) {
-      setState(() => _client = updated.first);
+      setState(() {
+        _client = updated.first;
+        _senderCompany = updated.first.company;
+      });
     }
   }
 
@@ -466,10 +567,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   Future<void> _openSavedClientsDialog() async {
     final picked = await showGlassDialog<Client>(
       context: context,
-      builder: (_) => const _SavedClientsDialog(),
+      builder: (_) => const SavedClientsDialog(),
     );
     if (picked != null && mounted) {
-      setState(() => _client = picked);
+      setState(() {
+        _client = picked;
+        _senderCompany = picked.company;
+      });
     }
   }
 
@@ -481,6 +585,23 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final allExchangesAsync = ref.watch(allExchangesProvider);
     final pendingAsync = ref.watch(pendingBuysProvider);
     final dailyAsync = ref.watch(dailyBuysProvider);
+
+    if (_composedBuyMessages != null) {
+      return _BuyMessagesPreview(
+        messages: _composedBuyMessages!,
+        busy: _busy,
+        submitLabel: _pendingBuyKind == _PendingBuyKind.pending
+            ? 'حفظ كقيد التنفيذ'
+            : _pendingBuyKind == _PendingBuyKind.execute
+                ? 'تنفيذ الدخول'
+                : null,
+        onSubmit: _pendingBuyKind == null ? null : _onPreviewSubmit,
+        onBack: () => setState(() {
+          _composedBuyMessages = null;
+          _pendingBuyKind = null;
+        }),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
@@ -526,14 +647,27 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         ),
                       );
                     }
+                    final companyNames = (<String>{}..addAll(
+                            clients
+                                .where((c) =>
+                                    c.company != null && c.company!.isNotEmpty)
+                                .map((c) => c.company!)))
+                        .toList();
                     final liveValue =
-                        clients.any((x) => x == _client) ? _client : null;
-                    if (liveValue == null && _client != null) {
+                        companyNames.contains(_senderCompany)
+                            ? _senderCompany
+                            : null;
+                    if (liveValue == null && _senderCompany != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _client = null);
+                        if (mounted) {
+                          setState(() {
+                            _senderCompany = null;
+                            _client = null;
+                          });
+                        }
                       });
                     }
-                    return DropdownButtonFormField<Client>(
+                    return DropdownButtonFormField<String>(
                       value: liveValue,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -543,17 +677,16 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                           color: AppColors.accent,
                         ),
                       ),
-                      items: clients
-                          .map((c) => DropdownMenuItem<Client>(
-                                value: c,
-                                child: Text(
-                                  (c.company?.isEmpty ?? true)
-                                      ? c.name
-                                      : c.company!,
-                                ),
+                      items: companyNames
+                          .map((n) => DropdownMenuItem<String>(
+                                value: n,
+                                child: Text(n),
                               ))
                           .toList(),
-                      onChanged: (c) => setState(() => _client = c),
+                      onChanged: (n) => setState(() {
+                        _senderCompany = n;
+                        _client = null;
+                      }),
                     );
                   },
                   loading: () => const LinearProgressIndicator(),
@@ -582,18 +715,45 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               const SizedBox(height: 12),
               _LabeledField(
                 label: 'اسم حساب المرسل',
-                child: TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _client?.name ?? '',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'اسم حساب المرسل',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.wallet,
-                      color: AppColors.accent,
-                    ),
-                  ),
+                child: clientsAsync.when(
+                  data: (clients) {
+                    final filtered = _senderCompany == null
+                        ? const <Client>[]
+                        : clients
+                            .where((c) => c.company == _senderCompany)
+                            .toList();
+                    final liveValue =
+                        filtered.any((x) => x == _client) ? _client : null;
+                    if (liveValue == null && _client != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _client = null);
+                      });
+                    }
+                    return DropdownButtonFormField<Client>(
+                      value: liveValue,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: _senderCompany == null
+                            ? 'اختر الشركة المرسلة أولاً'
+                            : 'اسم حساب المرسل',
+                        suffixIcon: const _IconBox(
+                          FontAwesomeIcons.wallet,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                      items: filtered
+                          .map((c) => DropdownMenuItem<Client>(
+                                value: c,
+                                child: Text(c.name),
+                              ))
+                          .toList(),
+                      onChanged: _senderCompany == null
+                          ? null
+                          : (c) => setState(() => _client = c),
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('$e'),
                 ),
               ),
               const SizedBox(height: 12),
@@ -1078,219 +1238,6 @@ class _IconBox extends StatelessWidget {
   }
 }
 
-class _SavedClientsDialog extends ConsumerStatefulWidget {
-  const _SavedClientsDialog();
-
-  @override
-  ConsumerState<_SavedClientsDialog> createState() =>
-      _SavedClientsDialogState();
-}
-
-class _SavedClientsDialogState extends ConsumerState<_SavedClientsDialog> {
-  Future<void> _openAddSheet() async {
-    await showGlassDialog<void>(
-      context: context,
-      builder: (_) => AddClientDialog(
-        onSaved: () => ref.invalidate(clientsListProvider),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final listAsync = ref.watch(clientsListProvider);
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.30),
-                          AppColors.positive.withValues(alpha: 0.20),
-                        ],
-                      ),
-                      border:
-                          Border.all(color: AppColors.glassBorderStrong),
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.bookmark,
-                      size: 16,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'العملاء المحفوظون',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'إضافة عميل جديد',
-                    onPressed: _openAddSheet,
-                    icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
-                    color: AppColors.accent,
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              listAsync.when(
-                data: (items) {
-                  if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(
-                        child: Text(
-                          'لا يوجد عملاء محفوظون',
-                          style: TextStyle(
-                            color: AppColors.textLow,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  return ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 320),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final item = items[i];
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => Navigator.of(context).pop(item),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.glassFill,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.glassBorder,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const FaIcon(
-                                    FontAwesomeIcons.user,
-                                    size: 14,
-                                    color: AppColors.accent,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.name,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textHigh,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          (item.company?.isEmpty ?? true)
-                                              ? '—'
-                                              : item.company!,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textLow,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const FaIcon(
-                                      FontAwesomeIcons.trash,
-                                      size: 14,
-                                      color: AppColors.negative,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        await ref
-                                            .read(
-                                              clientsRepositoryProvider,
-                                            )
-                                            .delete(item.id);
-                                        ref.invalidate(
-                                          clientsListProvider,
-                                        );
-                                      } catch (e, st) {
-                                        AppLogger.error(
-                                          'currencyBuy.client.delete',
-                                          e,
-                                          st,
-                                        );
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content:
-                                                Text(friendlyError(e)),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Text(
-                  '$e',
-                  style: const TextStyle(color: AppColors.negative),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PendingTable extends ConsumerWidget {
   const _PendingTable({required this.rows, required this.onTapRow});
   final List<CurrencyBuy> rows;
@@ -1309,6 +1256,7 @@ class _PendingTable extends ConsumerWidget {
       for (final c in (clients.value ?? const <Client>[])) c.id: c,
     };
     final tf = DateFormat('hh:mm a');
+    String fmt(DateTime t) => tf.format(_tripoliTime(t));
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
@@ -1338,7 +1286,7 @@ class _PendingTable extends ConsumerWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     )),
-                    DataCell(Text(tf.format(b.createdAt))),
+                    DataCell(Text(fmt(b.createdAt))),
                   ],
                 ))
             .toList(),
@@ -1364,6 +1312,7 @@ class _DailyBuysTable extends ConsumerWidget {
       for (final c in (clients.value ?? const <Client>[])) c.id: c,
     };
     final tf = DateFormat('hh:mm a');
+    String fmt(DateTime t) => tf.format(_tripoliTime(t));
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
@@ -1391,10 +1340,129 @@ class _DailyBuysTable extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   )),
-                  DataCell(Text(tf.format(b.createdAt))),
+                  DataCell(Text(fmt(b.createdAt))),
                 ]))
             .toList(),
       ),
+    );
+  }
+}
+
+DateTime _tripoliTime(DateTime t) =>
+    t.toUtc().add(const Duration(hours: 2));
+
+class _BuyMessagesPreview extends StatelessWidget {
+  const _BuyMessagesPreview({
+    required this.messages,
+    required this.onBack,
+    this.onSubmit,
+    this.submitLabel,
+    this.busy = false,
+  });
+
+  final List<String> messages;
+  final VoidCallback onBack;
+  final Future<void> Function()? onSubmit;
+  final String? submitLabel;
+  final bool busy;
+
+  static const _cardTitles = [
+    'للشركة المرسلة',
+    'لقسم الحسابات',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: Center(
+            child: Text(
+              'واجهة رسائل التنفيذ',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textHigh,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ),
+        for (var i = 0; i < messages.length; i++)
+          GlassCard(
+            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  i < _cardTitles.length
+                      ? _cardTitles[i]
+                      : 'الرسالة ${i + 1}',
+                  style: const TextStyle(
+                    color: AppColors.accent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SelectableText(
+                  messages[i],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: AppColors.textHigh,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () => shareText(context, messages[i]),
+                  icon: const FaIcon(
+                    FontAwesomeIcons.shareNodes,
+                    size: 14,
+                  ),
+                  label: const Text('مشاركة'),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        if (onSubmit != null)
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onBack,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('تعديل'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: busy ? null : () => onSubmit!.call(),
+                icon: const FaIcon(
+                  FontAwesomeIcons.circleCheck,
+                  size: 14,
+                ),
+                label: Text(busy ? '...' : (submitLabel ?? 'إرسال')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.positive,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ])
+        else
+          OutlinedButton.icon(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('رجوع'),
+          ),
+      ],
     );
   }
 }

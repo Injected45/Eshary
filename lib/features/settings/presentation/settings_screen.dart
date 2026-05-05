@@ -11,7 +11,6 @@ import '../../archive/presentation/archive_providers.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/clients_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
-import '../../companies/presentation/companies_screen.dart';
 import '../../countries/presentation/countries_providers.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
@@ -39,14 +38,6 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _SettingsRow(
-            icon: FontAwesomeIcons.building,
-            title: 'حساباتي',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CompaniesScreen()),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SettingsRow(
             icon: FontAwesomeIcons.buildingColumns,
             title: 'شركات الصرافة',
             onTap: () => Navigator.of(context).push(
@@ -69,6 +60,14 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: 'لإعادة الاختبار من الصفر — لا يحذف الحساب',
             onTap: () => _confirmAndWipe(context, ref),
           ),
+          const SizedBox(height: 12),
+          _DestructiveSettingsRow(
+            icon: FontAwesomeIcons.eraser,
+            title: 'حذف المدخلات',
+            subtitle:
+                'يحذف الإقفالات والسجلات اليومية فقط — لا يحذف الشركات وشركات الصرافة والعملاء',
+            onTap: () => _confirmAndWipeEntries(context, ref),
+          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Text(
@@ -83,8 +82,13 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-Future<void> _confirmAndWipe(BuildContext context, WidgetRef ref) async {
-  final confirmed = await showGlassDialog<bool>(
+Future<bool?> _showWipeConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String body,
+}) {
+  final controller = TextEditingController();
+  return showGlassDialog<bool>(
     context: context,
     builder: (dialogContext) => Dialog(
       backgroundColor: Colors.transparent,
@@ -93,52 +97,90 @@ Future<void> _confirmAndWipe(BuildContext context, WidgetRef ref) async {
         constraints: const BoxConstraints(maxWidth: 420),
         child: GlassCard(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'حذف كل البيانات؟',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textHigh,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'ستُحذف جميع: الحسابات + شركات الصرافة + العملاء + المستفيدين + الدول + الحوالات + المشتريات. لا يمكن التراجع.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textLow, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('إلغاء'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.negative,
-                      foregroundColor: Colors.white,
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              final typed = controller.text.trim();
+              final canDelete = typed == 'احذف';
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHigh,
                     ),
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: const Text('حذف'),
                   ),
-                ),
-              ]),
-            ],
+                  const SizedBox(height: 10),
+                  Text(
+                    body,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textLow,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'للتأكيد اكتب: احذف',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textMid,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: controller,
+                    textAlign: TextAlign.center,
+                    onChanged: (_) => setLocal(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'احذف',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(dialogContext).pop(false),
+                        child: const Text('إلغاء'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.negative,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: canDelete
+                            ? () => Navigator.of(dialogContext).pop(true)
+                            : null,
+                        child: const Text('حذف'),
+                      ),
+                    ),
+                  ]),
+                ],
+              );
+            },
           ),
         ),
       ),
     ),
-  );
+  ).whenComplete(controller.dispose);
+}
 
+Future<void> _confirmAndWipe(BuildContext context, WidgetRef ref) async {
+  final confirmed = await _showWipeConfirmDialog(
+    context,
+    title: 'حذف كل البيانات؟',
+    body:
+        'ستُحذف جميع: الحسابات + شركات الصرافة + العملاء + المستفيدين + الدول + الحوالات + المشتريات. لا يمكن التراجع.',
+  );
   if (confirmed != true) return;
 
   final uid = ref.read(currentUserIdProvider);
@@ -193,6 +235,87 @@ Future<void> _confirmAndWipe(BuildContext context, WidgetRef ref) async {
       content: Text(
         errors.isEmpty
             ? 'تم حذف جميع البيانات'
+            : 'حُذفت جزئيًا. أخطاء: ${errors.length}',
+      ),
+    ),
+  );
+}
+
+Future<void> _confirmAndWipeEntries(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final confirmed = await _showWipeConfirmDialog(
+    context,
+    title: 'حذف المدخلات؟',
+    body:
+        'ستُحذف الإقفالات والسجلات اليومية: الحوالات والمشتريات. تبقى الشركات وشركات الصرافة والعملاء كما هي.',
+  );
+  if (confirmed != true) return;
+
+  final uid = ref.read(currentUserIdProvider);
+  if (uid == null) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('لم يتم تسجيل الدخول')),
+    );
+    return;
+  }
+
+  final client = ref.read(supabaseClientProvider);
+  final errors = <String>[];
+  const tables = ['transfers', 'currency_buys'];
+  for (final table in tables) {
+    try {
+      await client.from(table).delete().eq('owner_id', uid);
+    } catch (e) {
+      errors.add('$table: $e');
+    }
+  }
+
+  var companyIds = const <String>[];
+  try {
+    final companyRows = await client
+        .from('companies')
+        .select('id')
+        .eq('owner_id', uid);
+    companyIds = (companyRows as List)
+        .map((r) => (r as Map<String, dynamic>)['id'] as String)
+        .toList();
+  } catch (e) {
+    errors.add('companies: $e');
+  }
+
+  if (companyIds.isNotEmpty) {
+    try {
+      await client
+          .from('exchanges')
+          .update({'balance': 0})
+          .inFilter('company_id', companyIds);
+    } catch (e) {
+      errors.add('exchanges: $e');
+    }
+  }
+
+  await ref.read(jsonCacheProvider).clear();
+
+  ref.invalidate(allExchangesProvider);
+  ref.invalidate(dailyTransfersProvider);
+  ref.invalidate(archivedTransfersProvider);
+  ref.invalidate(dailyBuysProvider);
+  ref.invalidate(pendingBuysProvider);
+  ref.invalidate(archivedBuysProvider);
+  ref.invalidate(archivedSoldTotalProvider);
+  ref.invalidate(archivedBoughtTotalProvider);
+
+  playAlert();
+
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        errors.isEmpty
+            ? 'تم حذف المدخلات'
             : 'حُذفت جزئيًا. أخطاء: ${errors.length}',
       ),
     ),

@@ -41,6 +41,7 @@ class CurrencyBuysRepository {
     required double usdAmount,
     required double rate,
     required double lydAmount,
+    required String reference,
   }) async {
     final res = await _client.rpc(
       'record_currency_buy',
@@ -52,6 +53,7 @@ class CurrencyBuysRepository {
         'p_usd_amount': usdAmount,
         'p_rate': rate,
         'p_lyd_amount': lydAmount,
+        'p_reference': reference,
       },
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);
@@ -65,6 +67,7 @@ class CurrencyBuysRepository {
     required double usdAmount,
     required double rate,
     required double lydAmount,
+    required String reference,
   }) async {
     final res = await _client.rpc(
       'record_pending_buy',
@@ -76,6 +79,7 @@ class CurrencyBuysRepository {
         'p_usd_amount': usdAmount,
         'p_rate': rate,
         'p_lyd_amount': lydAmount,
+        'p_reference': reference,
       },
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);

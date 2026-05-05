@@ -14,15 +14,14 @@ import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
+import '../../clients/domain/client.dart';
+import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
-import '../data/beneficiaries_repository.dart';
 import '../data/transfers_repository.dart';
-import '../domain/beneficiary.dart';
 import '../domain/transfer.dart';
-import 'beneficiaries_providers.dart';
 import 'transfers_providers.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
@@ -324,14 +323,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   }
 
   Future<void> _openSavedBeneficiariesDialog() async {
-    final picked = await showGlassDialog<Beneficiary>(
+    final picked = await showGlassDialog<Client>(
       context: context,
-      builder: (_) => const _SavedBeneficiariesDialog(),
+      builder: (_) => const SavedClientsDialog(),
     );
     if (picked != null && mounted) {
       setState(() {
         _beneficiaryName.text = picked.name;
-        _beneficiaryAccount.text = picked.account ?? '';
+        _beneficiaryAccount.text = picked.company ?? '';
         _beneficiaryCode.text = picked.code ?? '';
       });
     }
@@ -1065,6 +1064,7 @@ class _DailyTransfersTable extends ConsumerWidget {
               DataColumn(label: Text('الإشاري')),
               DataColumn(label: Text('شركة')),
               DataColumn(label: Text('من حساب')),
+              DataColumn(label: Text('القيمة')),
               DataColumn(label: Text('المستفيد')),
             ],
             rows: rows
@@ -1080,6 +1080,13 @@ class _DailyTransfersTable extends ConsumerWidget {
                         DataCell(Text(
                             exchangeById[t.exchangeId]?.name ?? '—')),
                         DataCell(Text(companyById[t.companyId] ?? '—')),
+                        DataCell(Text(
+                          '\$${formatMoney(t.amount)}',
+                          style: const TextStyle(
+                            color: AppColors.positive,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )),
                         DataCell(Text(
                           (t.beneficiaryAccountCompany?.isEmpty ?? true)
                               ? '—'
@@ -1205,384 +1212,3 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _SavedBeneficiariesDialog extends ConsumerStatefulWidget {
-  const _SavedBeneficiariesDialog();
-
-  @override
-  ConsumerState<_SavedBeneficiariesDialog> createState() =>
-      _SavedBeneficiariesDialogState();
-}
-
-class _SavedBeneficiariesDialogState
-    extends ConsumerState<_SavedBeneficiariesDialog> {
-  Future<void> _openAddSheet() async {
-    await showGlassDialog<void>(
-      context: context,
-      builder: (_) => const _AddBeneficiaryDialog(),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final listAsync = ref.watch(beneficiariesListProvider);
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.accent.withValues(alpha: 0.30),
-                          AppColors.positive.withValues(alpha: 0.20),
-                        ],
-                      ),
-                      border: Border.all(color: AppColors.glassBorderStrong),
-                    ),
-                    child: const FaIcon(
-                      FontAwesomeIcons.bookmark,
-                      size: 16,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'الجهات',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'إضافة جهة جديدة',
-                    onPressed: _openAddSheet,
-                    icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
-                    color: AppColors.accent,
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              listAsync.when(
-                data: (items) {
-                  if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(
-                        child: Text(
-                          'لا توجد جهات محفوظة',
-                          style: TextStyle(
-                            color: AppColors.textLow,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  return ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 280),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        final item = items[i];
-                        return Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () =>
-                                Navigator.of(context).pop(item),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.glassFill,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: AppColors.glassBorder),
-                              ),
-                              child: Row(
-                                children: [
-                                  const FaIcon(
-                                    FontAwesomeIcons.user,
-                                    size: 14,
-                                    color: AppColors.accent,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          (item.account?.isEmpty ?? true)
-                                              ? '—'
-                                              : item.account!,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textHigh,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          item.name,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textLow,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const FaIcon(
-                                      FontAwesomeIcons.trash,
-                                      size: 14,
-                                      color: AppColors.negative,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        await ref
-                                            .read(
-                                              beneficiariesRepositoryProvider,
-                                            )
-                                            .delete(item.id);
-                                        ref.invalidate(
-                                          beneficiariesListProvider,
-                                        );
-                                      } catch (e, st) {
-                                        AppLogger.error(
-                                          'transfers.beneficiary.delete',
-                                          e,
-                                          st,
-                                        );
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content:
-                                                Text(friendlyError(e)),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (e, _) => Text(
-                  '$e',
-                  style: const TextStyle(color: AppColors.negative),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AddBeneficiaryDialog extends ConsumerStatefulWidget {
-  const _AddBeneficiaryDialog();
-
-  @override
-  ConsumerState<_AddBeneficiaryDialog> createState() =>
-      _AddBeneficiaryDialogState();
-}
-
-class _AddBeneficiaryDialogState
-    extends ConsumerState<_AddBeneficiaryDialog> {
-  String? _name;
-  final _account = TextEditingController();
-  final _code = TextEditingController();
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _account.dispose();
-    _code.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_name == null || _name!.trim().isEmpty) {
-      setState(() => _error = 'اختر شركة الصرافة');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final ownerId = ref.read(currentUserIdProvider);
-      if (ownerId == null) {
-        setState(() {
-          _error = 'لم يتم تسجيل الدخول';
-          _busy = false;
-        });
-        return;
-      }
-      await ref.read(beneficiariesRepositoryProvider).create(
-            ownerId: ownerId,
-            name: _name!.trim(),
-            account: _account.text.trim(),
-            code: _code.text.trim(),
-          );
-      ref.invalidate(beneficiariesListProvider);
-      if (!mounted) return;
-      Navigator.of(context).pop();
-    } catch (e, st) {
-      AppLogger.error('transfers.addBeneficiary.save', e, st);
-      if (!mounted) return;
-      setState(() {
-        _error = friendlyError(e);
-        _busy = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final exchangeAsync = ref.watch(exchangeCompaniesListProvider);
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'إضافة جهة جديدة',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _LabeledField(
-                label: 'شركة الصرافة',
-                child: exchangeAsync.when(
-                  data: (companies) => DropdownButtonFormField<String>(
-                    value: _name,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      hintText: 'اختر شركة الصرافة',
-                      suffixIcon: _IconBox(FontAwesomeIcons.building),
-                    ),
-                    items: companies
-                        .map((c) => DropdownMenuItem(
-                              value: c.name,
-                              child: Text(c.name),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _name = v),
-                  ),
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'حساب المستلم',
-                child: TextField(
-                  controller: _account,
-                  decoration: const InputDecoration(
-                    hintText: 'اسم الحساب أو البنك',
-                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'كود حساب المستلم',
-                child: TextField(
-                  controller: _code,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل كود حساب المستلم',
-                    suffixIcon: _IconBox(FontAwesomeIcons.user),
-                  ),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.negative.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: AppColors.negative.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.negative),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: _busy ? null : _save,
-                icon: const FaIcon(FontAwesomeIcons.floppyDisk, size: 14),
-                label: Text(_busy ? '...' : 'حفظ'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

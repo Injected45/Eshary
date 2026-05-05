@@ -16,19 +16,15 @@ class ArchiveScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dailyBuys =
-        ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[];
     final archivedBuys =
         ref.watch(archivedBuysProvider).value ?? const <CurrencyBuy>[];
-    final dailyTransfers =
-        ref.watch(dailyTransfersProvider).value ?? const <Transfer>[];
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
 
-    final incomeTotal = [...dailyBuys, ...archivedBuys]
-        .fold<double>(0, (s, b) => s + b.usdAmount);
-    final outgoingTotal = [...dailyTransfers, ...archivedTransfers]
-        .fold<double>(0, (s, t) => s + t.amount);
+    final incomeTotal =
+        archivedBuys.fold<double>(0, (s, b) => s + b.usdAmount);
+    final outgoingTotal =
+        archivedTransfers.fold<double>(0, (s, t) => s + t.amount);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
@@ -39,6 +35,7 @@ class ArchiveScreen extends ConsumerWidget {
               child: _StatCard(
                 income: true,
                 total: incomeTotal,
+                archivedCount: archivedBuys.length,
               ),
             ),
             const SizedBox(width: 12),
@@ -46,6 +43,7 @@ class ArchiveScreen extends ConsumerWidget {
               child: _StatCard(
                 income: false,
                 total: outgoingTotal,
+                archivedCount: archivedTransfers.length,
               ),
             ),
           ],
@@ -84,13 +82,19 @@ class ArchiveScreen extends ConsumerWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.income, required this.total});
+  const _StatCard({
+    required this.income,
+    required this.total,
+    required this.archivedCount,
+  });
   final bool income;
   final double total;
+  final int archivedCount;
 
   @override
   Widget build(BuildContext context) {
     final tint = income ? AppColors.positive : AppColors.negative;
+    final hasArchive = archivedCount > 0;
     return GlassCard(
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       child: Column(
@@ -121,14 +125,24 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            '\$${formatMoney(total)}',
-            style: TextStyle(
-              color: tint,
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
+          if (hasArchive)
+            Text(
+              '\$${formatMoney(total)}',
+              style: TextStyle(
+                color: tint,
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+              ),
+            )
+          else
+            const Text(
+              'لا توجد إقفالات بعد',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textLow,
+                fontSize: 12,
+              ),
             ),
-          ),
         ],
       ),
     );

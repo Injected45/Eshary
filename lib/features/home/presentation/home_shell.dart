@@ -22,9 +22,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
   static const _titles = [
-    'تنفيذ حوالة جديدة',
+    'تنفيذ خروج حوالة',
     'تنفيذ دخول حوالة',
-    'سجل الحوالات',
+    'الإقفالات',
     'حساباتي',
     'الإعدادات',
   ];
@@ -129,7 +129,7 @@ class _GlassBottomNav extends StatelessWidget {
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.boxArchive, size: 18),
-                    label: 'سجل الحوالات',
+                    label: 'الإقفالات',
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.wallet, size: 18),
