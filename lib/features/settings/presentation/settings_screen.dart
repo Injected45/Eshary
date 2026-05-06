@@ -11,6 +11,7 @@ import '../../archive/presentation/archive_providers.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/clients_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
+import '../../companies/presentation/companies_screen.dart';
 import '../../countries/presentation/countries_providers.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
@@ -43,6 +44,14 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
                   builder: (_) => const ExchangeCompaniesScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.building,
+            title: 'حساباتي',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CompaniesScreen()),
             ),
           ),
           const SizedBox(height: 12),
