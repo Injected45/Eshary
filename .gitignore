@@ -72,3 +72,11 @@ Eshary.apk
 /problem.PNG
 /222.PNG
 /example.jpeg
+android/gradle/wrapper/gradle-wrapper.properties
+android/gradle.properties
+android/settings.gradle
+run-android.bat
+android/gradle.properties
+android/settings.gradle
+android/app/build.gradle
+android/gradle/wrapper/gradle-wrapper.properties

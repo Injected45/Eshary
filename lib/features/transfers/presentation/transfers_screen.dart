@@ -252,9 +252,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('الإقفال اليومي للحوالات'),
+        title: const Text('إقفال يومية الخروج'),
         content: const Text(
-          'هل تريد ترحيل سجلات الحوالات اليومية إلى الأرشيف العام؟',
+          'سيتم اقفال جميع عمليات الخروج',
         ),
         actions: [
           TextButton(
@@ -263,7 +263,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترحيل'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('إقفال'),
           ),
         ],
       ),
@@ -726,7 +730,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           onPressed: _archiveAll,
           icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
           label: const Text(
-            'الإقفال اليومي للحوالات',
+            'إقفال يومي للخروج',
             textAlign: TextAlign.center,
           ),
           style: FilledButton.styleFrom(
