@@ -50,6 +50,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   bool _busy = false;
   int? _activeSection;
+  bool _executedExpanded = false;
   List<String>? _composedBuyMessages;
   _PendingBuyKind? _pendingBuyKind;
 
@@ -467,7 +468,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       builder: (_) => AlertDialog(
         title: const Text('تأكيد الترحيل'),
         content:
-            const Text('إقفال وترحيل سجل المشتريات اليومي للأرشيف العام؟'),
+            const Text('هل أنت متأكد من إقفال وترحيل دخول اليوم'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -619,6 +620,25 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openSavedClientsDialog,
+                  icon: const FaIcon(
+                    FontAwesomeIcons.bookmark,
+                    size: 14,
+                  ),
+                  label: const Text('الجهات المحفوظة'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               _LabeledField(
                 label: 'الشركة المرسلة',
                 child: clientsAsync.when(
@@ -694,25 +714,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openSavedClientsDialog,
-                  icon: const FaIcon(
-                    FontAwesomeIcons.bookmark,
-                    size: 14,
-                  ),
-                  label: const Text('الجهات المحفوظة'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(
-                      color: AppColors.accent.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
               _LabeledField(
                 label: 'اسم حساب المرسل',
                 child: clientsAsync.when(
@@ -783,6 +784,21 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                     suffixIcon: _IconBox(
                       FontAwesomeIcons.hashtag,
                       color: AppColors.accent,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'القيمة \$',
+                child: TextField(
+                  controller: _usd,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: 'القيمة بالدولار',
+                    suffixIcon: _IconBox(
+                      FontAwesomeIcons.dollarSign,
+                      color: AppColors.positive,
                     ),
                   ),
                 ),
@@ -963,38 +979,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-
-        _CollapsibleSection(
-          header: const _AccentSectionTitle(
-            text: 'القيمة',
-            color: AppColors.positive,
-            icon: FontAwesomeIcons.dollarSign,
-          ),
-          expanded: _activeSection == 3,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 3 ? null : 3,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LabeledField(
-                label: 'القيمة \$',
-                child: TextField(
-                  controller: _usd,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: 'القيمة بالدولار',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.dollarSign,
-                      color: AppColors.positive,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         const SizedBox(height: 16),
 
         Row(children: [
@@ -1048,24 +1032,25 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 14),
 
-        Row(children: [
-          const Expanded(
-            child: _AccentSectionTitle(
-              text: 'دخول منفذ',
-              color: AppColors.positive,
-              icon: FontAwesomeIcons.circleCheck,
+        _CollapsibleSection(
+          header: Row(children: [
+            const Expanded(
+              child: _AccentSectionTitle(
+                text: 'دخول منفذ',
+                color: AppColors.positive,
+                icon: FontAwesomeIcons.circleCheck,
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: 'تصدير PDF',
-            icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
-            onPressed: () =>
-                _exportDailyPdf(dailyAsync.value ?? const []),
-          ),
-        ]),
-        const SizedBox(height: 8),
-        GlassCard(
-          padding: const EdgeInsets.all(8),
+            IconButton(
+              tooltip: 'تصدير PDF',
+              icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
+              onPressed: () =>
+                  _exportDailyPdf(dailyAsync.value ?? const []),
+            ),
+          ]),
+          expanded: _executedExpanded,
+          onToggle: () =>
+              setState(() => _executedExpanded = !_executedExpanded),
           child: dailyAsync.when(
             data: (rows) => _DailyBuysTable(rows: rows),
             loading: () => const LinearProgressIndicator(),
@@ -1078,7 +1063,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           onPressed: _archiveAll,
           icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
           label: const Text(
-            'الإقفال اليومي لمشتريات العملة',
+            'ترحيل دخول اليوم إلى الإقفالات',
             textAlign: TextAlign.center,
           ),
           style: FilledButton.styleFrom(
@@ -1248,7 +1233,7 @@ class _PendingTable extends ConsumerWidget {
     if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
-        child: Text('لا توجد عمليات معلقة'),
+        child: Text('لا توجد عمليات قيد التنفيذ'),
       );
     }
     final clients = ref.watch(clientsListProvider);
@@ -1304,7 +1289,7 @@ class _DailyBuysTable extends ConsumerWidget {
     if (rows.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(8),
-        child: Text('لا توجد سجلات'),
+        child: Text('لا يوجد دخول'),
       );
     }
     final clients = ref.watch(clientsListProvider);
