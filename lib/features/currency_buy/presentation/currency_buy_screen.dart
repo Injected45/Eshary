@@ -1024,7 +1024,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           onPressed: _archiveAll,
           icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
           label: const Text(
-            'الإقفال اليومي لمشتريات العملة',
+            'الإقفال اليومي لحوالات الدخول',
             textAlign: TextAlign.center,
           ),
           style: FilledButton.styleFrom(

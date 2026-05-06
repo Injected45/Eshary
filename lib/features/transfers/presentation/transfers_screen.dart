@@ -712,12 +712,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           onPressed: _archiveAll,
           icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
           label: const Text(
-            'الإقفال اليومي للحوالات',
+            'الإقفال اليومي لحوالات الخروج',
             textAlign: TextAlign.center,
           ),
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.positive,
-            foregroundColor: Colors.black,
+            backgroundColor: AppColors.negative,
+            foregroundColor: Colors.white,
           ),
         ),
         const Padding(
