@@ -36,8 +36,10 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
   bool _busy = false;
   Exchange? _existingExchange;
   bool _loading = false;
+  bool _hasTx = false;
 
   bool get _isEdit => widget.existing != null;
+  bool get _locked => _isEdit && _hasTx;
 
   @override
   void initState() {
@@ -52,15 +54,15 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
 
   Future<void> _loadExistingExchange() async {
     try {
-      final exchanges = await ref
-          .read(exchangesRepositoryProvider)
-          .listForCompany(widget.existing!.id);
+      final repo = ref.read(exchangesRepositoryProvider);
+      final exchanges = await repo.listForCompany(widget.existing!.id);
       if (exchanges.isNotEmpty) {
         _existingExchange = exchanges.first;
         _exName.text = _existingExchange!.name;
         _balance.text = formatMoney(_existingExchange!.balance);
         _ourCode.text = _existingExchange!.ourCode ?? '';
         _country.text = _existingExchange!.country ?? '';
+        _hasTx = await repo.hasTransactions(_existingExchange!.id);
       }
     } catch (_) {
       // swallow — fields stay empty, user can re-enter
@@ -226,6 +228,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                       Expanded(
                         child: TextField(
                           controller: _ourCode,
+                          enabled: !_locked,
                           decoration: const InputDecoration(
                             labelText: 'كود الحساب',
                           ),
@@ -249,6 +252,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                       Expanded(
                         child: TextField(
                           controller: _ref,
+                          enabled: !_locked,
                           decoration: const InputDecoration(
                             labelText: 'الإشاري الإفتتاحي',
                           ),
@@ -256,27 +260,41 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                       ),
                     ]),
                     const SizedBox(height: 20),
-                    Row(children: [
-                      Expanded(
-                        child: OutlinedButton(
+                    if (_locked)
+                      Center(
+                        child: OutlinedButton.icon(
                           onPressed: _busy
                               ? null
                               : () => Navigator.of(context).pop(),
-                          child: const Text('إلغاء'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _busy ? null : _save,
                           icon: const FaIcon(
-                            FontAwesomeIcons.floppyDisk,
-                            size: 14,
+                            FontAwesomeIcons.lock,
+                            size: 12,
                           ),
-                          label: Text(_busy ? '...' : 'حفظ'),
+                          label: const Text('إغلاق'),
                         ),
-                      ),
-                    ]),
+                      )
+                    else
+                      Row(children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _busy
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                            child: const Text('إلغاء'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busy ? null : _save,
+                            icon: const FaIcon(
+                              FontAwesomeIcons.floppyDisk,
+                              size: 14,
+                            ),
+                            label: Text(_busy ? '...' : 'حفظ'),
+                          ),
+                        ),
+                      ]),
                   ],
                 ),
         ),

@@ -9,7 +9,7 @@ import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../data/onboarding_storage.dart';
 
-enum _SceneKind { plane, wallet, vault }
+enum _SceneKind { plane, wallet, vault, accounts }
 
 class _Page {
   const _Page({
@@ -28,23 +28,30 @@ const _pages = [
   _Page(
     kind: _SceneKind.plane,
     tint: AppColors.accent,
-    title: 'إدارة الحوالات',
+    title: 'دخول تحويلات',
     subtitle:
-        'أرسل الحوالات الدولية بسهولة، مع توليد رقم إشاري تلقائي وحفظ نص الرسالة جاهزاً للمشاركة.',
+        'سجّل الحوالات الواردة، أنشئ رسائل الاستلام والتسليم، شاركها آلياً، تابع العمليات قيد التنفيذ حتى الإقفال مع تحديث الرصيد وحفظ بيانات المرسل.',
   ),
   _Page(
     kind: _SceneKind.wallet,
     tint: AppColors.positive,
-    title: 'شراء العملات',
+    title: 'خروج تحويلات',
     subtitle:
-        'اشترِ الدولار من العملاء وحساب القيمة بالدينار الليبي تلقائياً، مع تتبع العمليات المعلقة.',
+        'سجّل الحوالات الصادرة، أنشئ رسائل الإرسال والتسليم وشاركها آلياً، تحديث الرصيد بعد الإقفال والترحيل وحفظ بيانات المستلم.',
   ),
   _Page(
     kind: _SceneKind.vault,
     tint: AppColors.warning,
-    title: 'الأرشيف العام',
+    title: 'الإقفالات',
     subtitle:
-        'تابع إجمالي العمليات اليومية والمؤرشفة، وصدّر التقارير بصيغة PDF بضغطة واحدة.',
+        'تابع إقفالات الدخول والخروج، استرجع أي حوالة سابقة، راجع تفاصيل العمليات حسب التاريخ بكل دقة.',
+  ),
+  _Page(
+    kind: _SceneKind.accounts,
+    tint: AppColors.accent,
+    title: 'حساباتي',
+    subtitle:
+        'تحكّم في حساباتك المتعددة بسهولة، افتح وتابع أكثر من حساب في أكثر من شركة ودولة، واعرف أرصدتك التفصيلية والإجمالية من شاشة واحدة آمنة وواضحة.',
   ),
 ];
 
@@ -364,6 +371,8 @@ class _ScenePainter extends CustomPainter {
         _paintWallet(canvas, size);
       case _SceneKind.vault:
         _paintVault(canvas, size);
+      case _SceneKind.accounts:
+        _paintWallet(canvas, size);
     }
   }
 

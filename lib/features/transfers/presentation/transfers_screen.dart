@@ -252,9 +252,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('إقفال يومية الخروج'),
+        title: const Text('الإقفال اليومي للحوالات'),
         content: const Text(
-          'سيتم اقفال جميع عمليات الخروج',
+          'هل تريد ترحيل سجلات الحوالات اليومية إلى الأرشيف العام؟',
         ),
         actions: [
           TextButton(
@@ -263,11 +263,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('إقفال'),
+            child: const Text('ترحيل'),
           ),
         ],
       ),
@@ -576,6 +572,29 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'القيمة بالدولار (USD)',
+                child: TextField(
+                  controller: _amount,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHigh,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'أدخل قيمة التحويل',
+                    suffixIcon: const _IconBox(
+                      FontAwesomeIcons.dollarSign,
+                      color: AppColors.positive,
+                    ),
+                    errorText: _overBalance
+                        ? 'المبلغ يتجاوز رصيد الحساب (${formatMoney(_exchange?.balance ?? 0)} \$)'
+                        : null,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -643,43 +662,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-
-        // Section 3 — قيمة التحويل
-        _CollapsibleSection(
-          header: const _NumberedSectionTitle(3, 'قيمة التحويل'),
-          expanded: _activeSection == 3,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 3 ? null : 3,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LabeledField(
-                label: 'القيمة بالدولار (USD)',
-                child: TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHigh,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'أدخل قيمة التحويل',
-                    suffixIcon: const _IconBox(
-                      FontAwesomeIcons.dollarSign,
-                      color: AppColors.positive,
-                    ),
-                    errorText: _overBalance
-                        ? 'المبلغ يتجاوز رصيد الحساب (${formatMoney(_exchange?.balance ?? 0)} \$)'
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
         const SizedBox(height: 16),
         const Center(
           child: Row(
@@ -730,7 +712,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           onPressed: _archiveAll,
           icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
           label: const Text(
-            'إقفال يومي للخروج',
+            'الإقفال اليومي للحوالات',
             textAlign: TextAlign.center,
           ),
           style: FilledButton.styleFrom(

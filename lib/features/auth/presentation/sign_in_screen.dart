@@ -122,19 +122,24 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ),
                     const SizedBox(height: 18),
                     const Text(
-                      'مرحباً بعودتك',
+                      'مرحباً بعودتك إلى تطبيق إشاري',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
                         color: AppColors.textHigh,
+                        height: 1.3,
                       ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'سجل الدخول لمتابعة عمليات شركة الرحالة',
+                      'تابع حوالاتك المالية، راجع عملياتك، وأدِر حساباتك من مكان واحد بكل أمان ووضوح.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textLow),
+                      style: TextStyle(
+                        color: AppColors.textLow,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     TextField(

@@ -542,8 +542,18 @@ class _ColumnHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: const [
-          SizedBox(width: 36),
-          SizedBox(width: 12),
+          SizedBox(
+            width: 40,
+            child: Text(
+              '#',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textLow,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Text(
@@ -568,18 +578,8 @@ class _ColumnHeader extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 40,
-            child: Text(
-              '#',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textLow,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          SizedBox(width: 12),
+          SizedBox(width: 36),
         ],
       ),
     );
@@ -621,6 +621,60 @@ class _RecordRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              Container(
+                width: 40,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.glassFillStrong,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.glassBorder),
+                ),
+                child: Text(
+                  '$index',
+                  style: const TextStyle(
+                    color: AppColors.textHigh,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  '\$${formatMoney(amount)}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: tint,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    Text(
+                      df.format(date),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textHigh,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      tf.format(date),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textLow,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -645,71 +699,6 @@ class _RecordRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                Text(
-                  formatMoney(amount),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: tint,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const Text(
-                  'USD',
-                  style: TextStyle(
-                    color: AppColors.textLow,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                Text(
-                  df.format(date),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textHigh,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  tf.format(date),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textLow,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 40,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.glassFillStrong,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.glassBorder),
-            ),
-            child: Text(
-              '$index',
-              style: const TextStyle(
-                color: AppColors.textHigh,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
-          ),
             ],
           ),
         ),
@@ -805,7 +794,7 @@ class _BuyDetailDialog extends ConsumerWidget {
               const SizedBox(height: 12),
               _DetailDialogSection(
                 title: 'الجهة المرسلة',
-                accent: AppColors.accent,
+                accent: AppColors.negative,
                 icon: FontAwesomeIcons.paperPlane,
                 rows: [
                   _DetailKvData('الشركة المرسلة', senderCompany),
@@ -818,6 +807,7 @@ class _BuyDetailDialog extends ConsumerWidget {
                   _DetailKvData(
                     'القيمة',
                     '\$ ${formatMoney(row.usdAmount)}',
+                    color: AppColors.positive,
                   ),
                 ],
               ),
@@ -910,6 +900,7 @@ class _TransferDetailDialog extends ConsumerWidget {
                   _DetailKvData(
                     'القيمة',
                     '\$ ${formatMoney(row.amount)}',
+                    color: AppColors.negative,
                   ),
                 ],
               ),
@@ -934,9 +925,10 @@ class _TransferDetailDialog extends ConsumerWidget {
 
 
 class _DetailKvData {
-  const _DetailKvData(this.label, this.value);
+  const _DetailKvData(this.label, this.value, {this.color});
   final String label;
   final String value;
+  final Color? color;
 }
 
 class _DetailDialogHeader extends StatelessWidget {
@@ -1034,7 +1026,11 @@ class _DetailDialogSection extends StatelessWidget {
                 height: 1,
                 thickness: 1,
               ),
-            _DetailDialogRow(label: rows[i].label, value: rows[i].value),
+            _DetailDialogRow(
+              label: rows[i].label,
+              value: rows[i].value,
+              color: rows[i].color,
+            ),
           ],
         ],
       ),
@@ -1043,12 +1039,20 @@ class _DetailDialogSection extends StatelessWidget {
 }
 
 class _DetailDialogRow extends StatelessWidget {
-  const _DetailDialogRow({required this.label, required this.value});
+  const _DetailDialogRow({
+    required this.label,
+    required this.value,
+    this.color,
+  });
   final String label;
   final String value;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final labelColor = color ?? AppColors.textMid;
+    final valueColor = color ?? AppColors.textHigh;
+    final separatorColor = color ?? AppColors.textLow;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
@@ -1057,19 +1061,21 @@ class _DetailDialogRow extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textMid,
+                color: labelColor,
+                fontWeight:
+                    color == null ? FontWeight.normal : FontWeight.w700,
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Text(
               ':',
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textLow,
+                color: separatorColor,
               ),
             ),
           ),
@@ -1077,10 +1083,10 @@ class _DetailDialogRow extends StatelessWidget {
             child: Text(
               value,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textHigh,
+                fontWeight: FontWeight.w700,
+                color: valueColor,
               ),
             ),
           ),

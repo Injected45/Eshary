@@ -22,3 +22,8 @@ final nextReferenceProvider =
     FutureProvider.family<String, String>((ref, companyId) async {
   return ref.watch(companiesRepositoryProvider).nextReference(companyId);
 });
+
+final accountHasTransactionsProvider =
+    FutureProvider.family<bool, String>((ref, exchangeId) async {
+  return ref.watch(exchangesRepositoryProvider).hasTransactions(exchangeId);
+});

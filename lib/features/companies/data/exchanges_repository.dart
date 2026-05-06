@@ -84,6 +84,21 @@ class ExchangesRepository {
         .single();
     return Exchange.fromJson(row);
   }
+
+  Future<bool> hasTransactions(String exchangeId) async {
+    final transfers = await _client
+        .from('transfers')
+        .select('id')
+        .eq('exchange_id', exchangeId)
+        .limit(1);
+    if ((transfers as List).isNotEmpty) return true;
+    final buys = await _client
+        .from('currency_buys')
+        .select('id')
+        .eq('exchange_id', exchangeId)
+        .limit(1);
+    return (buys as List).isNotEmpty;
+  }
 }
 
 final exchangesRepositoryProvider = Provider<ExchangesRepository>((ref) {
