@@ -5,9 +5,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../license/domain/license_status.dart';
+import '../../license/presentation/license_provider.dart';
 
 class ProfileDetailsScreen extends ConsumerWidget {
   const ProfileDetailsScreen({super.key});
@@ -115,66 +118,7 @@ class ProfileDetailsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          GlassCard(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const FaIcon(
-                      FontAwesomeIcons.crown,
-                      size: 18,
-                      color: AppColors.warning,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      'الخطة الحالية',
-                      style: TextStyle(
-                        color: AppColors.textHigh,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: AppColors.accent.withValues(alpha: 0.50),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.25),
-                            blurRadius: 14,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'مجاني',
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'ميزات الخطة المدفوعة قريباً',
-                  style: TextStyle(color: AppColors.textLow, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
+          const _PlanCard(),
           const SizedBox(height: 16),
           const GlassCard(
             padding: EdgeInsets.all(18),
@@ -282,6 +226,127 @@ class ProfileDetailsScreen extends ConsumerWidget {
     );
     if (confirmed == true) {
       await ref.read(authRepositoryProvider).signOut();
+    }
+  }
+}
+
+/// Reads `licenseStatusProvider` and renders the user's current plan badge
+/// + secondary trial-cutoff line. Replaces the previous hardcoded
+/// "مجاني" label that ignored real license state.
+class _PlanCard extends ConsumerWidget {
+  const _PlanCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncLicense = ref.watch(licenseStatusProvider);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.crown,
+                size: 18,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'الخطة الحالية',
+                style: TextStyle(
+                  color: AppColors.textHigh,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              asyncLicense.when(
+                loading: () => const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                error: (_, __) => _badge(label: '...', color: AppColors.textLow),
+                data: (s) {
+                  final (label, color) = _planStyle(s);
+                  return _badge(label: label, color: color);
+                },
+              ),
+            ],
+          ),
+          // Secondary line: trial cutoff or admin tag.
+          asyncLicense.maybeWhen(
+            orElse: SizedBox.shrink,
+            data: (s) {
+              final lines = <String>[];
+              if (s.status == 'trial' && s.isValid && s.trialEndsAt != null) {
+                lines.add('حتى ${dateOnly.format(s.trialEndsAt!.toLocal())}');
+              }
+              if (s.isAdmin) lines.add('صلاحيات مشرف');
+              if (lines.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  lines.join(' · '),
+                  style: const TextStyle(
+                    color: AppColors.textLow,
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.50)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.25),
+            blurRadius: 14,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  (String, Color) _planStyle(LicenseStatus s) {
+    switch (s.status) {
+      case 'active':
+        if (s.licenseType == 'lifetime') {
+          return ('خطة دائمة', AppColors.positive);
+        }
+        return ('خطة مفعّلة', AppColors.positive);
+      case 'trial':
+        return s.isValid
+            ? ('فترة تجريبية (3 أيام)', AppColors.warning)
+            : ('انتهت الفترة التجريبية', AppColors.negative);
+      case 'expired':
+        return ('انتهت الفترة التجريبية', AppColors.negative);
+      case 'blocked':
+        return ('محظور', AppColors.negative);
+      case 'pending':
+      default:
+        return ('بانتظار التفعيل', AppColors.warning);
     }
   }
 }

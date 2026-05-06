@@ -4,11 +4,13 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
+import '../../license/data/license_repository.dart';
 
 class AuthRepository {
-  AuthRepository(this._client);
+  AuthRepository(this._client, this._licenseRepo);
 
   final SupabaseClient _client;
+  final LicenseRepository _licenseRepo;
 
   /// Web client ID from Google Cloud Console — required by google_sign_in
   /// as `serverClientId` so the ID token's audience matches what Supabase
@@ -18,11 +20,16 @@ class AuthRepository {
       '711418304779-tt2dh9equsbqu6ckrnlgv8m95s6ca0q6.apps.googleusercontent.com';
 
   Future<void> signIn({required String email, required String password}) async {
+    // Wipe any cached license from a previous user/session before signing
+    // in — guards against a stale 'blocked' cached row triggering the
+    // force-logout listener as the new session lights up.
+    await _licenseRepo.clearCache();
     await _client.auth.signInWithPassword(email: email, password: password);
     await ensureProfile();
   }
 
   Future<void> signUp({required String email, required String password}) async {
+    await _licenseRepo.clearCache();
     await _client.auth.signUp(email: email, password: password);
     await ensureProfile();
   }
@@ -31,6 +38,7 @@ class AuthRepository {
   /// cancelled the Google account picker — the caller should treat that as
   /// a non-error and stop showing the busy spinner.
   Future<bool> signInWithGoogle() async {
+    await _licenseRepo.clearCache();
     if (kIsWeb) {
       await _client.auth.signInWithOAuth(OAuthProvider.google);
       // Web uses redirect flow — control returns to the app via URL hash;
@@ -59,7 +67,10 @@ class AuthRepository {
     return true;
   }
 
-  Future<void> signOut() => _client.auth.signOut();
+  Future<void> signOut() async {
+    await _licenseRepo.clearCache();
+    await _client.auth.signOut();
+  }
 
   Future<void> updatePassword(String newPassword) async {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
@@ -84,5 +95,8 @@ class AuthRepository {
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(supabaseClientProvider));
+  return AuthRepository(
+    ref.watch(supabaseClientProvider),
+    ref.watch(licenseRepositoryProvider),
+  );
 });

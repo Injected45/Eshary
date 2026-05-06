@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/license/presentation/license_provider.dart';
 import 'shared/cache.dart';
 import 'shared/liquid_background.dart';
 import 'shared/logger.dart';
@@ -59,12 +60,43 @@ Future<void> main() async {
   );
 }
 
-class EsharyApp extends ConsumerWidget {
+class EsharyApp extends ConsumerStatefulWidget {
   const EsharyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EsharyApp> createState() => _EsharyAppState();
+}
+
+class _EsharyAppState extends ConsumerState<EsharyApp> {
+  // Re-entrancy guard so a single 'blocked' transition does not call
+  // signOut twice if the provider re-emits while the call is in flight.
+  bool _signingOut = false;
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+
+    // Force-logout when an admin blocks this user. Acts only when:
+    //  - there is a current session (otherwise nothing to sign out),
+    //  - the new value is fresh data (not loading / error),
+    //  - the server explicitly reports status='blocked' (no cache fallback —
+    //    LicenseRepository refuses to cache negative states).
+    ref.listen(licenseStatusProvider, (_, next) {
+      next.whenData((s) async {
+        if (s.status != 'blocked') return;
+        if (_signingOut) return;
+        if (Supabase.instance.client.auth.currentSession == null) return;
+        _signingOut = true;
+        try {
+          await Supabase.instance.client.auth.signOut();
+        } catch (e, st) {
+          AppLogger.error('license.forceSignOut', e, st);
+        } finally {
+          _signingOut = false;
+        }
+      });
+    });
+
     return MaterialApp.router(
       title: 'شركة الرحالة',
       debugShowCheckedModeBanner: false,

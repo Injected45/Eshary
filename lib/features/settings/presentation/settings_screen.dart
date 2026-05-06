@@ -7,6 +7,7 @@ import '../../../core/theme.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
+import '../../admin/presentation/admin_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/clients_screen.dart';
@@ -16,6 +17,7 @@ import '../../countries/presentation/countries_providers.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
+import '../../license/presentation/license_provider.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
@@ -25,6 +27,9 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAdmin =
+        ref.watch(licenseStatusProvider).valueOrNull?.isAdmin ?? false;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ListView(
@@ -37,6 +42,16 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => const ProfileDetailsScreen()),
             ),
           ),
+          if (isAdmin) ...[
+            const SizedBox(height: 12),
+            _SettingsRow(
+              icon: FontAwesomeIcons.userShield,
+              title: 'إدارة الحسابات',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           _SettingsRow(
             icon: FontAwesomeIcons.buildingColumns,

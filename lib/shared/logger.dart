@@ -117,6 +117,10 @@ class AppLogger {
 /// Translate a raw exception into a short Arabic user-facing message.
 String friendlyError(Object e) {
   final s = e.toString();
+  if (s.contains('current_license_status') ||
+      s.contains('account_licenses')) {
+    return 'تعذّر التحقق من حالة الحساب.';
+  }
   if (s.contains('pending currency buy') ||
       (s.contains('check_violation') && s.contains('pending'))) {
     return 'لا يمكن الترحيل: توجد عمليات شراء معلّقة. أكملها أو احذفها أولًا.';
