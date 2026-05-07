@@ -6,6 +6,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../features/clients/domain/client.dart';
+import '../features/companies/domain/company.dart';
+import '../features/companies/domain/exchange.dart';
+import '../features/currency_buy/domain/currency_buy.dart';
 import '../features/transfers/domain/transfer.dart';
 import 'formatters.dart';
 
@@ -322,10 +326,275 @@ class PdfExport {
     return doc.save();
   }
 
+  /// "تفاصيل حركة الدخول والخروج للحوالات" — landscape A4, 8 columns
+  /// (sequential index + 7 data columns). One row per archived buy/transfer
+  /// inside the selected period.
+  Future<Uint8List> buildDetailedTransfersReport({
+    required List<CurrencyBuy> buys,
+    required List<Transfer> transfers,
+    required Map<String, Company> companyById,
+    required Map<String, Exchange> exchangeById,
+    required Map<String, Client> clientById,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final dayFmt = DateFormat('yyyy/MM/dd');
+    final timeFmt = DateFormat('hh:mm a');
+
+    final ops = <_DetailedOp>[];
+    for (final b in buys) {
+      ops.add(_DetailedOp(
+        t: b.archivedAt ?? b.createdAt,
+        kind: 'شراء دخول',
+        isIncome: true,
+        reference: b.reference.isEmpty
+            ? (b.id.length >= 8 ? b.id.substring(0, 8) : b.id)
+            : b.reference,
+        amount: b.usdAmount,
+        sourceAccount: companyById[b.myCompanyId]?.name ?? '—',
+        beneficiaryAccount: b.clientId != null
+            ? (clientById[b.clientId!]?.name ?? b.clientFromAccount ?? '—')
+            : (b.clientFromAccount ?? '—'),
+      ));
+    }
+    for (final t in transfers) {
+      ops.add(_DetailedOp(
+        t: t.archivedAt ?? t.createdAt,
+        kind: 'تحويل خروج',
+        isIncome: false,
+        reference: t.reference.isEmpty
+            ? (t.id.length >= 8 ? t.id.substring(0, 8) : t.id)
+            : t.reference,
+        amount: t.amount,
+        sourceAccount:
+            '${exchangeById[t.exchangeId]?.name ?? '—'} / ${companyById[t.companyId]?.name ?? '—'}',
+        beneficiaryAccount: (t.beneficiaryAccountCompany?.isEmpty ?? true)
+            ? (t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName)
+            : t.beneficiaryAccountCompany!,
+      ));
+    }
+    ops.sort((a, b) => a.t.compareTo(b.t));
+
+    final rangeLabel = '${dayFmt.format(start)} → ${dayFmt.format(end)}';
+    final exportedAt = dateTime.format(DateTime.now());
+
+    pw.Widget headerSection() => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              'تفاصيل حركة الدخول والخروج للحوالات',
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 18,
+              ),
+              textDirection: pw.TextDirection.rtl,
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
+              style: const pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.grey700,
+              ),
+              textDirection: pw.TextDirection.rtl,
+            ),
+            pw.SizedBox(height: 10),
+          ],
+        );
+
+    if (ops.isEmpty) {
+      doc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(20),
+          theme: _theme,
+          textDirection: pw.TextDirection.rtl,
+          build: (_) => pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              children: [
+                headerSection(),
+                pw.Expanded(
+                  child: pw.Center(
+                    child: pw.Text(
+                      'لا توجد عمليات في الفترة المحددة',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        color: PdfColors.grey600,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return doc.save();
+    }
+
+    const headers = <String>[
+      'ت',
+      'الوقت',
+      'التاريخ',
+      'النوع',
+      'رقم العملية',
+      'قيمة العملية',
+      'الحساب المصدر',
+      'الحساب المستفيد',
+    ];
+
+    pw.Widget cell(
+      String text, {
+      required bool header,
+      PdfColor? color,
+    }) =>
+        pw.Container(
+          padding: pw.EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: header ? 6 : 4,
+          ),
+          alignment: pw.Alignment.center,
+          child: pw.Text(
+            text,
+            style: pw.TextStyle(
+              fontSize: header ? 10 : 9,
+              fontWeight:
+                  header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: color,
+            ),
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            softWrap: true,
+            maxLines: 2,
+            overflow: pw.TextOverflow.clip,
+          ),
+        );
+
+    final reversedHeaders = headers.reversed.toList();
+    final tableChildren = <pw.TableRow>[
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(
+          color: PdfColor.fromInt(0xFFF1F2F4),
+        ),
+        children: [for (final h in reversedHeaders) cell(h, header: true)],
+      ),
+      for (var i = 0; i < ops.length; i++)
+        pw.TableRow(
+          decoration: i.isOdd
+              ? const pw.BoxDecoration(
+                  color: PdfColor.fromInt(0xFFFAFAFB),
+                )
+              : null,
+          children: () {
+            final op = ops[i];
+            final cells = <String>[
+              '${i + 1}',
+              timeFmt.format(op.t),
+              dayFmt.format(op.t),
+              op.kind,
+              op.reference,
+              '${op.isIncome ? '+' : '-'}${formatMoney(op.amount)}',
+              op.sourceAccount,
+              op.beneficiaryAccount,
+            ];
+            final colorByOriginalIndex = <int, PdfColor>{
+              3: op.isIncome ? PdfColors.green800 : PdfColors.red800,
+              5: op.isIncome ? PdfColors.green800 : PdfColors.red800,
+            };
+            final reversed = cells.reversed.toList();
+            final result = <pw.Widget>[];
+            for (var j = 0; j < reversed.length; j++) {
+              final orig = cells.length - 1 - j;
+              result.add(cell(
+                reversed[j],
+                header: false,
+                color: colorByOriginalIndex[orig],
+              ));
+            }
+            return result;
+          }(),
+        ),
+    ];
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(20),
+        theme: _theme,
+        textDirection: pw.TextDirection.rtl,
+        header: (_) => pw.SizedBox(height: 0),
+        build: (context) => [
+          pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                headerSection(),
+                pw.Table(
+                  border: pw.TableBorder.all(
+                    color: PdfColors.grey400,
+                    width: 0.4,
+                  ),
+                  columnWidths: const {
+                    0: pw.FlexColumnWidth(2.0), // الحساب المستفيد
+                    1: pw.FlexColumnWidth(2.0), // الحساب المصدر
+                    2: pw.FlexColumnWidth(1.4), // قيمة العملية
+                    3: pw.FlexColumnWidth(1.5), // رقم العملية
+                    4: pw.FlexColumnWidth(1.2), // النوع
+                    5: pw.FlexColumnWidth(1.1), // التاريخ
+                    6: pw.FlexColumnWidth(1.0), // الوقت
+                    7: pw.FlexColumnWidth(0.5), // ت
+                  },
+                  children: tableChildren,
+                ),
+                pw.SizedBox(height: 12),
+                pw.Container(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Text(
+                    'عدد العمليات: ${ops.length}',
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                    textDirection: pw.TextDirection.rtl,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return doc.save();
+  }
+
   /// Hand the bytes to the OS print/share sheet.
   static Future<void> sharePdf(Uint8List bytes, String filename) async {
     await Printing.sharePdf(bytes: bytes, filename: filename);
   }
+}
+
+class _DetailedOp {
+  _DetailedOp({
+    required this.t,
+    required this.kind,
+    required this.isIncome,
+    required this.reference,
+    required this.amount,
+    required this.sourceAccount,
+    required this.beneficiaryAccount,
+  });
+  final DateTime t;
+  final String kind;
+  final bool isIncome;
+  final String reference;
+  final double amount;
+  final String sourceAccount;
+  final String beneficiaryAccount;
 }
 
 const _arabicDays = <String>[
