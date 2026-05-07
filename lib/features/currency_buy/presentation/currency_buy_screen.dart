@@ -949,8 +949,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               ),
               label: const Text('تنفيذ دخول حوالة'),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.positive,
-                foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),

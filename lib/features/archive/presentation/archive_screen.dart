@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
@@ -10,11 +9,9 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import 'archive_filters.dart';
+import 'diff_details_screen.dart';
 import 'history_details_screen.dart';
-
-enum _DateFilterMode { today, range }
-
-final DateFormat _filterDateFmt = DateFormat('yyyy/MM/dd');
 
 class ArchiveScreen extends ConsumerStatefulWidget {
   const ArchiveScreen({super.key});
@@ -24,15 +21,12 @@ class ArchiveScreen extends ConsumerStatefulWidget {
 }
 
 class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
-  _DateFilterMode _mode = _DateFilterMode.today;
+  DateFilterMode _mode = DateFilterMode.today;
   DateTime? _from;
   DateTime? _to;
 
   bool get _rangeReady =>
       _from != null && _to != null && !_from!.isAfter(_to!);
-
-  bool _inRange(DateTime? dt, DateTime start, DateTime end) =>
-      dt != null && !dt.isBefore(start) && !dt.isAfter(end);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -56,20 +50,6 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
     if (picked != null) setState(() => _to = picked);
   }
 
-  ({DateTime start, DateTime end}) _activeRange() {
-    final now = DateTime.now();
-    if (_mode == _DateFilterMode.today || !_rangeReady) {
-      return (
-        start: DateTime(now.year, now.month, now.day),
-        end: DateTime(now.year, now.month, now.day, 23, 59, 59, 999),
-      );
-    }
-    return (
-      start: DateTime(_from!.year, _from!.month, _from!.day),
-      end: DateTime(_to!.year, _to!.month, _to!.day, 23, 59, 59, 999),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final archivedBuys =
@@ -77,21 +57,24 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
 
-    final r = _activeRange();
-    final filteredBuys =
-        archivedBuys.where((b) => _inRange(b.archivedAt, r.start, r.end)).toList();
+    final r = resolveActiveRange(mode: _mode, from: _from, to: _to);
+    final filteredBuys = archivedBuys
+        .where((b) => inDateRange(b.archivedAt, r.start, r.end))
+        .toList();
     final filteredTransfers = archivedTransfers
-        .where((t) => _inRange(t.archivedAt, r.start, r.end))
+        .where((t) => inDateRange(t.archivedAt, r.start, r.end))
         .toList();
 
     final incomeTotal =
         filteredBuys.fold<double>(0, (s, b) => s + b.usdAmount);
     final outgoingTotal =
         filteredTransfers.fold<double>(0, (s, t) => s + t.amount);
+    final diff = incomeTotal - outgoingTotal;
 
-    final showRangeSuffix = _mode == _DateFilterMode.range && _rangeReady;
+    final showRangeSuffix =
+        _mode == DateFilterMode.range && _rangeReady;
     final titleSuffix = showRangeSuffix
-        ? ' — ${_filterDateFmt.format(_from!)} → ${_filterDateFmt.format(_to!)}'
+        ? ' — ${archiveFilterDateFmt.format(_from!)} → ${archiveFilterDateFmt.format(_to!)}'
         : '';
 
     final detailsRange = DateTimeRange(start: r.start, end: r.end);
@@ -99,13 +82,13 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        _DateFilterBar(
+        DateFilterBar(
           mode: _mode,
           from: _from,
           to: _to,
           onModeChanged: (m) => setState(() {
             _mode = m;
-            if (m == _DateFilterMode.today) {
+            if (m == DateFilterMode.today) {
               _from = null;
               _to = null;
             }
@@ -113,7 +96,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
           onPickFrom: _pickFrom,
           onPickTo: _pickTo,
           showInvalidHint:
-              _mode == _DateFilterMode.range && !_rangeReady,
+              _mode == DateFilterMode.range && !_rangeReady,
         ),
         const SizedBox(height: 12),
         Row(
@@ -136,6 +119,16 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+        _DiffNavTile(
+          diff: diff,
+          hasAny: filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => DiffDetailsScreen(initialRange: detailsRange),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         _DetailNavTile(
@@ -248,6 +241,128 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _DiffNavTile extends StatelessWidget {
+  const _DiffNavTile({
+    required this.diff,
+    required this.hasAny,
+    required this.onTap,
+  });
+
+  final double diff;
+  final bool hasAny;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPositive = diff >= 0;
+    final tint = !hasAny
+        ? AppColors.textLow
+        : (isPositive ? AppColors.positive : AppColors.negative);
+    final sign = !hasAny ? '' : (isPositive ? '+' : '-');
+    final magnitude = formatMoney(diff.abs());
+    final caption = !hasAny
+        ? 'لا توجد إقفالات بعد'
+        : (diff == 0
+            ? 'متوازن'
+            : (isPositive
+                ? 'الدخول أكثر من الخروج'
+                : 'الخروج أكثر من الدخول'));
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFE0B341).withValues(alpha: 0.30),
+                      const Color(0xFFCB8C13).withValues(alpha: 0.18),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFFE0B341).withValues(alpha: 0.7),
+                    width: 1.5,
+                  ),
+                ),
+                child: const FaIcon(
+                  FontAwesomeIcons.scaleBalanced,
+                  size: 24,
+                  color: Color(0xFFE0B341),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'فرق الحركة',
+                      style: TextStyle(
+                        color: AppColors.textMid,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasAny ? '$sign\$$magnitude' : '—',
+                      style: TextStyle(
+                        color: tint,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 22,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: tint,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          caption,
+                          style: const TextStyle(
+                            color: AppColors.textLow,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const FaIcon(
+                FontAwesomeIcons.chevronLeft,
+                size: 12,
+                color: AppColors.textLow,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DetailNavTile extends StatelessWidget {
   const _DetailNavTile({required this.income, required this.onTap});
   final bool income;
@@ -317,197 +432,6 @@ class _DetailNavTile extends StatelessWidget {
                 FontAwesomeIcons.chevronLeft,
                 size: 12,
                 color: AppColors.textLow,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateFilterBar extends StatelessWidget {
-  const _DateFilterBar({
-    required this.mode,
-    required this.from,
-    required this.to,
-    required this.onModeChanged,
-    required this.onPickFrom,
-    required this.onPickTo,
-    required this.showInvalidHint,
-  });
-
-  final _DateFilterMode mode;
-  final DateTime? from;
-  final DateTime? to;
-  final ValueChanged<_DateFilterMode> onModeChanged;
-  final VoidCallback onPickFrom;
-  final VoidCallback onPickTo;
-  final bool showInvalidHint;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _ModeChip(
-                  label: 'اليوم',
-                  selected: mode == _DateFilterMode.today,
-                  onTap: () => onModeChanged(_DateFilterMode.today),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ModeChip(
-                  label: 'من — إلى',
-                  selected: mode == _DateFilterMode.range,
-                  onTap: () => onModeChanged(_DateFilterMode.range),
-                ),
-              ),
-            ],
-          ),
-          if (mode == _DateFilterMode.range) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _DateField(
-                    label: 'من',
-                    value: from,
-                    onTap: onPickFrom,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _DateField(
-                    label: 'إلى',
-                    value: to,
-                    onTap: onPickTo,
-                  ),
-                ),
-              ],
-            ),
-            if (showInvalidHint) ...[
-              const SizedBox(height: 6),
-              const Text(
-                'حدّد تاريخ البداية والنهاية',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.warning,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.accent.withValues(alpha: 0.15)
-                : AppColors.glassFill,
-            border: Border.all(
-              color: selected ? AppColors.accent : AppColors.glassBorder,
-              width: selected ? 1.4 : 1,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? AppColors.accent : AppColors.textMid,
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final DateTime? value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final display =
-        value == null ? '—' : _filterDateFmt.format(value!);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          decoration: BoxDecoration(
-            color: AppColors.glassFill,
-            border: Border.all(color: AppColors.glassBorder),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              const FaIcon(
-                FontAwesomeIcons.calendar,
-                size: 13,
-                color: AppColors.textLow,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.textLow,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  display,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    color: AppColors.textHigh,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
             ],
           ),
