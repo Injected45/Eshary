@@ -4,17 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
-import '../../../shared/logger.dart';
-import '../../../shared/pdf_export.dart';
-import '../../clients/domain/client.dart';
-import '../../clients/presentation/clients_providers.dart';
-import '../../companies/domain/company.dart';
-import '../../companies/domain/exchange.dart';
-import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
@@ -35,7 +27,6 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
   DateFilterMode _mode = DateFilterMode.today;
   DateTime? _from;
   DateTime? _to;
-  bool _tableExpanded = false;
 
   @override
   void initState() {
@@ -120,26 +111,9 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('تفاصيل حركة فرق الحركة'),
+        title: const Text('تفاصيل فرق الحركة'),
         backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
         elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'تصدير PDF',
-            onPressed: hasAny
-                ? () => _exportPdf(
-                      buys: filteredBuys,
-                      transfers: filteredTransfers,
-                      start: r.start,
-                      end: r.end,
-                      incomeTotal: incomeTotal,
-                      outgoingTotal: outgoingTotal,
-                      diff: diff,
-                    )
-                : null,
-            icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -170,67 +144,10 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
             outgoingTotal: outgoingTotal,
             diff: diff,
           ),
-          const SizedBox(height: 14),
-          _OperationsTable(
-            buys: filteredBuys,
-            transfers: filteredTransfers,
-            expanded: _tableExpanded,
-            onToggle: () =>
-                setState(() => _tableExpanded = !_tableExpanded),
-          ),
           const SizedBox(height: 16),
         ],
       ),
     );
-  }
-
-  Future<void> _exportPdf({
-    required List<CurrencyBuy> buys,
-    required List<Transfer> transfers,
-    required DateTime start,
-    required DateTime end,
-    required double incomeTotal,
-    required double outgoingTotal,
-    required double diff,
-  }) async {
-    try {
-      final companies =
-          ref.read(companiesListProvider).value ?? const <Company>[];
-      final exchanges =
-          ref.read(allExchangesProvider).value ?? const <Exchange>[];
-      final clients =
-          ref.read(clientsListProvider).value ?? const <Client>[];
-
-      final supabase = ref.read(supabaseClientProvider);
-      final user = supabase.auth.currentUser;
-      final userName = (user?.userMetadata?['full_name'] as String?) ??
-          (user?.userMetadata?['name'] as String?) ??
-          user?.email;
-
-      final pdf = await PdfExport.load();
-      final bytes = await pdf.buildDiffMovementReport(
-        buys: buys,
-        transfers: transfers,
-        companyById: {for (final c in companies) c.id: c},
-        exchangeById: {for (final e in exchanges) e.id: e},
-        clientById: {for (final c in clients) c.id: c},
-        start: start,
-        end: end,
-        incomeTotal: incomeTotal,
-        outgoingTotal: outgoingTotal,
-        diff: diff,
-        executingUserName: userName,
-      );
-      final filename = 'diff_movement_'
-          '${DateFormat('yyyyMMdd').format(start)}_'
-          '${DateFormat('yyyyMMdd').format(end)}.pdf';
-      await PdfExport.sharePdf(bytes, filename);
-    } catch (e, st) {
-      AppLogger.error('diffDetails.exportPdf', e, st);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
-    }
   }
 }
 
@@ -251,10 +168,6 @@ List<_Bucket> _bucketize({
 }) {
   final spanDays = end.difference(start).inDays + 1;
 
-  // Choose bucket granularity.
-  // - Today (single day): 12 buckets of 2h
-  // - <= 14 days range: per-day buckets
-  // - > 14 days: per-week buckets
   final List<_Bucket> buckets = [];
   if (mode == DateFilterMode.today || spanDays <= 1) {
     final base = DateTime(start.year, start.month, start.day);
@@ -289,7 +202,8 @@ List<_Bucket> _bucketize({
     } else if (spanDays <= 14) {
       final base = DateTime(start.year, start.month, start.day);
       final tBase = DateTime(ts.year, ts.month, ts.day);
-      final idx = tBase.difference(base).inDays.clamp(0, buckets.length - 1);
+      final idx =
+          tBase.difference(base).inDays.clamp(0, buckets.length - 1);
       return idx;
     } else {
       final base = DateTime(start.year, start.month, start.day);
@@ -648,7 +562,6 @@ class _LineChart extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Hide the second tooltip item (we render both lines together).
                 const LineTooltipItem('', TextStyle()),
               ];
             },
@@ -810,236 +723,6 @@ class _SummaryTile extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _OperationRow {
-  _OperationRow({
-    required this.t,
-    required this.kind,
-    required this.amountSigned,
-    required this.account,
-    required this.party,
-    required this.status,
-    this.runningDiff = 0,
-  });
-  final DateTime t;
-  final String kind;
-  final double amountSigned;
-  final String account;
-  final String party;
-  final String status;
-  double runningDiff;
-}
-
-class _OperationsTable extends ConsumerWidget {
-  const _OperationsTable({
-    required this.buys,
-    required this.transfers,
-    required this.expanded,
-    required this.onToggle,
-  });
-
-  final List<CurrencyBuy> buys;
-  final List<Transfer> transfers;
-  final bool expanded;
-  final VoidCallback onToggle;
-
-  String _statusLabel(dynamic status) {
-    switch (status.toString()) {
-      case 'CurrencyBuyStatus.archived':
-      case 'TransferStatus.archived':
-        return 'مرحّلة';
-      case 'CurrencyBuyStatus.pending':
-        return 'معلّقة';
-      default:
-        return 'يومية';
-    }
-  }
-
-  List<_OperationRow> _buildRows(WidgetRef ref) {
-    final companies =
-        ref.read(companiesListProvider).value ?? const <Company>[];
-    final exchanges =
-        ref.read(allExchangesProvider).value ?? const <Exchange>[];
-    final clients =
-        ref.read(clientsListProvider).value ?? const <Client>[];
-
-    final companyName = <String, String>{
-      for (final c in companies) c.id: c.name,
-    };
-    final exchangeName = <String, String>{
-      for (final e in exchanges) e.id: e.name,
-    };
-    final clientName = <String, String>{
-      for (final c in clients) c.id: c.name,
-    };
-
-    final all = <_OperationRow>[];
-    for (final b in buys) {
-      all.add(_OperationRow(
-        t: b.archivedAt ?? b.createdAt,
-        kind: 'دخول',
-        amountSigned: b.usdAmount,
-        account: companyName[b.myCompanyId] ?? '—',
-        party: b.clientId != null
-            ? (clientName[b.clientId!] ??
-                b.clientFromAccount ??
-                '—')
-            : (b.clientFromAccount ?? '—'),
-        status: _statusLabel(b.status),
-        runningDiff: 0,
-      ));
-    }
-    for (final t in transfers) {
-      all.add(_OperationRow(
-        t: t.archivedAt ?? t.createdAt,
-        kind: 'خروج',
-        amountSigned: -t.amount,
-        account: '${exchangeName[t.exchangeId] ?? '—'} / '
-            '${companyName[t.companyId] ?? '—'}',
-        party: t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName,
-        status: _statusLabel(t.status),
-        runningDiff: 0,
-      ));
-    }
-    all.sort((a, b) => a.t.compareTo(b.t));
-
-    var run = 0.0;
-    for (final r in all) {
-      run += r.amountSigned;
-      r.runningDiff = run;
-    }
-    return all;
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rows = _buildRows(ref);
-    final tf = DateFormat('hh:mm a');
-    final df = DateFormat('yyyy/MM/dd');
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-        ),
-        child: ExpansionTile(
-          initiallyExpanded: expanded,
-          onExpansionChanged: (_) => onToggle(),
-          tilePadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-          title: const Text(
-            'كل العمليات',
-            style: TextStyle(
-              color: AppColors.textHigh,
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          trailing: FaIcon(
-            expanded
-                ? FontAwesomeIcons.chevronUp
-                : FontAwesomeIcons.chevronDown,
-            size: 14,
-            color: AppColors.textLow,
-          ),
-          children: [
-            if (rows.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(
-                    'لا توجد عمليات في هذه الفترة',
-                    style: TextStyle(
-                      color: AppColors.textLow,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowHeight: 36,
-                  dataRowMinHeight: 36,
-                  dataRowMaxHeight: 44,
-                  columnSpacing: 18,
-                  columns: const [
-                    DataColumn(label: Text('الوقت')),
-                    DataColumn(label: Text('النوع')),
-                    DataColumn(label: Text('القيمة')),
-                    DataColumn(label: Text('الحساب')),
-                    DataColumn(label: Text('الجهة')),
-                    DataColumn(label: Text('الحالة')),
-                    DataColumn(label: Text('فرق بعدها')),
-                  ],
-                  rows: [
-                    for (final r in rows)
-                      DataRow(cells: [
-                        DataCell(Text(
-                          '${tf.format(r.t)}\n${df.format(r.t)}',
-                          style: const TextStyle(fontSize: 11),
-                        )),
-                        DataCell(Text(
-                          r.kind,
-                          style: TextStyle(
-                            color: r.kind == 'دخول'
-                                ? AppColors.positive
-                                : AppColors.negative,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )),
-                        DataCell(Text(
-                          '${r.amountSigned >= 0 ? '+' : '-'}\$${formatMoney(r.amountSigned.abs())}',
-                          style: TextStyle(
-                            color: r.amountSigned >= 0
-                                ? AppColors.positive
-                                : AppColors.negative,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )),
-                        DataCell(SizedBox(
-                          width: 140,
-                          child: Text(
-                            r.account,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        )),
-                        DataCell(SizedBox(
-                          width: 120,
-                          child: Text(
-                            r.party,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        )),
-                        DataCell(Text(
-                          r.status,
-                          style: const TextStyle(fontSize: 11),
-                        )),
-                        DataCell(Text(
-                          '${r.runningDiff >= 0 ? '+' : '-'}\$${formatMoney(r.runningDiff.abs())}',
-                          style: TextStyle(
-                            color: r.runningDiff >= 0
-                                ? AppColors.positive
-                                : AppColors.negative,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )),
-                      ]),
-                  ],
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
