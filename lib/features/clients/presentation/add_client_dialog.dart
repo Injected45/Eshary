@@ -9,12 +9,19 @@ import '../../../shared/logger.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
+import 'saved_clients_dialog.dart';
 
 class AddClientDialog extends ConsumerStatefulWidget {
-  const AddClientDialog({super.key, required this.onSaved, this.existing});
+  const AddClientDialog({
+    super.key,
+    required this.onSaved,
+    this.existing,
+    this.config = const SavedEntitiesConfig(),
+  });
 
   final VoidCallback onSaved;
   final Client? existing;
+  final SavedEntitiesConfig config;
 
   @override
   ConsumerState<AddClientDialog> createState() => _AddClientDialogState();
@@ -80,6 +87,31 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cfg = widget.config;
+    final nameField = TextField(
+      controller: _name,
+      decoration: InputDecoration(labelText: cfg.nameLabel),
+    );
+    final companyField = ref.watch(exchangeCompaniesListProvider).when(
+          data: (companies) => DropdownButtonFormField<String>(
+            value: _companySelection,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'من حساب شركة',
+              hintText: 'اختر الشركة',
+            ),
+            items: companies
+                .map((c) => DropdownMenuItem<String>(
+                      value: c.name,
+                      child: Text(c.name),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => _companySelection = v),
+          ),
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        );
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
@@ -118,7 +150,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _isEdit ? 'تعديل عميل' : 'إضافة عميل جديد',
+                      _isEdit ? cfg.editTitle : cfg.addTitle,
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -135,32 +167,15 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _name,
-                decoration:
-                    const InputDecoration(labelText: 'اسم العميل'),
-              ),
-              const SizedBox(height: 14),
-              ref.watch(exchangeCompaniesListProvider).when(
-                    data: (companies) => DropdownButtonFormField<String>(
-                      value: _companySelection,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'من حساب شركة',
-                        hintText: 'اختر الشركة',
-                      ),
-                      items: companies
-                          .map((c) => DropdownMenuItem<String>(
-                                value: c.name,
-                                child: Text(c.name),
-                              ))
-                          .toList(),
-                      onChanged: (v) =>
-                          setState(() => _companySelection = v),
-                    ),
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('$e'),
-                  ),
+              if (cfg.companyFieldFirst) ...[
+                companyField,
+                const SizedBox(height: 14),
+                nameField,
+              ] else ...[
+                nameField,
+                const SizedBox(height: 14),
+                companyField,
+              ],
               const SizedBox(height: 14),
               TextField(
                 controller: _code,

@@ -9,7 +9,6 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/share.dart';
-import '../../../core/supabase_provider.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
 import '../../companies/domain/company.dart';
@@ -322,15 +321,28 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         .showSnackBar(SnackBar(content: Text(text)));
   }
 
+  bool get _outgoingFieldsEnabled =>
+      _exchangeCompanyName != null && _exchange != null;
+
+  void _showOutgoingValidation() {
+    _snack('اختر الشركة واسم الحساب المراد التحويل منه أولاً');
+  }
+
   Future<void> _openSavedBeneficiariesDialog() async {
     final picked = await showGlassDialog<Client>(
       context: context,
-      builder: (_) => const SavedClientsDialog(),
+      builder: (_) =>
+          const SavedClientsDialog(config: SavedEntitiesConfig.beneficiaries),
     );
     if (picked != null && mounted) {
       setState(() {
-        _beneficiaryName.text = picked.name;
+        // Label swap (Task 7): the field labeled "الشركة المستفيدة" stays
+        // bound to _beneficiaryAccount → DB beneficiary_account_company.
+        // The field labeled "حساب المستفيد" stays bound to _beneficiaryName
+        // → DB beneficiary_name. Saved client provides .company for the
+        // company-labeled field and .name for the account-labeled field.
         _beneficiaryAccount.text = picked.company ?? '';
+        _beneficiaryName.text = picked.name;
         _beneficiaryCode.text = picked.code ?? '';
       });
     }
@@ -354,8 +366,10 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void fillDefaults() {
     setState(() {
       _amount.text = '1000.00';
-      _beneficiaryName.text = 'شركة الاختبار التجريبية';
-      _beneficiaryAccount.text = 'حساب اختبار';
+      // After Task 7 label swap: _beneficiaryAccount is labeled
+      // "الشركة المستفيدة" and _beneficiaryName is labeled "حساب المستفيد".
+      _beneficiaryAccount.text = 'شركة الاختبار التجريبية';
+      _beneficiaryName.text = 'حساب اختبار';
       _beneficiaryCode.text = 'TEST-001';
     });
     if (_exchange == null) {
@@ -417,9 +431,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        // Section 1 — الجهة المنفذة
+        // Section 1 (top) — الجهة المستفيدة (Task 11: swapped to top)
         _CollapsibleSection(
-          header: const _NumberedSectionTitle(1, 'الجهة المنفذة'),
+          header: const _NumberedSectionTitle(1, 'الجهة المستفيدة'),
           expanded: _activeSection == 1,
           onToggle: () => setState(
             () => _activeSection = _activeSection == 1 ? null : 1,
@@ -427,8 +441,72 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openSavedBeneficiariesDialog(),
+                  icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
+                  label: const Text('الجهات المحفوظة'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
               _LabeledField(
-                label: 'شركة الصرافة',
+                label: 'الشركة المستفيدة',
+                child: TextField(
+                  controller: _beneficiaryAccount,
+                  decoration: const InputDecoration(
+                    hintText: 'اسم الشركة المستفيدة',
+                    suffixIcon: _IconBox(FontAwesomeIcons.building),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'حساب المستفيد',
+                child: TextField(
+                  controller: _beneficiaryName,
+                  decoration: const InputDecoration(
+                    hintText: 'اسم حساب المستفيد',
+                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'كود حساب المستفيد',
+                child: TextField(
+                  controller: _beneficiaryCode,
+                  decoration: const InputDecoration(
+                    hintText: 'أدخل كود حساب المستفيد',
+                    suffixIcon: _IconBox(FontAwesomeIcons.user),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Section 2 (bottom) — خروج من حساب (Task 11: renamed from "الجهة المنفذة")
+        _CollapsibleSection(
+          header: const _NumberedSectionTitle(2, 'خروج من حساب'),
+          expanded: _activeSection == 2,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 2 ? null : 2,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _LabeledField(
+                label: 'الشركة',
                 child: exchangeCompaniesAsync.when(
                   data: (items) {
                     if (items.isEmpty) {
@@ -466,7 +544,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                       value: liveValue,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        hintText: 'اختر شركة الصرافة',
+                        hintText: 'اختر الشركة',
                         suffixIcon: _IconBox(FontAwesomeIcons.building),
                       ),
                       items: names
@@ -482,7 +560,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               ),
               const SizedBox(height: 12),
               _LabeledField(
-                label: 'إسم الحساب',
+                label: 'اسم الحساب',
                 child: exchangesAsync.when(
                   data: (allExchanges) {
                     final filtered = _exchangeCompanyName == null
@@ -508,8 +586,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                       isExpanded: true,
                       decoration: InputDecoration(
                         hintText: _exchangeCompanyName == null
-                            ? 'اختر شركة الصرافة أولاً'
-                            : 'اختر إسم الحساب',
+                            ? 'اختر الشركة أولاً'
+                            : 'اختر اسم الحساب',
                         suffixIcon: const _IconBox(FontAwesomeIcons.wallet),
                       ),
                       items: filtered
@@ -527,6 +605,20 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   },
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('$e'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'كود الحساب',
+                child: TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _exchange?.ourCode ?? '',
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'اختر الشركة واسم الحساب أولاً ليتم جلب الكود تلقائياً',
+                    suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -575,89 +667,51 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               const SizedBox(height: 12),
               _LabeledField(
                 label: 'القيمة بالدولار (USD)',
-                child: TextField(
-                  controller: _amount,
-                  keyboardType: TextInputType.number,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHigh,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'أدخل قيمة التحويل',
-                    suffixIcon: const _IconBox(
-                      FontAwesomeIcons.dollarSign,
-                      color: AppColors.positive,
-                    ),
-                    errorText: _overBalance
-                        ? 'المبلغ يتجاوز رصيد الحساب (${formatMoney(_exchange?.balance ?? 0)} \$)'
-                        : null,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Section 2 — جهة الاستلام
-        _CollapsibleSection(
-          header: const _NumberedSectionTitle(2, 'جهة الاستلام'),
-          expanded: _activeSection == 2,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 2 ? null : 2,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openSavedBeneficiariesDialog(),
-                  icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
-                  label: const Text('الجهات المحفوظة'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(
-                      color: AppColors.accent.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _LabeledField(
-                label: 'الشركة المستفيدة',
-                child: TextField(
-                  controller: _beneficiaryName,
-                  decoration: const InputDecoration(
-                    hintText: 'اسم الشركة المستفيدة',
-                    suffixIcon: _IconBox(FontAwesomeIcons.building),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'حساب المستلم',
-                child: TextField(
-                  controller: _beneficiaryAccount,
-                  decoration: const InputDecoration(
-                    hintText: 'اسم الحساب أو البنك',
-                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'كود حساب المستلم',
-                child: TextField(
-                  controller: _beneficiaryCode,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل كود حساب المستلم',
-                    suffixIcon: _IconBox(FontAwesomeIcons.user),
-                  ),
-                ),
+                child: _outgoingFieldsEnabled
+                    ? TextField(
+                        controller: _amount,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textHigh,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'أدخل قيمة التحويل',
+                          suffixIcon: const _IconBox(
+                            FontAwesomeIcons.dollarSign,
+                            color: AppColors.positive,
+                          ),
+                          errorText: _overBalance
+                              ? 'المبلغ يتجاوز رصيد الحساب (${formatMoney(_exchange?.balance ?? 0)} \$)'
+                              : null,
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: _showOutgoingValidation,
+                        child: AbsorbPointer(
+                          child: Opacity(
+                            opacity: 0.55,
+                            child: TextField(
+                              controller: _amount,
+                              enabled: false,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHigh,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText:
+                                    'اختر الشركة واسم الحساب أولاً',
+                                suffixIcon: _IconBox(
+                                  FontAwesomeIcons.dollarSign,
+                                  color: AppColors.positive,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

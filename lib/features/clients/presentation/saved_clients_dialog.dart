@@ -9,8 +9,42 @@ import '../data/clients_repository.dart';
 import 'add_client_dialog.dart';
 import 'clients_providers.dart';
 
+class SavedEntitiesConfig {
+  const SavedEntitiesConfig({
+    this.listTitle = 'العملاء المحفوظون',
+    this.addTitle = 'إضافة عميل جديد',
+    this.editTitle = 'تعديل عميل',
+    this.nameLabel = 'اسم العميل',
+    this.companyFieldFirst = false,
+    this.emptyMessage = 'ابدأ بإضافة جهة جديدة لبدء عمليات التحويل',
+    this.addTooltip = 'إضافة عميل جديد',
+  });
+
+  final String listTitle;
+  final String addTitle;
+  final String editTitle;
+  final String nameLabel;
+  final bool companyFieldFirst;
+  final String emptyMessage;
+  final String addTooltip;
+
+  static const beneficiaries = SavedEntitiesConfig(
+    listTitle: 'المستفيدون',
+    addTitle: 'إضافة جهة جديدة',
+    editTitle: 'تعديل جهة',
+    nameLabel: 'اسم الجهة',
+    companyFieldFirst: true,
+    addTooltip: 'إضافة جهة جديدة',
+  );
+}
+
 class SavedClientsDialog extends ConsumerStatefulWidget {
-  const SavedClientsDialog({super.key});
+  const SavedClientsDialog({
+    super.key,
+    this.config = const SavedEntitiesConfig(),
+  });
+
+  final SavedEntitiesConfig config;
 
   @override
   ConsumerState<SavedClientsDialog> createState() =>
@@ -23,6 +57,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
       context: context,
       builder: (_) => AddClientDialog(
         onSaved: () => ref.invalidate(clientsListProvider),
+        config: widget.config,
       ),
     );
   }
@@ -30,6 +65,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
   @override
   Widget build(BuildContext context) {
     final listAsync = ref.watch(clientsListProvider);
+    final cfg = widget.config;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -66,10 +102,10 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'العملاء المحفوظون',
-                      style: TextStyle(
+                      cfg.listTitle,
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textHigh,
@@ -77,7 +113,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'إضافة عميل جديد',
+                    tooltip: cfg.addTooltip,
                     onPressed: _openAddSheet,
                     icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
                     color: AppColors.accent,
@@ -93,14 +129,18 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
               listAsync.when(
                 data: (items) {
                   if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 18,
+                      ),
                       child: Center(
                         child: Text(
-                          'لا يوجد عملاء محفوظون',
-                          style: TextStyle(
+                          cfg.emptyMessage,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
                             color: AppColors.textLow,
-                            fontSize: 12,
+                            fontSize: 13,
                           ),
                         ),
                       ),

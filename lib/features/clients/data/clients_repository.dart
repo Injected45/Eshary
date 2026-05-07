@@ -57,8 +57,22 @@ class ClientsRepository {
   }
 
   Future<void> delete(String id) async {
+    final usage = await _client
+        .from('currency_buys')
+        .select('id')
+        .eq('client_id', id)
+        .limit(1);
+    if ((usage as List).isNotEmpty) {
+      throw const ClientHasOperationsException();
+    }
     await _client.from('clients').delete().eq('id', id);
   }
+}
+
+class ClientHasOperationsException implements Exception {
+  const ClientHasOperationsException();
+  @override
+  String toString() => 'client_has_operations';
 }
 
 final clientsRepositoryProvider = Provider<ClientsRepository>((ref) {

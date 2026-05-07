@@ -16,7 +16,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies migrations 0001–0011 in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies migrations 0001–0017 in order.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0011    # schema, RLS, RPC functions, auth trigger, beneficiaries, exchange-companies, countries
+supabase/migrations/0001..0017    # schema, RLS, RPC functions, auth trigger, beneficiaries, exchange-companies, countries, deferred-balance
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -41,9 +41,11 @@ Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`
 - `JsonCache` (`lib/shared/cache.dart`) is a thin `SharedPreferences` JSON store. Keys are scoped per signed-in user (`cache:<table>:<uid>:<status>`). The `sharedPreferencesProvider` is overridden in `main.dart` after `SharedPreferences.getInstance()`.
 - Routing: `go_router` in `core/router.dart`. Auth gate redirects unauthed users to `/sign-in`. `_StreamRefresh` bridges `SupabaseClient.auth.onAuthStateChange` into GoRouter's `refreshListenable` so session changes re-evaluate redirects.
 
-### Atomic balance mutations (critical)
+### Deferred balance mutations (critical)
 
-Every transfer/buy insert and the matching `exchanges.balance` update must happen in **one Postgres transaction**. This is enforced by RPC functions in `supabase/migrations/0004_record_functions.sql` — `record_transfer`, `record_currency_buy`, `record_pending_buy`. Repositories call these via `client.rpc(...)`; never write a two-step `insert` + `update balance` from Dart, and never bypass these RPCs. They are `security invoker` and verify `auth.uid()` ownership.
+Balance updates are **deferred to archival**. Per-row insert RPCs (`record_transfer`, `record_currency_buy`, `record_pending_buy` — defined in `0004_record_functions.sql`, redefined by `0017_defer_balance_update.sql`) write the row only and do **not** touch `exchanges.balance`. The two `archive_*` functions in `0017_defer_balance_update.sql` aggregate the daily rows per exchange, apply the summed delta to `exchanges.balance`, and flip status — all inside one Postgres transaction. Repositories call all five RPCs via `client.rpc(...)`; never write a two-step `insert` + `update balance` from Dart, and never bypass these RPCs. They are `security invoker` and verify `auth.uid()` ownership.
+
+This means: during the day, `exchanges.balance` does not move when transfers/buys are entered. The balance jumps once when the user runs the close-and-archive action.
 
 ### Database
 

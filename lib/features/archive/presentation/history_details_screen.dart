@@ -21,8 +21,13 @@ import '../../transfers/presentation/transfers_providers.dart';
 enum HistoryKind { income, outgoing }
 
 class HistoryDetailsScreen extends ConsumerStatefulWidget {
-  const HistoryDetailsScreen({super.key, required this.kind});
+  const HistoryDetailsScreen({
+    super.key,
+    required this.kind,
+    this.initialRange,
+  });
   final HistoryKind kind;
+  final DateTimeRange? initialRange;
 
   @override
   ConsumerState<HistoryDetailsScreen> createState() =>
@@ -32,6 +37,12 @@ class HistoryDetailsScreen extends ConsumerStatefulWidget {
 class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
   bool _newestFirst = true;
   DateTimeRange? _filterRange;
+
+  @override
+  void initState() {
+    super.initState();
+    _filterRange = widget.initialRange;
+  }
 
   bool get _isIncome => widget.kind == HistoryKind.income;
   Color get _tint => _isIncome ? AppColors.positive : AppColors.negative;

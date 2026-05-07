@@ -117,6 +117,9 @@ class AppLogger {
 /// Translate a raw exception into a short Arabic user-facing message.
 String friendlyError(Object e) {
   final s = e.toString();
+  if (s.contains('client_has_operations')) {
+    return 'لا يمكن حذف هذه الجهة لارتباطها بعمليات مالية سابقة.';
+  }
   if (s.contains('current_license_status') ||
       s.contains('account_licenses')) {
     return 'تعذّر التحقق من حالة الحساب.';
