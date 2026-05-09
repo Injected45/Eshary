@@ -326,9 +326,10 @@ class PdfExport {
     return doc.save();
   }
 
-  /// "تفاصيل حركة الدخول والخروج للحوالات" — landscape A4, 8 columns
-  /// (sequential index + 7 data columns). One row per archived buy/transfer
-  /// inside the selected period.
+  /// "تفاصيل حركة الدخول والخروج للحوالات" — landscape A4. One row per
+  /// archived buy/transfer inside the selected period. Columns:
+  /// ت | الوقت | التاريخ | النوع | إشاري | إشاري المرسل | قيمة العملية |
+  /// الرصيد قبل | الرصيد بعد | فرق تراكمي | حساباتي | الجهة
   Future<Uint8List> buildDetailedTransfersReport({
     required List<CurrencyBuy> buys,
     required List<Transfer> transfers,
@@ -337,70 +338,155 @@ class PdfExport {
     required Map<String, Client> clientById,
     required DateTime start,
     required DateTime end,
+    String? exportedBy,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
     final timeFmt = DateFormat('hh:mm a');
+    final exportFmt = DateFormat('yyyy-MM-dd | hh:mm a');
+
+    String slash(String? a, String? b) {
+      final x = (a ?? '').trim();
+      final y = (b ?? '').trim();
+      if (x.isEmpty && y.isEmpty) return '—';
+      if (x.isEmpty) return y;
+      if (y.isEmpty) return x;
+      return '$x / $y';
+    }
 
     final ops = <_DetailedOp>[];
     for (final b in buys) {
-      ops.add(_DetailedOp(
-        t: b.archivedAt ?? b.createdAt,
-        kind: 'شراء دخول',
-        isIncome: true,
-        reference: b.reference.isEmpty
-            ? (b.id.length >= 8 ? b.id.substring(0, 8) : b.id)
-            : b.reference,
-        amount: b.usdAmount,
-        sourceAccount: companyById[b.myCompanyId]?.name ?? '—',
-        beneficiaryAccount: b.clientId != null
-            ? (clientById[b.clientId!]?.name ?? b.clientFromAccount ?? '—')
-            : (b.clientFromAccount ?? '—'),
-      ));
+      final myCompany = companyById[b.myCompanyId]?.name;
+      final myExchange = exchangeById[b.exchangeId]?.name;
+      final client = b.clientId != null ? clientById[b.clientId!] : null;
+      final partyCompany = client?.company ?? '';
+      final partyName = client?.name ?? b.clientFromAccount ?? '';
+      ops.add(
+        _DetailedOp(
+          t: b.archivedAt ?? b.createdAt,
+          kind: 'دخول',
+          isIncome: true,
+          reference: b.reference.isEmpty
+              ? (b.id.length >= 8 ? b.id.substring(0, 8) : b.id)
+              : b.reference,
+          senderReference: b.reference.isEmpty ? '—' : b.reference,
+          amount: b.usdAmount,
+          myAccount: slash(myCompany, myExchange),
+          party: slash(partyCompany, partyName),
+        ),
+      );
     }
     for (final t in transfers) {
-      ops.add(_DetailedOp(
-        t: t.archivedAt ?? t.createdAt,
-        kind: 'تحويل خروج',
-        isIncome: false,
-        reference: t.reference.isEmpty
-            ? (t.id.length >= 8 ? t.id.substring(0, 8) : t.id)
-            : t.reference,
-        amount: t.amount,
-        sourceAccount:
-            '${exchangeById[t.exchangeId]?.name ?? '—'} / ${companyById[t.companyId]?.name ?? '—'}',
-        beneficiaryAccount: (t.beneficiaryAccountCompany?.isEmpty ?? true)
-            ? (t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName)
-            : t.beneficiaryAccountCompany!,
-      ));
+      final myCompany = companyById[t.companyId]?.name;
+      final myExchange = exchangeById[t.exchangeId]?.name;
+      ops.add(
+        _DetailedOp(
+          t: t.archivedAt ?? t.createdAt,
+          kind: 'خروج',
+          isIncome: false,
+          reference: (t.beneficiaryCode == null || t.beneficiaryCode!.isEmpty)
+              ? '—'
+              : t.beneficiaryCode!,
+          senderReference: '—',
+          amount: t.amount,
+          myAccount: slash(myCompany, myExchange),
+          party: slash(t.beneficiaryAccountCompany, t.beneficiaryName),
+        ),
+      );
     }
     ops.sort((a, b) => a.t.compareTo(b.t));
 
     final rangeLabel = '${dayFmt.format(start)} → ${dayFmt.format(end)}';
-    final exportedAt = dateTime.format(DateTime.now());
+    final exportedAt = exportFmt.format(DateTime.now());
+
+    Uint8List? logoBytes;
+    try {
+      final data = await rootBundle.load('assets/images/logo.png');
+      logoBytes = data.buffer.asUint8List();
+    } catch (_) {
+      logoBytes = null;
+    }
+    final logoImage =
+        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     pw.Widget headerSection() => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              'تفاصيل حركة الدخول والخروج للحوالات',
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 18,
-              ),
-              textDirection: pw.TextDirection.rtl,
-            ),
-            pw.SizedBox(height: 6),
-            pw.Text(
-              'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
-              style: const pw.TextStyle(
-                fontSize: 10,
-                color: PdfColors.grey700,
-              ),
-              textDirection: pw.TextDirection.rtl,
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (logoImage != null)
+                  pw.Container(
+                    height: 44,
+                    width: 44,
+                    margin: const pw.EdgeInsets.only(right: 8),
+                    child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                  )
+                else
+                  pw.Container(
+                    height: 44,
+                    width: 44,
+                    margin: const pw.EdgeInsets.only(right: 8),
+                    alignment: pw.Alignment.center,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(
+                        color: PdfColors.grey400,
+                        width: 0.6,
+                      ),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Text(
+                      'إشاري',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        color: PdfColors.grey700,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  ),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        'تفاصيل حركة الدخول والخروج للحوالات',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
+                        style: const pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(width: 52),
+              ],
             ),
             pw.SizedBox(height: 10),
           ],
+        );
+
+    pw.Widget footerSection(pw.Context ctx) => pw.Container(
+          alignment: pw.Alignment.centerLeft,
+          padding: const pw.EdgeInsets.only(top: 6),
+          child: pw.Text(
+            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
+            style: const pw.TextStyle(
+              fontSize: 8,
+              color: PdfColors.grey600,
+            ),
+            textDirection: pw.TextDirection.rtl,
+          ),
         );
 
     if (ops.isEmpty) {
@@ -410,7 +496,7 @@ class PdfExport {
           margin: const pw.EdgeInsets.all(20),
           theme: _theme,
           textDirection: pw.TextDirection.rtl,
-          build: (_) => pw.Directionality(
+          build: (ctx) => pw.Directionality(
             textDirection: pw.TextDirection.rtl,
             child: pw.Column(
               children: [
@@ -419,7 +505,7 @@ class PdfExport {
                   child: pw.Center(
                     child: pw.Text(
                       'لا توجد عمليات في الفترة المحددة',
-                      style: pw.TextStyle(
+                      style: const pw.TextStyle(
                         fontSize: 14,
                         color: PdfColors.grey600,
                       ),
@@ -427,6 +513,7 @@ class PdfExport {
                     ),
                   ),
                 ),
+                footerSection(ctx),
               ],
             ),
           ),
@@ -440,10 +527,14 @@ class PdfExport {
       'الوقت',
       'التاريخ',
       'النوع',
-      'رقم العملية',
+      'إشاري',
+      'إشاري المرسل',
       'قيمة العملية',
-      'الحساب المصدر',
-      'الحساب المستفيد',
+      'الرصيد قبل',
+      'الرصيد بعد',
+      'فرق تراكمي',
+      'حساباتي',
+      'الجهة',
     ];
 
     pw.Widget cell(
@@ -453,14 +544,14 @@ class PdfExport {
     }) =>
         pw.Container(
           padding: pw.EdgeInsets.symmetric(
-            horizontal: 4,
+            horizontal: 3,
             vertical: header ? 6 : 4,
           ),
           alignment: pw.Alignment.center,
           child: pw.Text(
             text,
             style: pw.TextStyle(
-              fontSize: header ? 10 : 9,
+              fontSize: header ? 9 : 8,
               fontWeight:
                   header ? pw.FontWeight.bold : pw.FontWeight.normal,
               color: color,
@@ -474,6 +565,8 @@ class PdfExport {
         );
 
     final reversedHeaders = headers.reversed.toList();
+
+    double running = 0;
     final tableChildren = <pw.TableRow>[
       pw.TableRow(
         decoration: const pw.BoxDecoration(
@@ -490,34 +583,93 @@ class PdfExport {
               : null,
           children: () {
             final op = ops[i];
+            final delta = op.isIncome ? op.amount : -op.amount;
+            final balanceBefore = running;
+            final balanceAfter = running + delta;
+            running = balanceAfter;
             final cells = <String>[
               '${i + 1}',
               timeFmt.format(op.t),
               dayFmt.format(op.t),
               op.kind,
               op.reference,
+              op.senderReference,
               '${op.isIncome ? '+' : '-'}${formatMoney(op.amount)}',
-              op.sourceAccount,
-              op.beneficiaryAccount,
+              formatMoney(balanceBefore),
+              formatMoney(balanceAfter),
+              '${balanceAfter >= 0 ? '+' : '-'}${formatMoney(balanceAfter.abs())}',
+              op.myAccount,
+              op.party,
             ];
             final colorByOriginalIndex = <int, PdfColor>{
               3: op.isIncome ? PdfColors.green800 : PdfColors.red800,
-              5: op.isIncome ? PdfColors.green800 : PdfColors.red800,
+              6: op.isIncome ? PdfColors.green800 : PdfColors.red800,
+              9: balanceAfter >= 0
+                  ? PdfColors.green800
+                  : PdfColors.red800,
             };
             final reversed = cells.reversed.toList();
             final result = <pw.Widget>[];
             for (var j = 0; j < reversed.length; j++) {
               final orig = cells.length - 1 - j;
-              result.add(cell(
-                reversed[j],
-                header: false,
-                color: colorByOriginalIndex[orig],
-              ));
+              result.add(
+                cell(
+                  reversed[j],
+                  header: false,
+                  color: colorByOriginalIndex[orig],
+                ),
+              );
             }
             return result;
           }(),
         ),
     ];
+
+    final incomeTotal =
+        ops.where((o) => o.isIncome).fold<double>(0, (s, o) => s + o.amount);
+    final outgoingTotal = ops
+        .where((o) => !o.isIncome)
+        .fold<double>(0, (s, o) => s + o.amount);
+    final movementDiff = incomeTotal - outgoingTotal;
+
+    pw.Widget summaryTile(String label, String value, PdfColor color) =>
+        pw.Container(
+          padding:
+              const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFFF7F8FA),
+            borderRadius: pw.BorderRadius.circular(4),
+            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Text(
+                label,
+                style: const pw.TextStyle(
+                  fontSize: 9,
+                  color: PdfColors.grey700,
+                ),
+                textDirection: pw.TextDirection.rtl,
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                value,
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: color,
+                ),
+                textDirection: pw.TextDirection.rtl,
+              ),
+            ],
+          ),
+        );
+
+    final movementSign = movementDiff >= 0 ? '+' : '-';
+    final movementColor = movementDiff >= 0
+        ? PdfColors.green800
+        : PdfColors.red800;
 
     doc.addPage(
       pw.MultiPage(
@@ -526,6 +678,7 @@ class PdfExport {
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
         header: (_) => pw.SizedBox(height: 0),
+        footer: footerSection,
         build: (context) => [
           pw.Directionality(
             textDirection: pw.TextDirection.rtl,
@@ -539,28 +692,57 @@ class PdfExport {
                     width: 0.4,
                   ),
                   columnWidths: const {
-                    0: pw.FlexColumnWidth(2.0), // الحساب المستفيد
-                    1: pw.FlexColumnWidth(2.0), // الحساب المصدر
-                    2: pw.FlexColumnWidth(1.4), // قيمة العملية
-                    3: pw.FlexColumnWidth(1.5), // رقم العملية
-                    4: pw.FlexColumnWidth(1.2), // النوع
-                    5: pw.FlexColumnWidth(1.1), // التاريخ
-                    6: pw.FlexColumnWidth(1.0), // الوقت
-                    7: pw.FlexColumnWidth(0.5), // ت
+                    0: pw.FlexColumnWidth(2.2), // الجهة
+                    1: pw.FlexColumnWidth(2.0), // حساباتي
+                    2: pw.FlexColumnWidth(1.2), // فرق تراكمي
+                    3: pw.FlexColumnWidth(1.2), // الرصيد بعد
+                    4: pw.FlexColumnWidth(1.2), // الرصيد قبل
+                    5: pw.FlexColumnWidth(1.3), // قيمة العملية
+                    6: pw.FlexColumnWidth(1.2), // إشاري المرسل
+                    7: pw.FlexColumnWidth(1.2), // إشاري
+                    8: pw.FlexColumnWidth(0.9), // النوع
+                    9: pw.FlexColumnWidth(1.0), // التاريخ
+                    10: pw.FlexColumnWidth(0.9), // الوقت
+                    11: pw.FlexColumnWidth(0.5), // ت
                   },
                   children: tableChildren,
                 ),
-                pw.SizedBox(height: 12),
-                pw.Container(
-                  alignment: pw.Alignment.centerRight,
-                  child: pw.Text(
-                    'عدد العمليات: ${ops.length}',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 11,
+                pw.SizedBox(height: 14),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Expanded(
+                      child: summaryTile(
+                        'إجمالي الدخول',
+                        '\$${formatMoney(incomeTotal)}',
+                        PdfColors.green800,
+                      ),
                     ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
+                    pw.SizedBox(width: 8),
+                    pw.Expanded(
+                      child: summaryTile(
+                        'إجمالي الخروج',
+                        '\$${formatMoney(outgoingTotal)}',
+                        PdfColors.red800,
+                      ),
+                    ),
+                    pw.SizedBox(width: 8),
+                    pw.Expanded(
+                      child: summaryTile(
+                        'فرق الحركة',
+                        '$movementSign\$${formatMoney(movementDiff.abs())}',
+                        movementColor,
+                      ),
+                    ),
+                    pw.SizedBox(width: 8),
+                    pw.Expanded(
+                      child: summaryTile(
+                        'عدد العمليات',
+                        '${ops.length}',
+                        PdfColors.grey800,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -584,17 +766,19 @@ class _DetailedOp {
     required this.kind,
     required this.isIncome,
     required this.reference,
+    required this.senderReference,
     required this.amount,
-    required this.sourceAccount,
-    required this.beneficiaryAccount,
+    required this.myAccount,
+    required this.party,
   });
   final DateTime t;
   final String kind;
   final bool isIncome;
   final String reference;
+  final String senderReference;
   final double amount;
-  final String sourceAccount;
-  final String beneficiaryAccount;
+  final String myAccount;
+  final String party;
 }
 
 const _arabicDays = <String>[

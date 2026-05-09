@@ -18,6 +18,7 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart';
 
 class DiffDetailsScreen extends ConsumerStatefulWidget {
@@ -194,6 +195,15 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
       final clients =
           ref.read(clientsListProvider).value ?? const <Client>[];
 
+      final user = ref.read(supabaseClientProvider).auth.currentUser;
+      final meta = user?.userMetadata ?? const <String, dynamic>{};
+      final exportedBy =
+          (meta['full_name'] as String?)?.trim().isNotEmpty == true
+              ? meta['full_name'] as String
+              : (meta['name'] as String?)?.trim().isNotEmpty == true
+                  ? meta['name'] as String
+                  : (user?.email ?? 'admin');
+
       final pdf = await PdfExport.load();
       final bytes = await pdf.buildDetailedTransfersReport(
         buys: buys,
@@ -203,6 +213,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         clientById: {for (final c in clients) c.id: c},
         start: start,
         end: end,
+        exportedBy: exportedBy,
       );
       final filename = 'movement_'
           '${DateFormat('yyyyMMdd').format(start)}_'
