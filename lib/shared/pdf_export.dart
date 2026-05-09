@@ -728,6 +728,47 @@ class PdfExport {
       ),
     );
 
+    // Top summary row above the table — RTL: first child is rightmost.
+    // Order: إجمالي الدخول | إجمالي الخروج | فرق الحركة | عدد العمليات.
+    final topSummaryRow = pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: summaryTile(
+              'إجمالي الدخول',
+              '+\$${formatMoney(incomeTotal)}',
+              PdfColors.green800,
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: summaryTile(
+              'إجمالي الخروج',
+              '-\$${formatMoney(outgoingTotal)}',
+              PdfColors.red800,
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: summaryTile(
+              'فرق الحركة',
+              '$movementSign\$${formatMoney(movementDiff.abs())}',
+              movementColor,
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: summaryTile(
+              'عدد العمليات',
+              '${ops.length}',
+              PdfColors.grey800,
+            ),
+          ),
+        ],
+      ),
+    );
+
     // RTL row: first child is rightmost. Order: عدد العمليات | الرصيد قبل |
     // الرصيد بعد | فرق الحركة.
     final summaryRow = pw.Directionality(
@@ -782,6 +823,8 @@ class PdfExport {
             textDirection: pw.TextDirection.rtl,
             child: headerSection(),
           ),
+          topSummaryRow,
+          pw.SizedBox(height: 10),
           tableWidget,
           pw.SizedBox(height: 12),
           summaryRow,
@@ -792,8 +835,9 @@ class PdfExport {
     return doc.save();
   }
 
-  /// "تفاصيل الدخول" — landscape A4. One row per archived currency-buy
-  /// inside the selected period. 9 columns, total + count at bottom right.
+  /// "حوالات الدخول إلى حساباتي" — landscape A4. One row per archived
+  /// currency-buy inside the selected period. 8 columns, total + count
+  /// row at the bottom (right ↔ left).
   Future<Uint8List> buildIncomeDetailsReport({
     required List<CurrencyBuy> buys,
     required Map<String, Company> companyById,
@@ -808,9 +852,7 @@ class PdfExport {
     final dayFmt = DateFormat('yyyy/MM/dd');
     final timeFmt = DateFormat('hh:mm a');
     final exportFmt = DateFormat('yyyy-MM-dd | hh:mm a');
-    final reportTitle = (title == null || title.trim().isEmpty)
-        ? 'تفاصيل الدخول'
-        : title.trim();
+    const reportTitle = 'حوالات الدخول إلى حساباتي';
 
     String slash(String? a, String? b) {
       final x = (a ?? '').trim();
@@ -953,17 +995,16 @@ class PdfExport {
     }
 
     // Logical order (right→left as user reads):
-    // ت | الوقت | التاريخ | إشاري | حساباتي | الإشاري | الجهة | القيمة | النوع
+    // ت | الوقت | التاريخ | إشاري | حساباتي | كود الحساب | الجهة | القيمة
     const headers = <String>[
       'ت',
       'الوقت',
       'التاريخ',
       'إشاري',
       'حساباتي',
-      'الإشاري',
+      'كود الحساب',
       'الجهة',
       'القيمة',
-      'النوع',
     ];
 
     // حساباتي (4) و الجهة (6) — نص عربي طويل، محاذاة لليمين.
@@ -1026,10 +1067,11 @@ class PdfExport {
           children: () {
             final b = sorted[i];
             final myCompany = companyById[b.myCompanyId]?.name;
-            final myExchange = exchangeById[b.exchangeId]?.name;
+            final myExchange = exchangeById[b.exchangeId];
+            final myExchangeName = myExchange?.name;
+            final myExchangeCode = (myExchange?.ourCode ?? '').trim();
             final client =
                 b.clientId != null ? clientById[b.clientId!] : null;
-            final clientCode = (client?.code ?? '').trim();
             final partyName =
                 client?.name ?? b.clientFromAccount ?? '';
             final partyCompany = client?.company ?? '';
@@ -1042,15 +1084,13 @@ class PdfExport {
               timeFmt.format(b.archivedAt ?? b.createdAt),
               dayFmt.format(b.archivedAt ?? b.createdAt),
               reference,
-              slash(myCompany, myExchange),
-              clientCode.isEmpty ? '—' : clientCode,
+              slash(myCompany, myExchangeName),
+              myExchangeCode.isEmpty ? '—' : myExchangeCode,
               slash(partyCompany, partyName),
               '+${formatMoney(b.usdAmount)} \$',
-              'شراء',
             ];
             final colorByOriginalIndex = <int, PdfColor>{
               7: PdfColors.green800, // القيمة
-              8: PdfColors.green800, // النوع
             };
             final reversed = cells.reversed.toList();
             final result = <pw.Widget>[];
@@ -1080,28 +1120,34 @@ class PdfExport {
           color: PdfColors.grey400,
           width: 0.4,
         ),
-        // Reversed indices: 0 = leftmost (النوع) … 8 = rightmost (ت).
+        // Reversed indices: 0 = leftmost (القيمة) … 7 = rightmost (ت).
         columnWidths: const {
-          0: pw.FlexColumnWidth(0.9), // النوع
-          1: pw.FlexColumnWidth(1.4), // القيمة
-          2: pw.FlexColumnWidth(2.4), // الجهة
-          3: pw.FlexColumnWidth(1.2), // الإشاري
-          4: pw.FlexColumnWidth(2.0), // حساباتي
-          5: pw.FlexColumnWidth(1.2), // إشاري
-          6: pw.FlexColumnWidth(1.0), // التاريخ
-          7: pw.FlexColumnWidth(0.9), // الوقت
-          8: pw.FlexColumnWidth(0.5), // ت
+          0: pw.FlexColumnWidth(1.4), // القيمة
+          1: pw.FlexColumnWidth(2.4), // الجهة
+          2: pw.FlexColumnWidth(1.2), // كود الحساب
+          3: pw.FlexColumnWidth(2.0), // حساباتي
+          4: pw.FlexColumnWidth(1.2), // إشاري
+          5: pw.FlexColumnWidth(1.0), // التاريخ
+          6: pw.FlexColumnWidth(0.9), // الوقت
+          7: pw.FlexColumnWidth(0.5), // ت
         },
         children: tableChildren,
       ),
     );
 
+    // RTL row: first child is rightmost. الإجمالي يمين، عدد المعاملات يسار.
     final totalRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Container(
-        alignment: pw.Alignment.centerRight,
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
+            top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+          ),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             pw.Text(
               'الإجمالي : +\$${formatMoney(totalUsd)}',
@@ -1112,9 +1158,8 @@ class PdfExport {
               ),
               textDirection: pw.TextDirection.rtl,
             ),
-            pw.SizedBox(height: 2),
             pw.Text(
-              'عدد العمليات: ${sorted.length}',
+              'عدد المعاملات: ${sorted.length}',
               style: const pw.TextStyle(
                 fontSize: 10,
                 color: PdfColors.grey700,
@@ -1307,20 +1352,19 @@ class PdfExport {
     }
 
     // Logical order (right→left as user reads):
-    // ت | الوقت | التاريخ | الإشاري | الجهة | إشاري | حساباتي | القيمة | النوع
+    // ت | الوقت | التاريخ | إشاري | حساباتي | كود الحساب | الجهة | القيمة
     const headers = <String>[
       'ت',
       'الوقت',
       'التاريخ',
-      'الإشاري',
-      'الجهة',
       'إشاري',
       'حساباتي',
+      'كود الحساب',
+      'الجهة',
       'القيمة',
-      'النوع',
     ];
 
-    // الجهة (4) و حساباتي (6) — نص عربي طويل، محاذاة لليمين.
+    // حساباتي (4) و الجهة (6) — نص عربي طويل، محاذاة لليمين.
     const rightAlignedCols = <int>{4, 6};
 
     pw.Widget cell(
@@ -1381,7 +1425,7 @@ class PdfExport {
             final t = sorted[i];
             final myCompany = companyById[t.companyId]?.name;
             final myExchange = exchangeById[t.exchangeId]?.name;
-            final beneficiaryRef =
+            final beneficiaryAccountCode =
                 (t.beneficiaryCode == null || t.beneficiaryCode!.isEmpty)
                     ? '—'
                     : t.beneficiaryCode!;
@@ -1393,16 +1437,14 @@ class PdfExport {
               '${i + 1}',
               timeFmt.format(t.archivedAt ?? t.createdAt),
               dayFmt.format(t.archivedAt ?? t.createdAt),
-              beneficiaryRef,
-              slash(t.beneficiaryAccountCompany, t.beneficiaryName),
               reference,
               slash(myCompany, myExchange),
+              beneficiaryAccountCode,
+              slash(t.beneficiaryAccountCompany, t.beneficiaryName),
               '-${formatMoney(t.amount)} \$',
-              'تحويل',
             ];
             final colorByOriginalIndex = <int, PdfColor>{
               7: PdfColors.red800, // القيمة
-              8: PdfColors.red800, // النوع
             };
             final reversed = cells.reversed.toList();
             final result = <pw.Widget>[];
@@ -1432,28 +1474,34 @@ class PdfExport {
           color: PdfColors.grey400,
           width: 0.4,
         ),
-        // Reversed indices: 0 = leftmost (النوع) … 8 = rightmost (ت).
+        // Reversed indices: 0 = leftmost (القيمة) … 7 = rightmost (ت).
         columnWidths: const {
-          0: pw.FlexColumnWidth(0.9), // النوع
-          1: pw.FlexColumnWidth(1.4), // القيمة
-          2: pw.FlexColumnWidth(2.0), // حساباتي
-          3: pw.FlexColumnWidth(1.2), // إشاري
-          4: pw.FlexColumnWidth(2.4), // الجهة
-          5: pw.FlexColumnWidth(1.2), // الإشاري
-          6: pw.FlexColumnWidth(1.0), // التاريخ
-          7: pw.FlexColumnWidth(0.9), // الوقت
-          8: pw.FlexColumnWidth(0.5), // ت
+          0: pw.FlexColumnWidth(1.4), // القيمة
+          1: pw.FlexColumnWidth(2.4), // الجهة
+          2: pw.FlexColumnWidth(1.2), // كود الحساب
+          3: pw.FlexColumnWidth(2.0), // حساباتي
+          4: pw.FlexColumnWidth(1.2), // إشاري
+          5: pw.FlexColumnWidth(1.0), // التاريخ
+          6: pw.FlexColumnWidth(0.9), // الوقت
+          7: pw.FlexColumnWidth(0.5), // ت
         },
         children: tableChildren,
       ),
     );
 
+    // RTL row: first child is rightmost. الإجمالي يمين، عدد العمليات يسار.
     final totalRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Container(
-        alignment: pw.Alignment.centerRight,
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
+            top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+          ),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
           children: [
             pw.Text(
               'الإجمالي : -\$${formatMoney(totalAmount)}',
@@ -1464,7 +1512,6 @@ class PdfExport {
               ),
               textDirection: pw.TextDirection.rtl,
             ),
-            pw.SizedBox(height: 2),
             pw.Text(
               'عدد العمليات: ${sorted.length}',
               style: const pw.TextStyle(

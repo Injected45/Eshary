@@ -66,7 +66,11 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
       lastDate: _to ?? DateTime.now(),
       locale: const Locale('ar'),
     );
-    if (picked != null) setState(() => _from = picked);
+    if (picked != null) {
+      setState(() => _from = picked);
+      if (!mounted) return;
+      await _pickTo();
+    }
   }
 
   Future<void> _pickTo() async {
