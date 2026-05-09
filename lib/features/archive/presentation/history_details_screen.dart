@@ -17,6 +17,7 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../../core/supabase_provider.dart';
 
 enum HistoryKind { income, outgoing }
 
@@ -245,38 +246,99 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     if (rows.isEmpty) return;
     try {
       final pdf = await PdfExport.load();
-      final headers = const ['#', 'التاريخ والوقت', 'القيمة \$'];
-      final rowsData = <List<String>>[];
-      for (var i = 0; i < rows.length; i++) {
-        final r = rows[i];
-        DateTime d;
-        double amt;
-        if (r is CurrencyBuy) {
-          d = r.archivedAt ?? r.createdAt;
-          amt = r.usdAmount;
-        } else if (r is Transfer) {
-          d = r.archivedAt ?? r.createdAt;
-          amt = r.amount;
+
+      if (_isIncome) {
+        final buys = rows.whereType<CurrencyBuy>().toList();
+        final companies =
+            ref.read(companiesListProvider).value ?? const <Company>[];
+        final exchanges =
+            ref.read(allExchangesProvider).value ?? const <Exchange>[];
+        final clients =
+            ref.read(clientsListProvider).value ?? const <Client>[];
+
+        final user = ref.read(supabaseClientProvider).auth.currentUser;
+        final meta = user?.userMetadata ?? const <String, dynamic>{};
+        final exportedBy =
+            (meta['full_name'] as String?)?.trim().isNotEmpty == true
+                ? meta['full_name'] as String
+                : (meta['name'] as String?)?.trim().isNotEmpty == true
+                    ? meta['name'] as String
+                    : (user?.email ?? 'admin');
+
+        DateTime start;
+        DateTime end;
+        if (_filterRange != null) {
+          start = _filterRange!.start;
+          end = _filterRange!.end;
+        } else if (buys.isNotEmpty) {
+          final dates = buys
+              .map((b) => b.archivedAt ?? b.createdAt)
+              .toList()
+            ..sort();
+          start = dates.first;
+          end = dates.last;
         } else {
-          continue;
+          final now = DateTime.now();
+          start = now;
+          end = now;
         }
-        rowsData.add([
-          '${i + 1}',
-          dateTime.format(d),
-          '${_isIncome ? '+' : '-'}${formatMoney(amt)}',
-        ]);
+
+        final bytes = await pdf.buildIncomeDetailsReport(
+          buys: buys,
+          companyById: {for (final c in companies) c.id: c},
+          exchangeById: {for (final e in exchanges) e.id: e},
+          clientById: {for (final c in clients) c.id: c},
+          start: start,
+          end: end,
+          title: _title,
+          exportedBy: exportedBy,
+        );
+        await PdfExport.sharePdf(bytes, 'income_details.pdf');
+        return;
       }
-      final bytes = await pdf.buildTable(
-        title: _title,
-        headers: headers,
-        rows: rowsData,
-        totalLabel: 'الإجمالي',
-        totalValue: '${_isIncome ? '+' : '-'}${formatMoney(total)}',
+
+      final outTransfers = rows.whereType<Transfer>().toList();
+      final companies =
+          ref.read(companiesListProvider).value ?? const <Company>[];
+      final exchanges =
+          ref.read(allExchangesProvider).value ?? const <Exchange>[];
+
+      final user = ref.read(supabaseClientProvider).auth.currentUser;
+      final meta = user?.userMetadata ?? const <String, dynamic>{};
+      final exportedBy =
+          (meta['full_name'] as String?)?.trim().isNotEmpty == true
+              ? meta['full_name'] as String
+              : (meta['name'] as String?)?.trim().isNotEmpty == true
+                  ? meta['name'] as String
+                  : (user?.email ?? 'admin');
+
+      DateTime start;
+      DateTime end;
+      if (_filterRange != null) {
+        start = _filterRange!.start;
+        end = _filterRange!.end;
+      } else if (outTransfers.isNotEmpty) {
+        final dates = outTransfers
+            .map((t) => t.archivedAt ?? t.createdAt)
+            .toList()
+          ..sort();
+        start = dates.first;
+        end = dates.last;
+      } else {
+        final now = DateTime.now();
+        start = now;
+        end = now;
+      }
+
+      final bytes = await pdf.buildOutgoingDetailsReport(
+        transfers: outTransfers,
+        companyById: {for (final c in companies) c.id: c},
+        exchangeById: {for (final e in exchanges) e.id: e},
+        start: start,
+        end: end,
+        exportedBy: exportedBy,
       );
-      await PdfExport.sharePdf(
-        bytes,
-        _isIncome ? 'income_details.pdf' : 'outgoing_details.pdf',
-      );
+      await PdfExport.sharePdf(bytes, 'outgoing_details.pdf');
     } catch (e, st) {
       AppLogger.error('historyDetails.exportPdf', e, st);
       if (!mounted) return;
