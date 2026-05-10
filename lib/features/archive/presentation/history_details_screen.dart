@@ -15,6 +15,7 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../notifications/presentation/notifications_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
@@ -246,6 +247,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     if (rows.isEmpty) return;
     try {
       final pdf = await PdfExport.load();
+      String? notif;
+      try {
+        final n = await ref.read(latestNotificationProvider.future);
+        notif = n?.body;
+      } catch (_) {
+        notif = null;
+      }
 
       if (_isIncome) {
         final buys = rows.whereType<CurrencyBuy>().toList();
@@ -292,6 +300,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           end: end,
           title: _title,
           exportedBy: exportedBy,
+          notificationText: notif,
         );
         await PdfExport.sharePdf(bytes, 'income_details.pdf');
         return;
@@ -337,6 +346,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         start: start,
         end: end,
         exportedBy: exportedBy,
+        notificationText: notif,
       );
       await PdfExport.sharePdf(bytes, 'outgoing_details.pdf');
     } catch (e, st) {
@@ -350,6 +360,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
   Future<void> _exportSingle(dynamic row) async {
     try {
       final pdf = await PdfExport.load();
+      String? notif;
+      try {
+        final n = await ref.read(latestNotificationProvider.future);
+        notif = n?.body;
+      } catch (_) {
+        notif = null;
+      }
       final companies =
           ref.read(companiesListProvider).value ?? const <Company>[];
       final exchanges =
@@ -430,6 +447,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         title: title,
         headers: const ['الحقل', 'القيمة'],
         rows: rowsData,
+        notificationText: notif,
       );
       await PdfExport.sharePdf(bytes, filename);
     } catch (e, st) {

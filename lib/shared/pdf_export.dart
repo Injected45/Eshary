@@ -41,6 +41,7 @@ class PdfExport {
     required List<List<String>> rows,
     String? totalLabel,
     String? totalValue,
+    String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dataRows = <List<String>>[
@@ -102,7 +103,11 @@ class PdfExport {
                     ],
                   ),
                 ),
-                if (logoImage != null) pw.SizedBox(width: 52),
+                if (notificationText != null &&
+                    notificationText.trim().isNotEmpty)
+                  _notificationBox(notificationText.trim())
+                else if (logoImage != null)
+                  pw.SizedBox(width: 52),
               ],
             ),
             pw.Divider(),
@@ -135,6 +140,7 @@ class PdfExport {
     required List<Transfer> rows,
     required Map<String, String> companyNameById,
     required Map<String, String> exchangeNameById,
+    String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
     final now = DateTime.now();
@@ -189,7 +195,11 @@ class PdfExport {
                     ],
                   ),
                 ),
-                if (logoImage != null) pw.SizedBox(width: 52),
+                if (notificationText != null &&
+                    notificationText.trim().isNotEmpty)
+                  _notificationBox(notificationText.trim())
+                else if (logoImage != null)
+                  pw.SizedBox(width: 52),
               ],
             ),
             pw.SizedBox(height: 12),
@@ -399,6 +409,7 @@ class PdfExport {
     required DateTime start,
     required DateTime end,
     String? exportedBy,
+    String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
@@ -530,7 +541,10 @@ class PdfExport {
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 52),
+                (notificationText != null &&
+                        notificationText.trim().isNotEmpty)
+                    ? _notificationBox(notificationText.trim())
+                    : pw.SizedBox(width: 52),
               ],
             ),
             pw.SizedBox(height: 4),
@@ -907,6 +921,7 @@ class PdfExport {
     required DateTime end,
     String? title,
     String? exportedBy,
+    String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
@@ -1001,7 +1016,10 @@ class PdfExport {
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 52),
+                (notificationText != null &&
+                        notificationText.trim().isNotEmpty)
+                    ? _notificationBox(notificationText.trim())
+                    : pw.SizedBox(width: 52),
               ],
             ),
             pw.SizedBox(height: 4),
@@ -1264,6 +1282,7 @@ class PdfExport {
     required DateTime start,
     required DateTime end,
     String? exportedBy,
+    String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
@@ -1358,7 +1377,10 @@ class PdfExport {
                     ],
                   ),
                 ),
-                pw.SizedBox(width: 52),
+                (notificationText != null &&
+                        notificationText.trim().isNotEmpty)
+                    ? _notificationBox(notificationText.trim())
+                    : pw.SizedBox(width: 52),
               ],
             ),
             pw.SizedBox(height: 4),
@@ -1634,6 +1656,24 @@ class _DetailedOp {
   final String myAccount;
   final String party;
 }
+
+pw.Widget _notificationBox(String text) => pw.Container(
+      width: 150,
+      padding: const pw.EdgeInsets.all(6),
+      decoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFFFFF8E1),
+        border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        text,
+        style: const pw.TextStyle(fontSize: 9),
+        textDirection: pw.TextDirection.rtl,
+        textAlign: pw.TextAlign.right,
+        maxLines: 3,
+        overflow: pw.TextOverflow.clip,
+      ),
+    );
 
 const _arabicDays = <String>[
   'الإثنين',

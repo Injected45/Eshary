@@ -20,6 +20,7 @@ import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
+import '../../notifications/presentation/notifications_providers.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 import 'transfers_providers.dart';
@@ -397,10 +398,18 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         for (final e in exchanges) e.id: e.name,
       };
       final pdf = await PdfExport.load();
+      String? notif;
+      try {
+        final n = await ref.read(latestNotificationProvider.future);
+        notif = n?.body;
+      } catch (_) {
+        notif = null;
+      }
       final bytes = await pdf.buildDailyTransfersReport(
         rows: rows,
         companyNameById: companyNameById,
         exchangeNameById: exchangeNameById,
+        notificationText: notif,
       );
       await PdfExport.sharePdf(bytes, 'daily_transfers.pdf');
     } catch (e, st) {

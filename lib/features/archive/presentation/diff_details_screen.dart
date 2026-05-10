@@ -16,6 +16,7 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../notifications/presentation/notifications_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
@@ -209,6 +210,13 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
                   : (user?.email ?? 'admin');
 
       final pdf = await PdfExport.load();
+      String? notif;
+      try {
+        final n = await ref.read(latestNotificationProvider.future);
+        notif = n?.body;
+      } catch (_) {
+        notif = null;
+      }
       final bytes = await pdf.buildDetailedTransfersReport(
         buys: buys,
         transfers: transfers,
@@ -218,6 +226,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         start: start,
         end: end,
         exportedBy: exportedBy,
+        notificationText: notif,
       );
       final filename = 'movement_'
           '${DateFormat('yyyyMMdd').format(start)}_'

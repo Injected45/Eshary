@@ -23,6 +23,7 @@ import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
+import '../../notifications/presentation/notifications_providers.dart';
 import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
@@ -443,6 +444,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     try {
       final pdf = await PdfExport.load();
       final df = DateFormat('yyyy-MM-dd');
+      String? notif;
+      try {
+        final n = await ref.read(latestNotificationProvider.future);
+        notif = n?.body;
+      } catch (_) {
+        notif = null;
+      }
       final bytes = await pdf.buildTable(
         title: 'سجل المشتريات اليومي',
         headers: const ['التاريخ', 'المبلغ \$', 'الحساب'],
@@ -453,6 +461,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                   b.clientFromAccount ?? '-',
                 ])
             .toList(),
+        notificationText: notif,
       );
       await PdfExport.sharePdf(bytes, 'daily_buys.pdf');
     } catch (e, st) {
