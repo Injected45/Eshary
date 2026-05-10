@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
+import '../../../shared/pending_dispatch.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../onboarding/data/onboarding_storage.dart';
 
@@ -48,7 +49,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!onboardingDone) {
       context.go('/onboarding');
     } else if (loggedIn) {
-      context.go('/');
+      // If a transaction was saved but the messages screen was killed
+      // (e.g. the OS reclaimed the activity while the user was in
+      // WhatsApp), restore the user back into the dispatch screen so
+      // they can finish sending messages and confirm.
+      final pending = ref.read(pendingDispatchProvider);
+      if (pending != null) {
+        context.go('/messages-dispatch');
+      } else {
+        context.go('/');
+      }
     } else {
       context.go('/sign-in');
     }

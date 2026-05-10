@@ -11,6 +11,7 @@ import '../features/license/presentation/license_provider.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
+import '../shared/messages_dispatch_screen.dart';
 import 'supabase_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -68,6 +69,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/pending-activation',
         builder: (_, __) => const PendingActivationScreen(),
+      ),
+      GoRoute(
+        path: '/messages-dispatch',
+        builder: (_, __) => const MessagesDispatchScreen(),
       ),
     ],
   );

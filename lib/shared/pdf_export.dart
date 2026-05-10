@@ -53,6 +53,16 @@ class PdfExport {
         ],
     ];
 
+    Uint8List? logoBytes;
+    try {
+      final data = await rootBundle.load('assets/images/app_icon.png');
+      logoBytes = data.buffer.asUint8List();
+    } catch (_) {
+      logoBytes = null;
+    }
+    final logoImage =
+        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -61,19 +71,39 @@ class PdfExport {
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              title,
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 18,
-              ),
-              textDirection: pw.TextDirection.rtl,
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              'تاريخ التصدير: ${dateTime.format(DateTime.now())}',
-              style: const pw.TextStyle(fontSize: 10),
-              textDirection: pw.TextDirection.rtl,
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (logoImage != null)
+                  pw.Container(
+                    height: 44,
+                    width: 44,
+                    margin: const pw.EdgeInsets.only(right: 8),
+                    child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                  ),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      pw.Text(
+                        title,
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'تاريخ التصدير: ${dateTime.format(DateTime.now())}',
+                        style: const pw.TextStyle(fontSize: 10),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ),
+                ),
+                if (logoImage != null) pw.SizedBox(width: 52),
+              ],
             ),
             pw.Divider(),
             pw.Expanded(
@@ -112,25 +142,55 @@ class PdfExport {
     final dateStr = dateOnly.format(now);
     final timeStr = DateFormat('HH:mm').format(now);
 
+    Uint8List? logoBytes;
+    try {
+      final data = await rootBundle.load('assets/images/app_icon.png');
+      logoBytes = data.buffer.asUint8List();
+    } catch (_) {
+      logoBytes = null;
+    }
+    final logoImage =
+        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+
     pw.Widget headerSection() => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              'سجل الحوالات اليومية',
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 22,
-              ),
-              textDirection: pw.TextDirection.rtl,
-            ),
-            pw.SizedBox(height: 6),
-            pw.Text(
-              'اليوم: $dayName    التاريخ: $dateStr    الوقت: $timeStr',
-              style: pw.TextStyle(
-                fontSize: 11,
-                color: PdfColors.grey700,
-              ),
-              textDirection: pw.TextDirection.rtl,
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                if (logoImage != null)
+                  pw.Container(
+                    height: 44,
+                    width: 44,
+                    margin: const pw.EdgeInsets.only(right: 8),
+                    child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                  ),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Text(
+                        'سجل الحوالات اليومية',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 22,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        'اليوم: $dayName    التاريخ: $dateStr    الوقت: $timeStr',
+                        style: pw.TextStyle(
+                          fontSize: 11,
+                          color: PdfColors.grey700,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ),
+                ),
+                if (logoImage != null) pw.SizedBox(width: 52),
+              ],
             ),
             pw.SizedBox(height: 12),
           ],
@@ -402,7 +462,7 @@ class PdfExport {
 
     Uint8List? logoBytes;
     try {
-      final data = await rootBundle.load('assets/images/logo.png');
+      final data = await rootBundle.load('assets/images/app_icon.png');
       logoBytes = data.buffer.asUint8List();
     } catch (_) {
       logoBytes = null;
@@ -873,7 +933,7 @@ class PdfExport {
 
     Uint8List? logoBytes;
     try {
-      final data = await rootBundle.load('assets/images/logo.png');
+      final data = await rootBundle.load('assets/images/app_icon.png');
       logoBytes = data.buffer.asUint8List();
     } catch (_) {
       logoBytes = null;
@@ -1230,7 +1290,7 @@ class PdfExport {
 
     Uint8List? logoBytes;
     try {
-      final data = await rootBundle.load('assets/images/logo.png');
+      final data = await rootBundle.load('assets/images/app_icon.png');
       logoBytes = data.buffer.asUint8List();
     } catch (_) {
       logoBytes = null;

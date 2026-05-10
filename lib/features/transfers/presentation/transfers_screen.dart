@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
@@ -8,7 +9,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
-import '../../../shared/share.dart';
+import '../../../shared/pending_dispatch.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
 import '../../companies/domain/company.dart';
@@ -47,7 +48,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   final _beneficiaryCode = TextEditingController();
 
   bool _busy = false;
-  List<String>? _composedMessages;
 
   @override
   void initState() {
@@ -96,7 +96,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   void _resetTransferForm() {
     setState(() {
-      _composedMessages = null;
       _amount.clear();
       _beneficiaryName.clear();
       _beneficiaryAccount.clear();
@@ -191,7 +190,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return [card1, card2, card3];
   }
 
-  void _generate() {
+  Future<void> _saveAndOpenMessages() async {
     if (_company == null || _exchange == null || _reference == null) {
       _snack('اختر الشركة وشركة الصرافة أولاً');
       return;
@@ -210,38 +209,40 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('اسم المستفيد مطلوب');
       return;
     }
-    setState(() => _composedMessages = _composeMessages());
-  }
 
-  Future<void> _saveToDaily() async {
-    if (_company == null || _exchange == null || _reference == null) return;
-    final amount = parseMoney(_amount.text);
-    final balance = _exchange?.balance ?? 0;
-    if (amount > balance) {
-      _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
-      return;
-    }
     setState(() => _busy = true);
     try {
-      await ref.read(transfersRepositoryProvider).create(
+      final saved = await ref.read(transfersRepositoryProvider).create(
             companyId: _company!.id,
             exchangeId: _exchange!.id,
             beneficiaryName: _beneficiaryName.text.trim(),
             beneficiaryAccountCompany: _beneficiaryAccount.text.trim(),
             beneficiaryCode: _beneficiaryCode.text.trim(),
-            amount: parseMoney(_amount.text),
+            amount: amount,
             reference: _reference!,
           );
       ref.invalidate(dailyTransfersProvider);
       ref.invalidate(allExchangesProvider);
       ref.invalidate(exchangesByCompanyProvider(_company!.id));
+
+      final messages = _composeMessages();
+      await ref.read(pendingDispatchProvider.notifier).begin(
+            PendingDispatch(
+              kind: DispatchKind.transfer,
+              savedRecordId: saved.id,
+              messages: messages,
+              openedIndices: const <int>{},
+              cardTitles: const ['للشركة المنفذة', 'للمستفيد', 'لقسم الحسابات'],
+              savedAt: DateTime.now(),
+            ),
+          );
       if (!mounted) return;
-      _resetTransferForm();
       playAlert();
-      _snack('تم الحفظ في السجل اليومي');
+      _resetTransferForm();
+      context.push('/messages-dispatch');
     } catch (e, st) {
-      AppLogger.error('transfers.saveToDaily', e, st);
-      _snack(friendlyError(e));
+      AppLogger.error('transfers.saveAndOpenMessages', e, st);
+      if (mounted) _snack(friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -275,7 +276,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           _company = null;
           _exchange = null;
           _reference = null;
-          _composedMessages = null;
           _amount.clear();
           _beneficiaryName.clear();
           _beneficiaryAccount.clear();
@@ -418,15 +418,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final companyById = <String, Company>{
       for (final c in companiesAsync.value ?? const <Company>[]) c.id: c,
     };
-
-    if (_composedMessages != null) {
-      return _MessagesPreview(
-        messages: _composedMessages!,
-        busy: _busy,
-        onBack: () => setState(() => _composedMessages = null),
-        onSave: _saveToDaily,
-      );
-    }
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
@@ -736,9 +727,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          onPressed: _overBalance ? null : _generate,
+          onPressed: (_overBalance || _busy) ? null : _saveAndOpenMessages,
           icon: const FaIcon(FontAwesomeIcons.paperPlane, size: 16),
-          label: const Text('حفظ وإرسال'),
+          label: Text(_busy ? '...' : 'حفظ وفتح الرسائل'),
         ),
         const SizedBox(height: 24),
         _CollapsibleSection(
@@ -782,106 +773,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             style: TextStyle(fontSize: 11, color: AppColors.textDim),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _MessagesPreview extends StatelessWidget {
-  const _MessagesPreview({
-    required this.messages,
-    required this.busy,
-    required this.onBack,
-    required this.onSave,
-  });
-
-  final List<String> messages;
-  final bool busy;
-  final VoidCallback onBack;
-  final VoidCallback onSave;
-
-  static const _cardTitles = [
-    'للشركة المنفذة',
-    'للمستفيد',
-    'لقسم الحسابات',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 16),
-          child: Center(
-            child: Text(
-              'واجهة رسائل التنفيذ',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textHigh,
-                letterSpacing: 0.3,
-              ),
-            ),
-          ),
-        ),
-        for (var i = 0; i < messages.length; i++)
-          GlassCard(
-            padding: const EdgeInsets.all(20),
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  i < _cardTitles.length
-                      ? _cardTitles[i]
-                      : 'الرسالة ${i + 1}',
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SelectableText(
-                  messages[i],
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: AppColors.textHigh,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () => shareText(context, messages[i]),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.shareNodes,
-                    size: 14,
-                  ),
-                  label: const Text('مشاركة'),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onBack,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('تعديل'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: busy ? null : onSave,
-              icon: const Icon(Icons.save),
-              label: Text(busy ? '...' : 'حفظ في السجل اليومي'),
-            ),
-          ),
-        ]),
       ],
     );
   }
