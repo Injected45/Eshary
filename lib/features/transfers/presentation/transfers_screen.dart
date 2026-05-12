@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
@@ -397,6 +398,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       final exchangeNameById = <String, String>{
         for (final e in exchanges) e.id: e.name,
       };
+      final user = ref.read(supabaseClientProvider).auth.currentUser;
+      final meta = user?.userMetadata ?? const <String, dynamic>{};
+      final exportedBy =
+          (meta['full_name'] as String?)?.trim().isNotEmpty == true
+              ? meta['full_name'] as String
+              : (meta['name'] as String?)?.trim().isNotEmpty == true
+                  ? meta['name'] as String
+                  : (user?.email ?? 'admin');
+
       final pdf = await PdfExport.load();
       String? notif;
       try {
@@ -410,6 +420,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         companyNameById: companyNameById,
         exchangeNameById: exchangeNameById,
         notificationText: notif,
+        exportedBy: exportedBy,
       );
       await PdfExport.sharePdf(bytes, 'daily_transfers.pdf');
     } catch (e, st) {
@@ -431,76 +442,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        // Section 1 (top) — الجهة المستفيدة (Task 11: swapped to top)
+        // Section 1 (top) — خروج من حسابي
         _CollapsibleSection(
-          header: const _NumberedSectionTitle(1, 'الجهة المستفيدة'),
+          header: const _NumberedSectionTitle(1, 'خروج من حسابي'),
           expanded: _activeSection == 1,
           onToggle: () => setState(
             () => _activeSection = _activeSection == 1 ? null : 1,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openSavedBeneficiariesDialog(),
-                  icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
-                  label: const Text('الجهات المحفوظة'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(
-                      color: AppColors.accent.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _LabeledField(
-                label: 'الشركة المستفيدة',
-                child: TextField(
-                  controller: _beneficiaryAccount,
-                  decoration: const InputDecoration(
-                    hintText: 'اسم الشركة المستفيدة',
-                    suffixIcon: _IconBox(FontAwesomeIcons.building),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'حساب المستفيد',
-                child: TextField(
-                  controller: _beneficiaryName,
-                  decoration: const InputDecoration(
-                    hintText: 'اسم حساب المستفيد',
-                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'كود حساب المستفيد',
-                child: TextField(
-                  controller: _beneficiaryCode,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل كود حساب المستفيد',
-                    suffixIcon: _IconBox(FontAwesomeIcons.user),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Section 2 (bottom) — خروج من حساب (Task 11: renamed from "الجهة المنفذة")
-        _CollapsibleSection(
-          header: const _NumberedSectionTitle(2, 'خروج من حساب'),
-          expanded: _activeSection == 2,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 2 ? null : 2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -716,6 +663,70 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+
+        // Section 2 (bottom) — الجهة المستفيدة
+        _CollapsibleSection(
+          header: const _NumberedSectionTitle(2, 'الجهة المستفيدة'),
+          expanded: _activeSection == 2,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 2 ? null : 2,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openSavedBeneficiariesDialog(),
+                  icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
+                  label: const Text('الجهات المحفوظة'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _LabeledField(
+                label: 'الشركة المستفيدة',
+                child: TextField(
+                  controller: _beneficiaryAccount,
+                  decoration: const InputDecoration(
+                    hintText: 'اسم الشركة المستفيدة',
+                    suffixIcon: _IconBox(FontAwesomeIcons.building),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'حساب المستفيد',
+                child: TextField(
+                  controller: _beneficiaryName,
+                  decoration: const InputDecoration(
+                    hintText: 'اسم حساب المستفيد',
+                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'كود حساب المستفيد',
+                child: TextField(
+                  controller: _beneficiaryCode,
+                  decoration: const InputDecoration(
+                    hintText: 'أدخل كود حساب المستفيد',
+                    suffixIcon: _IconBox(FontAwesomeIcons.user),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
         const Center(
           child: Row(
@@ -752,6 +763,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               onPressed: () =>
                   _exportDailyPdf(dailyAsync.value ?? const []),
             ),
+            if (!_logExpanded)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 8),
+                child: _CountBadge(count: dailyAsync.value?.length ?? 0),
+              ),
           ]),
           expanded: _logExpanded,
           onToggle: () => setState(() => _logExpanded = !_logExpanded),
@@ -924,6 +940,31 @@ class _IconBox extends StatelessWidget {
   }
 }
 
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        '($count)',
+        style: const TextStyle(
+          color: AppColors.accent,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _CollapsibleSection extends StatelessWidget {
   const _CollapsibleSection({
     super.key,
@@ -1001,9 +1042,9 @@ class _DailyTransfersTable extends ConsumerWidget {
           child: DataTable(
             showCheckboxColumn: false,
             columns: const [
+              DataColumn(label: Text('الشركة')),
+              DataColumn(label: Text('من حسابي')),
               DataColumn(label: Text('الإشاري')),
-              DataColumn(label: Text('شركة')),
-              DataColumn(label: Text('من حساب')),
               DataColumn(label: Text('القيمة')),
               DataColumn(label: Text('المستفيد')),
             ],
@@ -1016,14 +1057,14 @@ class _DailyTransfersTable extends ConsumerWidget {
                         exchangeName: exchangeById[t.exchangeId]?.name,
                       ),
                       cells: [
-                        DataCell(Text(t.reference)),
                         DataCell(Text(
                             exchangeById[t.exchangeId]?.name ?? '—')),
                         DataCell(Text(companyById[t.companyId] ?? '—')),
+                        DataCell(Text(t.reference)),
                         DataCell(Text(
                           '\$${formatMoney(t.amount)}',
                           style: const TextStyle(
-                            color: AppColors.positive,
+                            color: AppColors.negative,
                             fontWeight: FontWeight.w700,
                           ),
                         )),

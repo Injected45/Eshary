@@ -442,8 +442,29 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       return;
     }
     try {
+      final companies = ref.read(companiesListProvider).value ?? const [];
+      final exchanges = ref.read(allExchangesProvider).value ?? const [];
+      final clients = ref.read(clientsListProvider).value ?? const [];
+      final companyNameById = <String, String>{
+        for (final c in companies) c.id: c.name,
+      };
+      final exchangeById = <String, Exchange>{
+        for (final e in exchanges) e.id: e,
+      };
+      final clientById = <String, Client>{
+        for (final c in clients) c.id: c,
+      };
+
+      final user = ref.read(supabaseClientProvider).auth.currentUser;
+      final meta = user?.userMetadata ?? const <String, dynamic>{};
+      final exportedBy =
+          (meta['full_name'] as String?)?.trim().isNotEmpty == true
+              ? meta['full_name'] as String
+              : (meta['name'] as String?)?.trim().isNotEmpty == true
+                  ? meta['name'] as String
+                  : (user?.email ?? 'admin');
+
       final pdf = await PdfExport.load();
-      final df = DateFormat('yyyy-MM-dd');
       String? notif;
       try {
         final n = await ref.read(latestNotificationProvider.future);
@@ -451,17 +472,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       } catch (_) {
         notif = null;
       }
-      final bytes = await pdf.buildTable(
-        title: 'سجل المشتريات اليومي',
-        headers: const ['التاريخ', 'المبلغ \$', 'الحساب'],
-        rows: rows
-            .map((b) => [
-                  df.format(b.createdAt),
-                  formatMoney(b.usdAmount),
-                  b.clientFromAccount ?? '-',
-                ])
-            .toList(),
+      final bytes = await pdf.buildDailyBuysReport(
+        rows: rows,
+        companyNameById: companyNameById,
+        exchangeById: exchangeById,
+        clientById: clientById,
         notificationText: notif,
+        exportedBy: exportedBy,
       );
       await PdfExport.sharePdf(bytes, 'daily_buys.pdf');
     } catch (e, st) {
@@ -538,13 +555,186 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       children: [
         _CollapsibleSection(
           header: const _AccentSectionTitle(
-            text: 'الجهة المرسلة',
-            color: AppColors.accent,
-            icon: FontAwesomeIcons.paperPlane,
+            text: 'دخول لحسابي',
+            color: AppColors.warning,
+            icon: FontAwesomeIcons.userTie,
           ),
           expanded: _activeSection == 1,
           onToggle: () => setState(
             () => _activeSection = _activeSection == 1 ? null : 1,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _LabeledField(
+                label: 'اسم الشركة',
+                child: exchangeCompaniesAsync.when(
+                  data: (items) {
+                    if (items.isEmpty) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _openAddExchangeCompanyDialog,
+                          icon: const FaIcon(
+                            FontAwesomeIcons.plus,
+                            size: 14,
+                          ),
+                          label: const Text('إضافة شركة صرافة جديدة'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.accent,
+                            side: BorderSide(
+                              color: AppColors.accent.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    final names =
+                        items.map((ec) => ec.name).toList();
+                    final liveValue =
+                        names.contains(_exchangeCompanyName)
+                            ? _exchangeCompanyName
+                            : null;
+                    if (liveValue == null &&
+                        _exchangeCompanyName != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _onExchangeCompanyChanged(null);
+                      });
+                    }
+                    return DropdownButtonFormField<String>(
+                      value: liveValue,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        hintText: 'اسم الشركة',
+                        suffixIcon: _IconBox(
+                          FontAwesomeIcons.building,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                      items: names
+                          .map((n) => DropdownMenuItem<String>(
+                                value: n,
+                                child: Text(n),
+                              ))
+                          .toList(),
+                      onChanged: _onExchangeCompanyChanged,
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('$e'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'اسم حسابي',
+                child: companiesAsync.when(
+                  data: (companies) {
+                    final allExchanges =
+                        allExchangesAsync.value ?? const <Exchange>[];
+                    final filteredExchanges = _exchangeCompanyName == null
+                        ? const <Exchange>[]
+                        : allExchanges
+                            .where((e) => e.name == _exchangeCompanyName)
+                            .toList();
+                    final filteredCompanies = <Company>[];
+                    for (final ex in filteredExchanges) {
+                      for (final c in companies) {
+                        if (c.id == ex.companyId &&
+                            !filteredCompanies.contains(c)) {
+                          filteredCompanies.add(c);
+                          break;
+                        }
+                      }
+                    }
+                    final liveCompany =
+                        filteredCompanies.any((x) => x == _myCompany)
+                            ? _myCompany
+                            : null;
+                    if (liveCompany == null && _myCompany != null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            _myCompany = null;
+                            _exchange = null;
+                          });
+                        }
+                      });
+                    }
+                    return DropdownButtonFormField<Company>(
+                      value: liveCompany,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: _exchangeCompanyName == null
+                            ? 'اختر شركة الصرافة أولاً'
+                            : 'اسم الحساب',
+                        suffixIcon: const _IconBox(
+                          FontAwesomeIcons.wallet,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                      items: filteredCompanies
+                          .map((c) => DropdownMenuItem<Company>(
+                                value: c,
+                                child: Text(c.name),
+                              ))
+                          .toList(),
+                      onChanged: _exchangeCompanyName == null
+                          ? null
+                          : (c) {
+                              Exchange? matched;
+                              for (final ex in filteredExchanges) {
+                                if (c != null && ex.companyId == c.id) {
+                                  matched = ex;
+                                  break;
+                                }
+                              }
+                              setState(() {
+                                _myCompany = c;
+                                _exchange = matched;
+                              });
+                            },
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('$e'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _LabeledField(
+                label: 'رقم حسابي',
+                child: TextField(
+                  readOnly: true,
+                  controller: TextEditingController(
+                    text: _exchange?.ourCode ?? '',
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'كود الحساب',
+                    suffixIcon: _IconBox(
+                      FontAwesomeIcons.user,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        _CollapsibleSection(
+          header: const _AccentSectionTitle(
+            text: 'الجهة المرسلة',
+            color: AppColors.accent,
+            icon: FontAwesomeIcons.paperPlane,
+          ),
+          expanded: _activeSection == 2,
+          onToggle: () => setState(
+            () => _activeSection = _activeSection == 2 ? null : 2,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -737,179 +927,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 14),
 
-        _CollapsibleSection(
-          header: const _AccentSectionTitle(
-            text: 'وجهة الدخول',
-            color: AppColors.warning,
-            icon: FontAwesomeIcons.userTie,
-          ),
-          expanded: _activeSection == 2,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 2 ? null : 2,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LabeledField(
-                label: 'اسم الشركة',
-                child: exchangeCompaniesAsync.when(
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _openAddExchangeCompanyDialog,
-                          icon: const FaIcon(
-                            FontAwesomeIcons.plus,
-                            size: 14,
-                          ),
-                          label: const Text('إضافة شركة صرافة جديدة'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent,
-                            side: BorderSide(
-                              color: AppColors.accent.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    final names =
-                        items.map((ec) => ec.name).toList();
-                    final liveValue =
-                        names.contains(_exchangeCompanyName)
-                            ? _exchangeCompanyName
-                            : null;
-                    if (liveValue == null &&
-                        _exchangeCompanyName != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _onExchangeCompanyChanged(null);
-                      });
-                    }
-                    return DropdownButtonFormField<String>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        hintText: 'اسم الشركة',
-                        suffixIcon: _IconBox(
-                          FontAwesomeIcons.building,
-                          color: AppColors.warning,
-                        ),
-                      ),
-                      items: names
-                          .map((n) => DropdownMenuItem<String>(
-                                value: n,
-                                child: Text(n),
-                              ))
-                          .toList(),
-                      onChanged: _onExchangeCompanyChanged,
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'اسم حسابي',
-                child: companiesAsync.when(
-                  data: (companies) {
-                    final allExchanges =
-                        allExchangesAsync.value ?? const <Exchange>[];
-                    final filteredExchanges = _exchangeCompanyName == null
-                        ? const <Exchange>[]
-                        : allExchanges
-                            .where((e) => e.name == _exchangeCompanyName)
-                            .toList();
-                    final filteredCompanies = <Company>[];
-                    for (final ex in filteredExchanges) {
-                      for (final c in companies) {
-                        if (c.id == ex.companyId &&
-                            !filteredCompanies.contains(c)) {
-                          filteredCompanies.add(c);
-                          break;
-                        }
-                      }
-                    }
-                    final liveCompany =
-                        filteredCompanies.any((x) => x == _myCompany)
-                            ? _myCompany
-                            : null;
-                    if (liveCompany == null && _myCompany != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _myCompany = null;
-                            _exchange = null;
-                          });
-                        }
-                      });
-                    }
-                    return DropdownButtonFormField<Company>(
-                      value: liveCompany,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        hintText: _exchangeCompanyName == null
-                            ? 'اختر شركة الصرافة أولاً'
-                            : 'اسم الحساب',
-                        suffixIcon: const _IconBox(
-                          FontAwesomeIcons.wallet,
-                          color: AppColors.warning,
-                        ),
-                      ),
-                      items: filteredCompanies
-                          .map((c) => DropdownMenuItem<Company>(
-                                value: c,
-                                child: Text(c.name),
-                              ))
-                          .toList(),
-                      onChanged: _exchangeCompanyName == null
-                          ? null
-                          : (c) {
-                              Exchange? matched;
-                              for (final ex in filteredExchanges) {
-                                if (c != null && ex.companyId == c.id) {
-                                  matched = ex;
-                                  break;
-                                }
-                              }
-                              setState(() {
-                                _myCompany = c;
-                                _exchange = matched;
-                              });
-                            },
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'رقم حسابي',
-                child: TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _exchange?.ourCode ?? '',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'كود الحساب',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.user,
-                      color: AppColors.warning,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
         Row(children: [
           Expanded(
             child: FilledButton.icon(
@@ -941,11 +958,23 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         const SizedBox(height: 24),
 
         _CollapsibleSection(
-          header: const _AccentSectionTitle(
-            text: 'دخول قيد التنفيذ',
-            color: AppColors.accent,
-            icon: FontAwesomeIcons.clock,
-          ),
+          header: Row(children: [
+            const Expanded(
+              child: _AccentSectionTitle(
+                text: 'دخول قيد التنفيذ',
+                color: AppColors.accent,
+                icon: FontAwesomeIcons.clock,
+              ),
+            ),
+            if (!_pendingExpanded)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 8),
+                child: _CountBadge(
+                  count: pendingAsync.value?.length ?? 0,
+                  color: AppColors.accent,
+                ),
+              ),
+          ]),
           expanded: _pendingExpanded,
           onToggle: () =>
               setState(() => _pendingExpanded = !_pendingExpanded),
@@ -975,6 +1004,14 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               onPressed: () =>
                   _exportDailyPdf(dailyAsync.value ?? const []),
             ),
+            if (!_executedExpanded)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 8),
+                child: _CountBadge(
+                  count: dailyAsync.value?.length ?? 0,
+                  color: AppColors.positive,
+                ),
+              ),
           ]),
           expanded: _executedExpanded,
           onToggle: () =>
@@ -1008,6 +1045,32 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  const _CountBadge({required this.count, required this.color});
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        '($count)',
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -1165,8 +1228,12 @@ class _PendingTable extends ConsumerWidget {
       );
     }
     final clients = ref.watch(clientsListProvider);
+    final companies = ref.watch(companiesListProvider);
     final clientById = <String, Client>{
       for (final c in (clients.value ?? const <Client>[])) c.id: c,
+    };
+    final companyById = <String, String>{
+      for (final c in (companies.value ?? const <Company>[])) c.id: c.name,
     };
     final tf = DateFormat('hh:mm a');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
@@ -1178,6 +1245,7 @@ class _PendingTable extends ConsumerWidget {
           DataColumn(label: Text('من شركة')),
           DataColumn(label: Text('المرسل')),
           DataColumn(label: Text('القيمة')),
+          DataColumn(label: Text('في حسابي')),
           DataColumn(label: Text('التوقيت')),
         ],
         rows: rows
@@ -1199,6 +1267,7 @@ class _PendingTable extends ConsumerWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     )),
+                    DataCell(Text(companyById[b.myCompanyId] ?? '—')),
                     DataCell(Text(fmt(b.createdAt))),
                   ],
                 ))
@@ -1221,8 +1290,12 @@ class _DailyBuysTable extends ConsumerWidget {
       );
     }
     final clients = ref.watch(clientsListProvider);
+    final companies = ref.watch(companiesListProvider);
     final clientById = <String, Client>{
       for (final c in (clients.value ?? const <Client>[])) c.id: c,
+    };
+    final companyById = <String, String>{
+      for (final c in (companies.value ?? const <Company>[])) c.id: c.name,
     };
     final tf = DateFormat('hh:mm a');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
@@ -1234,6 +1307,7 @@ class _DailyBuysTable extends ConsumerWidget {
           DataColumn(label: Text('من شركة')),
           DataColumn(label: Text('المرسل')),
           DataColumn(label: Text('القيمة')),
+          DataColumn(label: Text('في حسابي')),
           DataColumn(label: Text('التوقيت')),
         ],
         rows: rows
@@ -1253,6 +1327,7 @@ class _DailyBuysTable extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   )),
+                  DataCell(Text(companyById[b.myCompanyId] ?? '—')),
                   DataCell(Text(fmt(b.createdAt))),
                 ]))
             .toList(),
