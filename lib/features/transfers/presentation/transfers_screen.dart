@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/creator_chip.dart';
 import '../../../shared/creator_filter.dart';
-import '../../../shared/creator_stats.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/transaction_details.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/pending_dispatch.dart';
@@ -419,12 +418,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       } catch (_) {
         notif = null;
       }
+      final employeeName =
+          ref.read(currentEmployeeProvider).value?.employeeName;
       final bytes = await pdf.buildDailyTransfersReport(
         rows: rows,
         companyNameById: companyNameById,
         exchangeNameById: exchangeNameById,
         notificationText: notif,
         exportedBy: exportedBy,
+        employeeName: employeeName,
       );
       await PdfExport.sharePdf(bytes, 'daily_transfers.pdf');
     } catch (e, st) {
@@ -1086,15 +1088,13 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CreatorStats<Transfer>(
+        CreatorFilter<Transfer>(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
           rows: widget.rows,
           amountOf: (t) => t.amount,
           creatorOf: (t) => t.createdByEmployeeId,
-          accent: AppColors.negative,
-        ),
-        CreatorFilter(
-          selected: _filter,
-          onChanged: (v) => setState(() => _filter = v),
+          amountColor: AppColors.negative,
         ),
         if (visible.isEmpty)
           const Padding(
@@ -1120,12 +1120,14 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
                   ],
                   rows: visible
                       .map((t) => DataRow(
-                            onSelectChanged: (_) => _showTransferDetails(
+                            onSelectChanged: (_) => showTransferDetails(
                               context,
                               transfer: t,
                               companyName: companyById[t.companyId],
                               exchangeName:
                                   exchangeById[t.exchangeId]?.name,
+                              exchangeCode:
+                                  exchangeById[t.exchangeId]?.ourCode,
                             ),
                             cells: [
                               DataCell(Text(
@@ -1160,113 +1162,7 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
   }
 }
 
-void _showTransferDetails(
-  BuildContext context, {
-  required Transfer transfer,
-  String? companyName,
-  String? exchangeName,
-}) {
-  showGlassDialog<void>(
-    context: context,
-    builder: (_) => Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
-        child: GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'تفاصيل الحوالة',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
-                    color: AppColors.textLow,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _DetailRow(label: 'من حساب', value: companyName ?? '—'),
-              _DetailRow(label: 'من شركة', value: exchangeName ?? '—'),
-              _DetailRow(
-                  label: 'المبلغ', value: '${formatMoney(transfer.amount)} \$'),
-              _DetailRow(
-                  label: 'الرقم الإشاري', value: transfer.reference),
-              _DetailRow(
-                  label: 'المستفيد', value: transfer.beneficiaryName),
-              _DetailRow(
-                label: 'حساب المستفيد',
-                value: (transfer.beneficiaryAccountCompany?.isEmpty ?? true)
-                    ? '—'
-                    : transfer.beneficiaryAccountCompany!,
-              ),
-              _DetailRow(
-                label: 'كود حساب المستفيد',
-                value: (transfer.beneficiaryCode?.isEmpty ?? true)
-                    ? '—'
-                    : transfer.beneficiaryCode!,
-              ),
-              _DetailRow(
-                label: 'التاريخ',
-                value: DateFormat('yyyy-MM-dd  HH:mm')
-                    .format(transfer.createdAt),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textLow,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textHigh,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Transfer details dialog moved to lib/shared/transaction_details.dart so
+// both the admin's daily table and the employee's "سجلاتي" tab share the
+// exact same presentation.
 

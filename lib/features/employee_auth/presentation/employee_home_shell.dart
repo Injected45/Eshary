@@ -13,6 +13,7 @@ import '../../currency_buy/presentation/currency_buy_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../transfers/presentation/transfers_screen.dart';
+import 'employee_records_screen.dart';
 import '../data/employee_auth_repository.dart';
 import 'employee_auth_providers.dart';
 
@@ -155,6 +156,12 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell> {
           icon: FontAwesomeIcons.moneyBillTransfer,
           screen: CurrencyBuyScreen(),
         ),
+      const _EmployeeTab(
+        title: 'سجل عملياتي',
+        label: 'سجلاتي',
+        icon: FontAwesomeIcons.clockRotateLeft,
+        screen: EmployeeRecordsScreen(),
+      ),
     ];
   }
 

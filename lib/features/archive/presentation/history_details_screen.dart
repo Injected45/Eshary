@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/creator_chip.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
@@ -114,6 +115,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       total: total,
       getDate: (b) => b.archivedAt ?? b.createdAt,
       getAmount: (b) => b.usdAmount,
+      getCreator: (b) => b.createdByEmployeeId,
       onExport: () => _exportPdf(filtered, total),
       onRowTap: (b) => showGlassDialog<void>(
         context: context,
@@ -170,6 +172,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       total: total,
       getDate: (t) => t.archivedAt ?? t.createdAt,
       getAmount: (t) => t.amount,
+      getCreator: (t) => t.createdByEmployeeId,
       onExport: () => _exportPdf(filtered, total),
       onRowTap: (t) => showGlassDialog<void>(
         context: context,
@@ -190,6 +193,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     required double total,
     required DateTime Function(T) getDate,
     required double Function(T) getAmount,
+    required String? Function(T) getCreator,
     required VoidCallback onExport,
     required void Function(T) onRowTap,
     required void Function(T) onRowDownload,
@@ -234,6 +238,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
                 date: getDate(rows[i]),
                 amount: getAmount(rows[i]),
                 tint: _tint,
+                createdByEmployeeId: getCreator(rows[i]),
                 onTap: () => onRowTap(rows[i]),
                 onDownload: () => onRowDownload(rows[i]),
               ),
@@ -683,6 +688,7 @@ class _RecordRow extends StatelessWidget {
     required this.date,
     required this.amount,
     required this.tint,
+    required this.createdByEmployeeId,
     required this.onTap,
     required this.onDownload,
   });
@@ -690,6 +696,9 @@ class _RecordRow extends StatelessWidget {
   final DateTime date;
   final double amount;
   final Color tint;
+
+  /// null → admin-authored; non-null → sub_user.id of the author.
+  final String? createdByEmployeeId;
   final VoidCallback onTap;
   final VoidCallback onDownload;
 
@@ -710,84 +719,96 @@ class _RecordRow extends StatelessWidget {
             border: Border.all(color: AppColors.glassBorder),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 40,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.glassFillStrong,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.glassBorder),
-                ),
-                child: Text(
-                  '$index',
-                  style: const TextStyle(
-                    color: AppColors.textHigh,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  '\$${formatMoney(amount)}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: tint,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    Text(
-                      df.format(date),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textHigh,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      tf.format(date),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textLow,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: onDownload,
-                  child: Container(
-                    width: 36,
+              Row(
+                children: [
+                  Container(
+                    width: 40,
                     height: 36,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: tint.withValues(alpha: 0.6),
-                      ),
-                      color: tint.withValues(alpha: 0.08),
+                      color: AppColors.glassFillStrong,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.glassBorder),
                     ),
-                    child: FaIcon(
-                      FontAwesomeIcons.circleDown,
-                      size: 14,
-                      color: tint,
+                    child: Text(
+                      '$index',
+                      style: const TextStyle(
+                        color: AppColors.textHigh,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      '\$${formatMoney(amount)}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: tint,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      children: [
+                        Text(
+                          df.format(date),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textHigh,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          tf.format(date),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textLow,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: onDownload,
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: tint.withValues(alpha: 0.6),
+                          ),
+                          color: tint.withValues(alpha: 0.08),
+                        ),
+                        child: FaIcon(
+                          FontAwesomeIcons.circleDown,
+                          size: 14,
+                          color: tint,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: CreatorChip(
+                  createdByEmployeeId: createdByEmployeeId,
                 ),
               ),
             ],

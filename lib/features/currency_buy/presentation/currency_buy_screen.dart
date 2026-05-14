@@ -10,7 +10,6 @@ import '../../../core/theme.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/creator_chip.dart';
 import '../../../shared/creator_filter.dart';
-import '../../../shared/creator_stats.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
@@ -410,7 +409,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       builder: (_) => AlertDialog(
         title: const Text('تأكيد الترحيل'),
         content:
-            const Text('إقفال وترحيل سجل المشتريات اليومي للأرشيف العام؟'),
+            const Text('إقفال وترحيل سجل الدخول إلى الإقفالات؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -476,6 +475,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       } catch (_) {
         notif = null;
       }
+      final employeeName =
+          ref.read(currentEmployeeProvider).value?.employeeName;
       final bytes = await pdf.buildDailyBuysReport(
         rows: rows,
         companyNameById: companyNameById,
@@ -483,6 +484,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         clientById: clientById,
         notificationText: notif,
         exportedBy: exportedBy,
+        employeeName: employeeName,
       );
       await PdfExport.sharePdf(bytes, 'daily_buys.pdf');
     } catch (e, st) {
@@ -1322,15 +1324,13 @@ class _PendingTableState extends ConsumerState<_PendingTable> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CreatorStats<CurrencyBuy>(
+        CreatorFilter<CurrencyBuy>(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
           rows: widget.rows,
           amountOf: (b) => b.usdAmount,
           creatorOf: (b) => b.createdByEmployeeId,
-          accent: AppColors.warning,
-        ),
-        CreatorFilter(
-          selected: _filter,
-          onChanged: (v) => setState(() => _filter = v),
+          amountColor: AppColors.warning,
         ),
         if (visible.isEmpty)
           const Padding(
@@ -1414,15 +1414,13 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CreatorStats<CurrencyBuy>(
+        CreatorFilter<CurrencyBuy>(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
           rows: widget.rows,
           amountOf: (b) => b.usdAmount,
           creatorOf: (b) => b.createdByEmployeeId,
-          accent: AppColors.positive,
-        ),
-        CreatorFilter(
-          selected: _filter,
-          onChanged: (v) => setState(() => _filter = v),
+          amountColor: AppColors.positive,
         ),
         if (visible.isEmpty)
           const Padding(

@@ -11,6 +11,7 @@ import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import 'archive_filters.dart';
 import 'diff_details_screen.dart';
+import 'employees_operations_screen.dart';
 import 'history_details_screen.dart';
 
 class ArchiveScreen extends ConsumerStatefulWidget {
@@ -151,6 +152,14 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
                 kind: HistoryKind.outgoing,
                 initialRange: detailsRange,
               ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _EmployeesNavTile(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const EmployeesOperationsScreen(),
             ),
           ),
         ),
@@ -350,6 +359,63 @@ class _DiffNavTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              const FaIcon(
+                FontAwesomeIcons.chevronLeft,
+                size: 12,
+                color: AppColors.textLow,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmployeesNavTile extends StatelessWidget {
+  const _EmployeesNavTile({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const tint = Color(0xFF7C8CF7);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: tint, width: 1.5),
+                  color: tint.withValues(alpha: 0.10),
+                ),
+                child: const FaIcon(
+                  FontAwesomeIcons.userGroup,
+                  size: 14,
+                  color: tint,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'عرض تفاصيل عمليات الموظفين',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: tint,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               const FaIcon(
                 FontAwesomeIcons.chevronLeft,
                 size: 12,

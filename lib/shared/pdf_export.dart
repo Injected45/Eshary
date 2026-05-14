@@ -157,6 +157,7 @@ class PdfExport {
     required Map<String, String> exchangeNameById,
     String? notificationText,
     String? exportedBy,
+    String? employeeName,
   }) async {
     final doc = pw.Document(theme: _theme);
     final now = DateTime.now();
@@ -220,6 +221,42 @@ class PdfExport {
                 ),
               ],
             ),
+            // Employee identity strip — shown only when an employee
+            // generated the PDF. Right-aligned (start of an RTL row).
+            if (employeeName != null && employeeName.trim().isNotEmpty) ...[
+              pw.SizedBox(height: 6),
+              pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Align(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: const PdfColor.fromInt(0xFFEFF4FB),
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(6),
+                      ),
+                      border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFC9D7E8),
+                        width: 0.6,
+                      ),
+                    ),
+                    child: pw.Text(
+                      'اسم الموظف: ${employeeName.trim()}',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        color: PdfColors.blueGrey800,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             pw.SizedBox(height: 12),
           ],
         );
@@ -520,6 +557,7 @@ class PdfExport {
     required Map<String, Client> clientById,
     String? notificationText,
     String? exportedBy,
+    String? employeeName,
   }) async {
     final doc = pw.Document(theme: _theme);
     final now = DateTime.now();
@@ -583,6 +621,42 @@ class PdfExport {
                 ),
               ],
             ),
+            // Employee identity strip — shown only when an employee
+            // generated the PDF. Right-aligned (start of an RTL row).
+            if (employeeName != null && employeeName.trim().isNotEmpty) ...[
+              pw.SizedBox(height: 6),
+              pw.Directionality(
+                textDirection: pw.TextDirection.rtl,
+                child: pw.Align(
+                  alignment: pw.Alignment.centerRight,
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: pw.BoxDecoration(
+                      color: const PdfColor.fromInt(0xFFEFF4FB),
+                      borderRadius: const pw.BorderRadius.all(
+                        pw.Radius.circular(6),
+                      ),
+                      border: pw.Border.all(
+                        color: const PdfColor.fromInt(0xFFC9D7E8),
+                        width: 0.6,
+                      ),
+                    ),
+                    child: pw.Text(
+                      'اسم الموظف: ${employeeName.trim()}',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        color: PdfColors.blueGrey800,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             pw.SizedBox(height: 12),
           ],
         );
@@ -892,6 +966,7 @@ class PdfExport {
     required DateTime end,
     String? exportedBy,
     String? notificationText,
+    String? employeeName,
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
@@ -910,7 +985,9 @@ class PdfExport {
     final ops = <_DetailedOp>[];
     for (final b in buys) {
       final myCompany = companyById[b.myCompanyId]?.name;
-      final myExchange = exchangeById[b.exchangeId]?.name;
+      final myExchangeRow = exchangeById[b.exchangeId];
+      final myExchange = myExchangeRow?.name;
+      final myCode = (myExchangeRow?.ourCode ?? '').trim();
       final client = b.clientId != null ? clientById[b.clientId!] : null;
       final partyCompany = client?.company ?? '';
       final partyName = client?.name ?? b.clientFromAccount ?? '';
@@ -919,10 +996,10 @@ class PdfExport {
           t: b.archivedAt ?? b.createdAt,
           kind: 'دخول',
           isIncome: true,
-          reference: b.reference.isEmpty ? '—' : b.reference,
-          senderReference: b.reference.isEmpty
-              ? (b.id.length >= 8 ? b.id.substring(0, 8) : b.id)
-              : b.reference,
+          // For دخول: own column shows MY account code (وجهة الدخول),
+          // sender column shows the reference that arrived from الجهة المرسلة.
+          reference: myCode.isEmpty ? '—' : myCode,
+          senderReference: b.reference.isEmpty ? '—' : b.reference,
           amount: b.usdAmount,
           myAccount: slash(myCompany, myExchange),
           party: slash(partyCompany, partyName),
@@ -937,7 +1014,9 @@ class PdfExport {
           t: t.archivedAt ?? t.createdAt,
           kind: 'خروج',
           isIncome: false,
-          reference: '—',
+          // For خروج: own column shows my transfer reference, sender
+          // column shows the beneficiary's account code (كود المستلم).
+          reference: t.reference.isEmpty ? '—' : t.reference,
           senderReference:
               (t.beneficiaryCode == null || t.beneficiaryCode!.isEmpty)
                   ? '—'
@@ -1080,14 +1159,14 @@ class PdfExport {
     }
 
     // Logical order (right→left as user reads):
-    // ت | الوقت | التاريخ | قيمة العملية | إشاري | حساباتي | الجهة |
+    // ت | الوقت | التاريخ | قيمة العملية | الإشاري | حساباتي | الجهة |
     // إشاري المرسل | الرصيد قبل | الرصيد بعد | فرق تراكمي | النوع
     const headers = <String>[
       'ت',
       'الوقت',
       'التاريخ',
       'قيمة العملية',
-      'إشاري',
+      'الإشاري',
       'حساباتي',
       'الجهة',
       'إشاري المرسل',
@@ -1285,7 +1364,8 @@ class PdfExport {
     );
 
     // Top summary row above the table — RTL: first child is rightmost.
-    // Order: إجمالي الدخول | إجمالي الخروج | فرق الحركة | عدد العمليات.
+    // Order: إجمالي الدخول | إجمالي الخروج | فرق الحركة.
+    // (عدد العمليات removed — the ت column already enumerates rows.)
     final topSummaryRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Row(
@@ -1313,32 +1393,15 @@ class PdfExport {
               movementColor,
             ),
           ),
-          pw.SizedBox(width: 8),
-          pw.Expanded(
-            child: summaryTile(
-              'عدد العمليات',
-              '${ops.length}',
-              PdfColors.grey800,
-            ),
-          ),
         ],
       ),
     );
 
-    // RTL row: first child is rightmost. Order: عدد العمليات | الرصيد قبل |
-    // الرصيد بعد | فرق الحركة.
+    // Bottom row: الرصيد قبل | الرصيد بعد | فرق الحركة.
     final summaryRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Row(
         children: [
-          pw.Expanded(
-            child: summaryTile(
-              'عدد العمليات',
-              '${ops.length}',
-              PdfColors.grey800,
-            ),
-          ),
-          pw.SizedBox(width: 8),
           pw.Expanded(
             child: summaryTile(
               'الرصيد قبل',
@@ -1381,6 +1444,50 @@ class PdfExport {
           ),
           topSummaryRow,
           pw.SizedBox(height: 10),
+          // Identity strip — top of the table, aligned to the right
+          // (start of an RTL row). Employee name when generated from
+          // the employee app; "ADMIN" otherwise.
+          pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                margin: const pw.EdgeInsets.only(bottom: 6),
+                decoration: pw.BoxDecoration(
+                  color: (employeeName != null &&
+                          employeeName.trim().isNotEmpty)
+                      ? const PdfColor.fromInt(0xFFEFF4FB)
+                      : const PdfColor.fromInt(0xFFF1ECFB),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(6),
+                  ),
+                  border: pw.Border.all(
+                    color: (employeeName != null &&
+                            employeeName.trim().isNotEmpty)
+                        ? const PdfColor.fromInt(0xFFC9D7E8)
+                        : const PdfColor.fromInt(0xFFD3C7E8),
+                    width: 0.6,
+                  ),
+                ),
+                child: pw.Text(
+                  (employeeName != null &&
+                          employeeName.trim().isNotEmpty)
+                      ? 'اسم الموظف: ${employeeName.trim()}'
+                      : 'ADMIN',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 11,
+                    color: PdfColors.blueGrey800,
+                  ),
+                  textDirection: pw.TextDirection.rtl,
+                ),
+              ),
+            ),
+          ),
           tableWidget,
           pw.SizedBox(height: 12),
           summaryRow,

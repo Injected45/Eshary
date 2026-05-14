@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/creator_filter.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
@@ -16,6 +17,7 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
@@ -23,9 +25,29 @@ import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart';
 
 class DiffDetailsScreen extends ConsumerStatefulWidget {
-  const DiffDetailsScreen({super.key, this.initialRange});
+  const DiffDetailsScreen({
+    super.key,
+    this.initialRange,
+    this.includeDaily = false,
+    this.title,
+    this.creatorFilter,
+  });
 
   final DateTimeRange? initialRange;
+
+  /// When true, daily / pending rows are merged with the archived rows
+  /// so the screen reflects everything the caller has authored — used by
+  /// the employee app, where pre-close rows still belong to the running
+  /// jurd. Admin's default is archived-only.
+  final bool includeDaily;
+
+  /// Optional override for the AppBar title (default: "تفاصيل فرق الحركة").
+  final String? title;
+
+  /// Optional row scoping by creator. `null` shows every row; a sub_user
+  /// id shows only that employee's rows; a sentinel value (handled by
+  /// `creatorPasses` below) shows only the admin's own rows.
+  final String? creatorFilter;
 
   @override
   ConsumerState<DiffDetailsScreen> createState() =>
@@ -92,19 +114,53 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
 
+    // Employee mode pulls in daily / pending rows alongside the archived
+    // ones so the jurd reflects everything the caller has authored, not
+    // just what the admin has closed.
+    final dailyBuys = widget.includeDaily
+        ? (ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[])
+        : const <CurrencyBuy>[];
+    final pendingBuys = widget.includeDaily
+        ? (ref.watch(pendingBuysProvider).value ?? const <CurrencyBuy>[])
+        : const <CurrencyBuy>[];
+    final dailyTransfers = widget.includeDaily
+        ? (ref.watch(dailyTransfersProvider).value ?? const <Transfer>[])
+        : const <Transfer>[];
+
     final r = resolveActiveRange(mode: _mode, from: _from, to: _to);
 
-    final filteredBuys = archivedBuys
-        .where((b) => inDateRange(b.archivedAt, r.start, r.end))
-        .toList()
-      ..sort((a, b) => (a.archivedAt ?? a.createdAt)
-          .compareTo(b.archivedAt ?? b.createdAt));
+    DateTime _stampForBuy(CurrencyBuy b) => b.archivedAt ?? b.createdAt;
+    DateTime _stampForTransfer(Transfer t) => t.archivedAt ?? t.createdAt;
 
-    final filteredTransfers = archivedTransfers
-        .where((t) => inDateRange(t.archivedAt, r.start, r.end))
+    // Optional per-creator filter: passes either when no filter is set,
+    // or when the row's `created_by_employee_id` matches via the shared
+    // `creatorPasses` helper (which also understands the admin sentinel).
+    bool creatorOk(String? createdByEmployeeId) {
+      final f = widget.creatorFilter;
+      if (f == null) return true;
+      return creatorPasses(f, createdByEmployeeId);
+    }
+
+    final filteredBuys = [
+      ...archivedBuys,
+      ...dailyBuys,
+      ...pendingBuys,
+    ]
+        .where((b) => inDateRange(_stampForBuy(b), r.start, r.end))
+        .where((b) => creatorOk(b.createdByEmployeeId))
         .toList()
-      ..sort((a, b) => (a.archivedAt ?? a.createdAt)
-          .compareTo(b.archivedAt ?? b.createdAt));
+      ..sort((a, b) => _stampForBuy(a).compareTo(_stampForBuy(b)));
+
+    final filteredTransfers = [
+      ...archivedTransfers,
+      ...dailyTransfers,
+    ]
+        .where((t) => inDateRange(_stampForTransfer(t), r.start, r.end))
+        .where((t) => creatorOk(t.createdByEmployeeId))
+        .toList()
+      ..sort(
+        (a, b) => _stampForTransfer(a).compareTo(_stampForTransfer(b)),
+      );
 
     final incomeTotal =
         filteredBuys.fold<double>(0, (s, b) => s + b.usdAmount);
@@ -125,7 +181,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('تفاصيل فرق الحركة'),
+        title: Text(widget.title ?? 'تفاصيل فرق الحركة'),
         backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
         elevation: 0,
         actions: [
@@ -217,6 +273,9 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
       } catch (_) {
         notif = null;
       }
+      // Employee → their name; admin → null (the PDF renders "ADMIN").
+      final employeeName =
+          ref.read(currentEmployeeProvider).value?.employeeName;
       final bytes = await pdf.buildDetailedTransfersReport(
         buys: buys,
         transfers: transfers,
@@ -227,6 +286,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         end: end,
         exportedBy: exportedBy,
         notificationText: notif,
+        employeeName: employeeName,
       );
       final filename = 'movement_'
           '${DateFormat('yyyyMMdd').format(start)}_'
@@ -826,6 +886,7 @@ class _OperationRow {
     required this.account,
     required this.party,
     required this.status,
+    required this.reference,
     this.runningDiff = 0,
   });
   final DateTime t;
@@ -834,6 +895,9 @@ class _OperationRow {
   final String account;
   final String party;
   final String status;
+  /// Outgoing → transfer's own reference. Incoming → the buy's reference
+  /// (which is what arrived from the sender).
+  final String reference;
   double runningDiff;
 }
 
@@ -886,6 +950,7 @@ class _OperationsTable extends ConsumerWidget {
             ? (clientName[b.clientId!] ?? b.clientFromAccount ?? '—')
             : (b.clientFromAccount ?? '—'),
         status: _statusLabel(b.status),
+        reference: b.reference.isEmpty ? '—' : b.reference,
       ));
     }
     for (final t in transfers) {
@@ -897,6 +962,7 @@ class _OperationsTable extends ConsumerWidget {
             '${companyName[t.companyId] ?? '—'}',
         party: t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName,
         status: _statusLabel(t.status),
+        reference: t.reference.isEmpty ? '—' : t.reference,
       ));
     }
     all.sort((a, b) => a.t.compareTo(b.t));
@@ -965,12 +1031,10 @@ class _OperationsTable extends ConsumerWidget {
                   columnSpacing: 18,
                   columns: const [
                     DataColumn(label: Text('الوقت')),
-                    DataColumn(label: Text('النوع')),
                     DataColumn(label: Text('القيمة')),
                     DataColumn(label: Text('الحساب')),
                     DataColumn(label: Text('الجهة')),
-                    DataColumn(label: Text('الحالة')),
-                    DataColumn(label: Text('فرق بعدها')),
+                    DataColumn(label: Text('إشاري')),
                   ],
                   rows: [
                     for (final r in rows)
@@ -978,15 +1042,6 @@ class _OperationsTable extends ConsumerWidget {
                         DataCell(Text(
                           '${tf.format(r.t)}\n${df.format(r.t)}',
                           style: const TextStyle(fontSize: 11),
-                        )),
-                        DataCell(Text(
-                          r.kind,
-                          style: TextStyle(
-                            color: r.kind == 'دخول'
-                                ? AppColors.positive
-                                : AppColors.negative,
-                            fontWeight: FontWeight.w700,
-                          ),
                         )),
                         DataCell(Text(
                           '${r.amountSigned >= 0 ? '+' : '-'}\$${formatMoney(r.amountSigned.abs())}',
@@ -1016,16 +1071,11 @@ class _OperationsTable extends ConsumerWidget {
                           ),
                         )),
                         DataCell(Text(
-                          r.status,
-                          style: const TextStyle(fontSize: 11),
-                        )),
-                        DataCell(Text(
-                          '${r.runningDiff >= 0 ? '+' : '-'}\$${formatMoney(r.runningDiff.abs())}',
-                          style: TextStyle(
-                            color: r.runningDiff >= 0
-                                ? AppColors.positive
-                                : AppColors.negative,
-                            fontWeight: FontWeight.w700,
+                          r.reference,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                            color: AppColors.textHigh,
                           ),
                         )),
                       ]),
