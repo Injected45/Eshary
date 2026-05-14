@@ -5,10 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/realtime_sync.dart';
 import '../../archive/presentation/archive_screen.dart';
 import '../../companies/presentation/accounts_screen.dart';
+import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/presentation/currency_buy_screen.dart';
+import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../settings/presentation/settings_screen.dart';
+import '../../transfers/presentation/transfers_providers.dart';
 import '../../transfers/presentation/transfers_screen.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -39,6 +43,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Keeps the Realtime channel alive for the duration of the home shell
+    // so cross-device DB changes (admin archiving, balances moving) flow
+    // into provider invalidations without manual refresh.
+    ref.watch(realtimeSyncProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
@@ -52,6 +60,26 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               title: Text(_titles[_index]),
               backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
               elevation: 0,
+              actions: [
+                IconButton(
+                  tooltip: 'تحديث',
+                  icon: const FaIcon(FontAwesomeIcons.arrowsRotate, size: 16),
+                  onPressed: () {
+                    ref.invalidate(dailyTransfersProvider);
+                    ref.invalidate(archivedTransfersProvider);
+                    ref.invalidate(dailyBuysProvider);
+                    ref.invalidate(pendingBuysProvider);
+                    ref.invalidate(archivedBuysProvider);
+                    ref.invalidate(allExchangesProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('جاري التحديث...'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ),

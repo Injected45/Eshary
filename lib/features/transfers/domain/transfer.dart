@@ -20,6 +20,7 @@ class Transfer {
     required this.status,
     required this.createdAt,
     required this.archivedAt,
+    required this.createdByEmployeeId,
   });
 
   final String id;
@@ -34,6 +35,10 @@ class Transfer {
   final TransferStatus status;
   final DateTime createdAt;
   final DateTime? archivedAt;
+  /// Sub-user (employee) who authored this row, or null when the admin
+  /// created it directly. Stamped by `record_transfer` from
+  /// `current_employee_id()` (see migration 0025).
+  final String? createdByEmployeeId;
 
   factory Transfer.fromJson(Map<String, dynamic> json) => Transfer(
         id: json['id'] as String,
@@ -51,5 +56,6 @@ class Transfer {
         archivedAt: json['archived_at'] == null
             ? null
             : DateTime.parse(json['archived_at'] as String),
+        createdByEmployeeId: json['created_by_employee_id'] as String?,
       );
 }

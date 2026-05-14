@@ -8,6 +8,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/audio_feedback.dart';
+import '../../../shared/creator_chip.dart';
+import '../../../shared/creator_filter.dart';
+import '../../../shared/creator_stats.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
@@ -21,6 +24,7 @@ import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
 import '../../notifications/presentation/notifications_providers.dart';
@@ -571,27 +575,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 child: exchangeCompaniesAsync.when(
                   data: (items) {
                     if (items.isEmpty) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _openAddExchangeCompanyDialog,
-                          icon: const FaIcon(
-                            FontAwesomeIcons.plus,
-                            size: 14,
-                          ),
-                          label: const Text('إضافة شركة صرافة جديدة'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent,
-                            side: BorderSide(
-                              color: AppColors.accent.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
+                      return _EmptyExchangeCompaniesState(
+                        onAdd: _openAddExchangeCompanyDialog,
                       );
                     }
                     final names =
@@ -739,51 +724,34 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openSavedClientsDialog,
-                  icon: const FaIcon(
-                    FontAwesomeIcons.bookmark,
-                    size: 14,
-                  ),
-                  label: const Text('الجهات المحفوظة'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(
-                      color: AppColors.accent.withValues(alpha: 0.5),
+              if (!ref.watch(isEmployeeProvider)) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _openSavedClientsDialog,
+                    icon: const FaIcon(
+                      FontAwesomeIcons.bookmark,
+                      size: 14,
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    label: const Text('الجهات المحفوظة'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
               _LabeledField(
                 label: 'الشركة المرسلة',
                 child: clientsAsync.when(
                   data: (clients) {
                     if (clients.isEmpty) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _openAddClientDialog,
-                          icon: const FaIcon(
-                            FontAwesomeIcons.plus,
-                            size: 14,
-                          ),
-                          label: const Text('إضافة عميل جديد'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent,
-                            side: BorderSide(
-                              color: AppColors.accent.withValues(
-                                alpha: 0.5,
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 12,
-                            ),
-                          ),
-                        ),
+                      return _EmptyClientsState(
+                        onAdd: _openAddClientDialog,
                       );
                     }
                     final companyNames = (<String>{}..addAll(
@@ -1024,18 +992,19 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 16),
 
-        FilledButton.icon(
-          onPressed: _archiveAll,
-          icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
-          label: const Text(
-            'الإقفال اليومي لحوالات الدخول',
-            textAlign: TextAlign.center,
+        if (!ref.watch(isEmployeeProvider))
+          FilledButton.icon(
+            onPressed: _archiveAll,
+            icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
+            label: const Text(
+              'الإقفال اليومي لحوالات الدخول',
+              textAlign: TextAlign.center,
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.positive,
+              foregroundColor: Colors.black,
+            ),
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.positive,
-            foregroundColor: Colors.black,
-          ),
-        ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
@@ -1190,6 +1159,115 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
+/// Empty-state for the "الشركة المرسلة" clients dropdown when the admin
+/// has no clients saved. Employees can't insert clients (RLS blocks).
+class _EmptyClientsState extends ConsumerWidget {
+  const _EmptyClientsState({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isEmployeeProvider)) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.glassFill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.circleInfo,
+              size: 14,
+              color: AppColors.textLow,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: const Text(
+                'لا توجد جهات مرسلة محفوظة. تواصل مع المدير لإضافتها.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMid,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onAdd,
+        icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
+        label: const Text('إضافة عميل جديد'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.accent,
+          side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty-state for the "اسم الشركة" dropdown when the admin has no
+/// exchange_companies saved. Employees can't insert exchange_companies
+/// (RLS blocks), so they see a hint instead of the "+" button.
+class _EmptyExchangeCompaniesState extends ConsumerWidget {
+  const _EmptyExchangeCompaniesState({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isEmployeeProvider)) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.glassFill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.circleInfo,
+              size: 14,
+              color: AppColors.textLow,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: const Text(
+                'لا توجد شركات صرافة. تواصل مع المدير لإضافتها.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMid,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onAdd,
+        icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
+        label: const Text('إضافة شركة صرافة جديدة'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.accent,
+          side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+}
+
 class _IconBox extends StatelessWidget {
   const _IconBox(this.icon, {this.color = AppColors.accent});
   final IconData icon;
@@ -1214,19 +1292,20 @@ class _IconBox extends StatelessWidget {
   }
 }
 
-class _PendingTable extends ConsumerWidget {
+class _PendingTable extends ConsumerStatefulWidget {
   const _PendingTable({required this.rows, required this.onTapRow});
   final List<CurrencyBuy> rows;
   final ValueChanged<CurrencyBuy> onTapRow;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text('لا توجد عمليات معلقة'),
-      );
-    }
+  ConsumerState<_PendingTable> createState() => _PendingTableState();
+}
+
+class _PendingTableState extends ConsumerState<_PendingTable> {
+  String _filter = kCreatorAll;
+
+  @override
+  Widget build(BuildContext context) {
     final clients = ref.watch(clientsListProvider);
     final companies = ref.watch(companiesListProvider);
     final clientById = <String, Client>{
@@ -1237,58 +1316,88 @@ class _PendingTable extends ConsumerWidget {
     };
     final tf = DateFormat('hh:mm a');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        showCheckboxColumn: false,
-        columns: const [
-          DataColumn(label: Text('من شركة')),
-          DataColumn(label: Text('المرسل')),
-          DataColumn(label: Text('القيمة')),
-          DataColumn(label: Text('في حسابي')),
-          DataColumn(label: Text('التوقيت')),
-        ],
-        rows: rows
-            .map((b) => DataRow(
-                  onSelectChanged: (_) => onTapRow(b),
-                  cells: [
-                    DataCell(Text(
-                      clientById[b.clientId]?.company ??
-                          b.clientFromAccount ??
-                          '—',
-                    )),
-                    DataCell(Text(
-                      clientById[b.clientId]?.name ?? '—',
-                    )),
-                    DataCell(Text(
-                      '\$${formatMoney(b.usdAmount)}',
-                      style: const TextStyle(
-                        color: AppColors.warning,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )),
-                    DataCell(Text(companyById[b.myCompanyId] ?? '—')),
-                    DataCell(Text(fmt(b.createdAt))),
-                  ],
-                ))
-            .toList(),
-      ),
+    final visible = widget.rows
+        .where((b) => creatorPasses(_filter, b.createdByEmployeeId))
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CreatorStats<CurrencyBuy>(
+          rows: widget.rows,
+          amountOf: (b) => b.usdAmount,
+          creatorOf: (b) => b.createdByEmployeeId,
+          accent: AppColors.warning,
+        ),
+        CreatorFilter(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
+        ),
+        if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('لا توجد عمليات معلقة'),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columns: const [
+                DataColumn(label: Text('من شركة')),
+                DataColumn(label: Text('المرسل')),
+                DataColumn(label: Text('القيمة')),
+                DataColumn(label: Text('في حسابي')),
+                DataColumn(label: Text('التوقيت')),
+                DataColumn(label: Text('المنفّذ')),
+              ],
+              rows: visible
+                  .map((b) => DataRow(
+                        onSelectChanged: (_) => widget.onTapRow(b),
+                        cells: [
+                          DataCell(Text(
+                            clientById[b.clientId]?.company ??
+                                b.clientFromAccount ??
+                                '—',
+                          )),
+                          DataCell(Text(
+                            clientById[b.clientId]?.name ?? '—',
+                          )),
+                          DataCell(Text(
+                            '\$${formatMoney(b.usdAmount)}',
+                            style: const TextStyle(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )),
+                          DataCell(
+                              Text(companyById[b.myCompanyId] ?? '—')),
+                          DataCell(Text(fmt(b.createdAt))),
+                          DataCell(CreatorChip(
+                            createdByEmployeeId: b.createdByEmployeeId,
+                          )),
+                        ],
+                      ))
+                  .toList(),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _DailyBuysTable extends ConsumerWidget {
+class _DailyBuysTable extends ConsumerStatefulWidget {
   const _DailyBuysTable({required this.rows});
   final List<CurrencyBuy> rows;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text('لا توجد عمليات منفذة'),
-      );
-    }
+  ConsumerState<_DailyBuysTable> createState() => _DailyBuysTableState();
+}
+
+class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
+  String _filter = kCreatorAll;
+
+  @override
+  Widget build(BuildContext context) {
     final clients = ref.watch(clientsListProvider);
     final companies = ref.watch(companiesListProvider);
     final clientById = <String, Client>{
@@ -1299,39 +1408,68 @@ class _DailyBuysTable extends ConsumerWidget {
     };
     final tf = DateFormat('hh:mm a');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        showCheckboxColumn: false,
-        columns: const [
-          DataColumn(label: Text('من شركة')),
-          DataColumn(label: Text('المرسل')),
-          DataColumn(label: Text('القيمة')),
-          DataColumn(label: Text('في حسابي')),
-          DataColumn(label: Text('التوقيت')),
-        ],
-        rows: rows
-            .map((b) => DataRow(cells: [
-                  DataCell(Text(
-                    clientById[b.clientId]?.company ??
-                        b.clientFromAccount ??
-                        '—',
-                  )),
-                  DataCell(Text(
-                    clientById[b.clientId]?.name ?? '—',
-                  )),
-                  DataCell(Text(
-                    '\$${formatMoney(b.usdAmount)}',
-                    style: const TextStyle(
-                      color: AppColors.positive,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )),
-                  DataCell(Text(companyById[b.myCompanyId] ?? '—')),
-                  DataCell(Text(fmt(b.createdAt))),
-                ]))
-            .toList(),
-      ),
+    final visible = widget.rows
+        .where((b) => creatorPasses(_filter, b.createdByEmployeeId))
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CreatorStats<CurrencyBuy>(
+          rows: widget.rows,
+          amountOf: (b) => b.usdAmount,
+          creatorOf: (b) => b.createdByEmployeeId,
+          accent: AppColors.positive,
+        ),
+        CreatorFilter(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
+        ),
+        if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('لا توجد عمليات منفذة'),
+          )
+        else
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              showCheckboxColumn: false,
+              columns: const [
+                DataColumn(label: Text('من شركة')),
+                DataColumn(label: Text('المرسل')),
+                DataColumn(label: Text('القيمة')),
+                DataColumn(label: Text('في حسابي')),
+                DataColumn(label: Text('التوقيت')),
+                DataColumn(label: Text('المنفّذ')),
+              ],
+              rows: visible
+                  .map((b) => DataRow(cells: [
+                        DataCell(Text(
+                          clientById[b.clientId]?.company ??
+                              b.clientFromAccount ??
+                              '—',
+                        )),
+                        DataCell(Text(
+                          clientById[b.clientId]?.name ?? '—',
+                        )),
+                        DataCell(Text(
+                          '\$${formatMoney(b.usdAmount)}',
+                          style: const TextStyle(
+                            color: AppColors.positive,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )),
+                        DataCell(
+                            Text(companyById[b.myCompanyId] ?? '—')),
+                        DataCell(Text(fmt(b.createdAt))),
+                        DataCell(CreatorChip(
+                          createdByEmployeeId: b.createdByEmployeeId,
+                        )),
+                      ]))
+                  .toList(),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -10,19 +10,30 @@ class TransfersRepository {
   final SupabaseClient _client;
   final JsonCache _cache;
 
-  String _cacheKey(TransferStatus status) {
+  String _cacheKey(TransferStatus status, String? createdByEmployeeId) {
     final uid = _client.auth.currentUser?.id ?? 'anon';
-    return 'cache:transfers:$uid:${transferStatusToDb(status)}';
+    final suffix = createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
+    return 'cache:transfers:$uid:${transferStatusToDb(status)}$suffix';
   }
 
-  Future<List<Transfer>> listByStatus(TransferStatus status) async {
-    final key = _cacheKey(status);
+  /// When [createdByEmployeeId] is non-null the result is scoped to rows
+  /// the given sub_user authored — used by the employee app so each
+  /// employee only sees their own daily / archived operations even though
+  /// RLS would otherwise expose every sibling employee's record.
+  Future<List<Transfer>> listByStatus(
+    TransferStatus status, {
+    String? createdByEmployeeId,
+  }) async {
+    final key = _cacheKey(status, createdByEmployeeId);
     try {
-      final rows = await _client
+      var filter = _client
           .from('transfers')
           .select()
-          .eq('status', transferStatusToDb(status))
-          .order('created_at', ascending: false);
+          .eq('status', transferStatusToDb(status));
+      if (createdByEmployeeId != null) {
+        filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+      }
+      final rows = await filter.order('created_at', ascending: false);
       final list = (rows as List).cast<Map<String, dynamic>>();
       await _cache.writeList(key, list);
       return list.map(Transfer.fromJson).toList();

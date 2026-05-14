@@ -37,6 +37,7 @@ class CurrencyBuy {
     required this.status,
     required this.createdAt,
     required this.archivedAt,
+    required this.createdByEmployeeId,
   });
 
   final String id;
@@ -52,6 +53,10 @@ class CurrencyBuy {
   final CurrencyBuyStatus status;
   final DateTime createdAt;
   final DateTime? archivedAt;
+  /// Sub-user (employee) who authored this row, or null when the admin
+  /// created it directly. Stamped by `record_currency_buy` /
+  /// `record_pending_buy` from `current_employee_id()` (migration 0025).
+  final String? createdByEmployeeId;
 
   factory CurrencyBuy.fromJson(Map<String, dynamic> json) => CurrencyBuy(
         id: json['id'] as String,
@@ -69,5 +74,6 @@ class CurrencyBuy {
         archivedAt: json['archived_at'] == null
             ? null
             : DateTime.parse(json['archived_at'] as String),
+        createdByEmployeeId: json['created_by_employee_id'] as String?,
       );
 }

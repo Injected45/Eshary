@@ -49,7 +49,7 @@ class AppLogger {
 
   static List<LogEntry> readAll() {
     final raw = _prefs?.getString(_kLogKey);
-    if (raw == null || raw.isEmpty) return const [];
+    if (raw == null || raw.isEmpty) return <LogEntry>[];
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
       return decoded
@@ -57,7 +57,7 @@ class AppLogger {
           .map(LogEntry.fromJson)
           .toList();
     } catch (_) {
-      return const [];
+      return <LogEntry>[];
     }
   }
 
@@ -131,6 +131,12 @@ String friendlyError(Object e) {
   if (s.contains('23503') || s.contains('foreign key constraint')) {
     return 'لا يمكن إتمام العملية: توجد بيانات مرتبطة. احذف العناصر التابعة أو رحّلها أولًا.';
   }
+  if (s.contains('sub_users_phone_unique')) {
+    return 'رقم الهاتف مسجَّل بالفعل لموظف آخر تابع لك. استخدم رقماً مختلفاً أو احذف الموظف الموجود.';
+  }
+  if (s.contains('branches_name_unique')) {
+    return 'اسم الفرع مسجَّل بالفعل. استخدم اسماً مختلفاً.';
+  }
   if (s.contains('23505') || s.contains('duplicate key')) {
     return 'هذا العنصر موجود مسبقًا.';
   }
@@ -149,6 +155,21 @@ String friendlyError(Object e) {
   }
   if (s.contains('Email not confirmed')) {
     return 'البريد الإلكتروني غير مؤكد.';
+  }
+  if (s.contains('invalid_credentials')) {
+    return 'رقم الهاتف أو كود الدخول غير صحيح.';
+  }
+  if (s.contains('device_mismatch')) {
+    return 'هذا الحساب مرتبط بجهاز آخر. يرجى التواصل مع المدير لإعادة تفعيل الجهاز.';
+  }
+  if (s.contains('device_id_required')) {
+    return 'تعذّر التعرف على الجهاز.';
+  }
+  if (s.contains('not_authenticated')) {
+    return 'فشل بدء الجلسة. أعد المحاولة.';
+  }
+  if (s.contains('Anonymous sign-ins are disabled')) {
+    return 'تسجيل الدخول كموظف غير مُفعّل في إعدادات Supabase.';
   }
   return 'حدث خطأ غير متوقع. تم تسجيل الحدث.';
 }

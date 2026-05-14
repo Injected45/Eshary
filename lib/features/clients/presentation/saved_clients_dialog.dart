@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../data/clients_repository.dart';
 import 'add_client_dialog.dart';
 import 'clients_providers.dart';
@@ -66,6 +67,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
   Widget build(BuildContext context) {
     final listAsync = ref.watch(clientsListProvider);
     final cfg = widget.config;
+    final isEmployee = ref.watch(isEmployeeProvider);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -112,12 +114,13 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: cfg.addTooltip,
-                    onPressed: _openAddSheet,
-                    icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
-                    color: AppColors.accent,
-                  ),
+                  if (!isEmployee)
+                    IconButton(
+                      tooltip: cfg.addTooltip,
+                      onPressed: _openAddSheet,
+                      icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
+                      color: AppColors.accent,
+                    ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
@@ -203,39 +206,40 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: const FaIcon(
-                                      FontAwesomeIcons.trash,
-                                      size: 14,
-                                      color: AppColors.negative,
+                                  if (!isEmployee)
+                                    IconButton(
+                                      icon: const FaIcon(
+                                        FontAwesomeIcons.trash,
+                                        size: 14,
+                                        color: AppColors.negative,
+                                      ),
+                                      onPressed: () async {
+                                        try {
+                                          await ref
+                                              .read(
+                                                clientsRepositoryProvider,
+                                              )
+                                              .delete(item.id);
+                                          ref.invalidate(
+                                            clientsListProvider,
+                                          );
+                                        } catch (e, st) {
+                                          AppLogger.error(
+                                            'savedClients.delete',
+                                            e,
+                                            st,
+                                          );
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content:
+                                                  Text(friendlyError(e)),
+                                            ),
+                                          );
+                                        }
+                                      },
                                     ),
-                                    onPressed: () async {
-                                      try {
-                                        await ref
-                                            .read(
-                                              clientsRepositoryProvider,
-                                            )
-                                            .delete(item.id);
-                                        ref.invalidate(
-                                          clientsListProvider,
-                                        );
-                                      } catch (e, st) {
-                                        AppLogger.error(
-                                          'savedClients.delete',
-                                          e,
-                                          st,
-                                        );
-                                        if (!context.mounted) return;
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content:
-                                                Text(friendlyError(e)),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
                                 ],
                               ),
                             ),

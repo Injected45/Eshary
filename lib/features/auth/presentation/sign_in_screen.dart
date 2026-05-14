@@ -239,6 +239,20 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       onPressed: _busy ? null : () => context.go('/sign-up'),
                       child: const Text('إنشاء حساب جديد'),
                     ),
+                    TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => context.go('/employee-sign-in'),
+                      icon: const FaIcon(
+                        FontAwesomeIcons.userTie,
+                        size: 12,
+                        color: AppColors.accent,
+                      ),
+                      label: const Text(
+                        'تسجيل دخول كموظف',
+                        style: TextStyle(color: AppColors.accent),
+                      ),
+                    ),
                   ],
                 ),
               ),

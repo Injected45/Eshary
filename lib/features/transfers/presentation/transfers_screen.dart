@@ -7,12 +7,16 @@ import 'package:intl/intl.dart';
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
+import '../../../shared/creator_chip.dart';
+import '../../../shared/creator_filter.dart';
+import '../../../shared/creator_stats.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/pending_dispatch.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../clients/domain/client.dart';
@@ -457,24 +461,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 child: exchangeCompaniesAsync.when(
                   data: (items) {
                     if (items.isEmpty) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _openAddExchangeCompanyDialog,
-                          icon: const FaIcon(
-                            FontAwesomeIcons.plus,
-                            size: 14,
-                          ),
-                          label: const Text('إضافة شركة صرافة جديدة'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.accent,
-                            side: BorderSide(
-                              color: AppColors.accent.withValues(alpha: 0.5),
-                            ),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                      return _EmptyExchangeCompaniesState(
+                        onAdd: _openAddExchangeCompanyDialog,
                       );
                     }
                     final names = items.map((ec) => ec.name).toList();
@@ -778,18 +766,19 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _archiveAll,
-          icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
-          label: const Text(
-            'الإقفال اليومي لحوالات الخروج',
-            textAlign: TextAlign.center,
+        if (!ref.watch(isEmployeeProvider))
+          FilledButton.icon(
+            onPressed: _archiveAll,
+            icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
+            label: const Text(
+              'الإقفال اليومي لحوالات الخروج',
+              textAlign: TextAlign.center,
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.negative,
+              foregroundColor: Colors.white,
+            ),
           ),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.negative,
-            foregroundColor: Colors.white,
-          ),
-        ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
@@ -916,6 +905,62 @@ class _LabeledField extends StatelessWidget {
   }
 }
 
+/// Empty-state for the "اسم الشركة" dropdown when the admin has no
+/// exchange_companies saved. Admins see an actionable "Add" button;
+/// employees see a read-only hint asking them to contact the admin,
+/// since RLS prevents them from inserting exchange_companies anyway.
+class _EmptyExchangeCompaniesState extends ConsumerWidget {
+  const _EmptyExchangeCompaniesState({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isEmployeeProvider)) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.glassFill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.circleInfo,
+              size: 14,
+              color: AppColors.textLow,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: const Text(
+                'لا توجد شركات صرافة. تواصل مع المدير لإضافتها.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMid,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onAdd,
+        icon: const FaIcon(FontAwesomeIcons.plus, size: 14),
+        label: const Text('إضافة شركة صرافة جديدة'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.accent,
+          side: BorderSide(color: AppColors.accent.withValues(alpha: 0.5)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+}
+
 class _IconBox extends StatelessWidget {
   const _IconBox(this.icon, {this.color = AppColors.accent});
   final IconData icon;
@@ -1013,18 +1058,20 @@ class _CollapsibleSection extends StatelessWidget {
   }
 }
 
-class _DailyTransfersTable extends ConsumerWidget {
+class _DailyTransfersTable extends ConsumerStatefulWidget {
   const _DailyTransfersTable({required this.rows});
   final List<Transfer> rows;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(8),
-        child: Text('لا توجد سجلات'),
-      );
-    }
+  ConsumerState<_DailyTransfersTable> createState() =>
+      _DailyTransfersTableState();
+}
+
+class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
+  String _filter = kCreatorAll;
+
+  @override
+  Widget build(BuildContext context) {
     final companies = ref.watch(companiesListProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
     final companyById = <String, String>{
@@ -1033,50 +1080,82 @@ class _DailyTransfersTable extends ConsumerWidget {
     final exchangeById = <String, Exchange>{
       for (final e in exchangesAsync.value ?? const <Exchange>[]) e.id: e,
     };
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 320),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            showCheckboxColumn: false,
-            columns: const [
-              DataColumn(label: Text('الشركة')),
-              DataColumn(label: Text('من حسابي')),
-              DataColumn(label: Text('الإشاري')),
-              DataColumn(label: Text('القيمة')),
-              DataColumn(label: Text('المستفيد')),
-            ],
-            rows: rows
-                .map((t) => DataRow(
-                      onSelectChanged: (_) => _showTransferDetails(
-                        context,
-                        transfer: t,
-                        companyName: companyById[t.companyId],
-                        exchangeName: exchangeById[t.exchangeId]?.name,
-                      ),
-                      cells: [
-                        DataCell(Text(
-                            exchangeById[t.exchangeId]?.name ?? '—')),
-                        DataCell(Text(companyById[t.companyId] ?? '—')),
-                        DataCell(Text(t.reference)),
-                        DataCell(Text(
-                          '\$${formatMoney(t.amount)}',
-                          style: const TextStyle(
-                            color: AppColors.negative,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )),
-                        DataCell(Text(
-                          t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName,
-                        )),
-                      ],
-                    ))
-                .toList(),
-          ),
+    final visible = widget.rows
+        .where((t) => creatorPasses(_filter, t.createdByEmployeeId))
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CreatorStats<Transfer>(
+          rows: widget.rows,
+          amountOf: (t) => t.amount,
+          creatorOf: (t) => t.createdByEmployeeId,
+          accent: AppColors.negative,
         ),
-      ),
+        CreatorFilter(
+          selected: _filter,
+          onChanged: (v) => setState(() => _filter = v),
+        ),
+        if (visible.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text('لا توجد سجلات'),
+          )
+        else
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 320),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  showCheckboxColumn: false,
+                  columns: const [
+                    DataColumn(label: Text('الشركة')),
+                    DataColumn(label: Text('من حسابي')),
+                    DataColumn(label: Text('الإشاري')),
+                    DataColumn(label: Text('القيمة')),
+                    DataColumn(label: Text('المستفيد')),
+                    DataColumn(label: Text('المنفّذ')),
+                  ],
+                  rows: visible
+                      .map((t) => DataRow(
+                            onSelectChanged: (_) => _showTransferDetails(
+                              context,
+                              transfer: t,
+                              companyName: companyById[t.companyId],
+                              exchangeName:
+                                  exchangeById[t.exchangeId]?.name,
+                            ),
+                            cells: [
+                              DataCell(Text(
+                                  exchangeById[t.exchangeId]?.name ?? '—')),
+                              DataCell(
+                                  Text(companyById[t.companyId] ?? '—')),
+                              DataCell(Text(t.reference)),
+                              DataCell(Text(
+                                '\$${formatMoney(t.amount)}',
+                                style: const TextStyle(
+                                  color: AppColors.negative,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )),
+                              DataCell(Text(
+                                t.beneficiaryName.isEmpty
+                                    ? '—'
+                                    : t.beneficiaryName,
+                              )),
+                              DataCell(CreatorChip(
+                                createdByEmployeeId: t.createdByEmployeeId,
+                              )),
+                            ],
+                          ))
+                      .toList(),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

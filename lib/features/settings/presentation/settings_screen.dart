@@ -9,6 +9,7 @@ import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
 import '../../admin/presentation/admin_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
+import '../../branches/presentation/branches_screen.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/clients_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
@@ -19,6 +20,7 @@ import '../../exchange_companies/presentation/exchange_companies_providers.dart'
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
 import '../../license/presentation/license_provider.dart';
 import '../../profile/presentation/profile_details_screen.dart';
+import '../../sub_users/presentation/sub_users_screen.dart';
 import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 
@@ -75,6 +77,22 @@ class SettingsScreen extends ConsumerWidget {
             title: 'العملاء',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ClientsScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.codeBranch,
+            title: 'الفروع',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const BranchesScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.userTie,
+            title: 'إدارة الموظفين',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SubUsersScreen()),
             ),
           ),
           const SizedBox(height: 24),

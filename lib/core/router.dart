@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
+import '../features/employee_auth/presentation/employee_home_shell.dart';
+import '../features/employee_auth/presentation/employee_login_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/license/presentation/license_provider.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
@@ -27,32 +29,56 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
-      final loggedIn = client.auth.currentSession != null;
+      final user = client.auth.currentUser;
+      final loggedIn = client.auth.currentSession != null && user != null;
+      final isAnonymous = user?.isAnonymous == true;
       final loc = state.matchedLocation;
 
       // Splash and onboarding manage their own navigation.
       if (loc == '/splash' || loc == '/onboarding') return null;
 
-      final atAuth = loc == '/sign-in' || loc == '/sign-up';
-      if (!loggedIn && !atAuth) return '/sign-in';
-      if (loggedIn && atAuth) return '/';
+      final atAdminAuth = loc == '/sign-in' || loc == '/sign-up';
+      final atEmployeeAuth = loc == '/employee-sign-in';
+      final atAuth = atAdminAuth || atEmployeeAuth;
 
-      // License gate — only meaningful when signed in. While the license
-      // future is still loading, hold the current location to avoid a
-      // splash → home → pending flicker.
-      if (loggedIn) {
-        final license = ref.read(licenseStatusProvider);
-        final status = license.maybeWhen(
-          data: (s) => s,
-          orElse: () => null,
-        );
-        if (status != null) {
-          if (!status.isValid && loc != '/pending-activation') {
-            return '/pending-activation';
-          }
-          if (status.isValid && loc == '/pending-activation') {
-            return '/';
-          }
+      // Not signed in: only auth screens are reachable.
+      if (!loggedIn) {
+        if (!atAuth) return '/sign-in';
+        return null;
+      }
+
+      // Anonymous (employee) session: scope to employee-allowed routes.
+      // /employee-sign-in must stay reachable until the login screen
+      // manually navigates after a successful RPC. /messages-dispatch is
+      // shared with admins — employees land there after saving a transfer
+      // or currency_buy to share the composed messages.
+      if (isAnonymous) {
+        const employeeAllowed = {
+          '/employee-home',
+          '/employee-sign-in',
+          '/messages-dispatch',
+        };
+        if (employeeAllowed.contains(loc)) return null;
+        return '/employee-home';
+      }
+
+      // Admin session: redirect away from any auth screen, including the
+      // employee sign-in (an admin shouldn't try to sign in as an employee
+      // without signing out first).
+      if (atAuth || loc == '/employee-home') return '/';
+
+      // License gate — admin only.
+      final license = ref.read(licenseStatusProvider);
+      final status = license.maybeWhen(
+        data: (s) => s,
+        orElse: () => null,
+      );
+      if (status != null) {
+        if (!status.isValid && loc != '/pending-activation') {
+          return '/pending-activation';
+        }
+        if (status.isValid && loc == '/pending-activation') {
+          return '/';
         }
       }
       return null;
@@ -66,6 +92,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (_, __) => const HomeShell()),
       GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
+      GoRoute(
+        path: '/employee-sign-in',
+        builder: (_, __) => const EmployeeLoginScreen(),
+      ),
+      GoRoute(
+        path: '/employee-home',
+        builder: (_, __) => const EmployeeHomeShell(),
+      ),
       GoRoute(
         path: '/pending-activation',
         builder: (_, __) => const PendingActivationScreen(),

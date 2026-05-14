@@ -10,19 +10,29 @@ class CurrencyBuysRepository {
   final SupabaseClient _client;
   final JsonCache _cache;
 
-  String _cacheKey(CurrencyBuyStatus status) {
+  String _cacheKey(CurrencyBuyStatus status, String? createdByEmployeeId) {
     final uid = _client.auth.currentUser?.id ?? 'anon';
-    return 'cache:currency_buys:$uid:${currencyBuyStatusToDb(status)}';
+    final suffix = createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
+    return 'cache:currency_buys:$uid:${currencyBuyStatusToDb(status)}$suffix';
   }
 
-  Future<List<CurrencyBuy>> listByStatus(CurrencyBuyStatus status) async {
-    final key = _cacheKey(status);
+  /// When [createdByEmployeeId] is non-null the result is scoped to rows
+  /// the given sub_user authored — used by the employee app so each
+  /// employee only sees their own daily / pending operations.
+  Future<List<CurrencyBuy>> listByStatus(
+    CurrencyBuyStatus status, {
+    String? createdByEmployeeId,
+  }) async {
+    final key = _cacheKey(status, createdByEmployeeId);
     try {
-      final rows = await _client
+      var filter = _client
           .from('currency_buys')
           .select()
-          .eq('status', currencyBuyStatusToDb(status))
-          .order('created_at', ascending: false);
+          .eq('status', currencyBuyStatusToDb(status));
+      if (createdByEmployeeId != null) {
+        filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+      }
+      final rows = await filter.order('created_at', ascending: false);
       final list = (rows as List).cast<Map<String, dynamic>>();
       await _cache.writeList(key, list);
       return list.map(CurrencyBuy.fromJson).toList();
