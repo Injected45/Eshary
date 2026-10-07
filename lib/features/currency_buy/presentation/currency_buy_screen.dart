@@ -12,9 +12,11 @@ import '../../../shared/creator_chip.dart';
 import '../../../shared/creator_filter.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/transaction_details.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/pending_dispatch.dart';
+import '../../clients/data/clients_repository.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/add_client_dialog.dart';
 import '../../clients/presentation/clients_providers.dart';
@@ -47,6 +49,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   Exchange? _exchange;
   String? _exchangeCompanyName;
   String? _senderCompany;
+  String _senderCodeTyped = '';
+  String? _senderCodeFor;
 
   final _usd = TextEditingController();
   final _rate = TextEditingController(text: '1');
@@ -81,6 +85,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   void _resetBuyForm() {
     _client = null;
+    _senderCodeTyped = '';
+    _senderCodeFor = null;
     _myCompany = null;
     _exchange = null;
     _exchangeCompanyName = null;
@@ -137,6 +143,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               reference: _reference.text.trim(),
             );
 
+      await _persistSenderCode();
+
       if (kind == _PendingBuyKind.pending) {
         ref.invalidate(pendingBuysProvider);
       } else {
@@ -177,6 +185,38 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     }
   }
 
+  bool get _senderCodeStored => (_client?.code ?? '').trim().isNotEmpty;
+
+  /// The code to use for the selected sender: the stored (official) one, or
+  /// the one just typed for a sender that has none yet.
+  String get _effectiveSenderCode {
+    if (_senderCodeStored) return _client!.code!.trim();
+    if (_client != null && _senderCodeFor == _client!.id) {
+      return _senderCodeTyped.trim();
+    }
+    return '';
+  }
+
+  /// First code typed for a sender without one becomes its official code.
+  /// Never overwrites an existing code; a failure here must not fail the entry.
+  Future<void> _persistSenderCode() async {
+    final c = _client;
+    if (c == null || _senderCodeStored) return;
+    final code = _effectiveSenderCode;
+    if (code.isEmpty) return;
+    try {
+      await ref.read(clientsRepositoryProvider).update(
+            id: c.id,
+            name: c.name,
+            company: c.company,
+            code: code,
+          );
+      ref.invalidate(clientsListProvider);
+    } catch (e, st) {
+      AppLogger.error('currencyBuy.persistSenderCode', e, st);
+    }
+  }
+
   List<String> _composeBuyMessages() {
     final amount = formatMoney(parseMoney(_usd.text));
     final exchangeCompany = _exchangeCompanyName ?? '—';
@@ -185,7 +225,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             ? _senderCompany!
             : (_client?.company ?? '—');
     final senderAccount = _client?.name ?? '—';
-    final senderCode = _client?.code ?? '—';
+    final senderCode =
+        _effectiveSenderCode.isEmpty ? '—' : _effectiveSenderCode;
     final myCompany = _myCompany?.name ?? '—';
     final myCode = _exchange?.ourCode ?? '—';
     final reference = _reference.text.trim().isEmpty
@@ -455,6 +496,23 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       _myCompany = null;
       _exchange = null;
     });
+    // A single account under this company: pick it (and so fill the account
+    // name and code) without another tap.
+    if (name == null) return;
+    final matches = (ref.read(allExchangesProvider).value ?? const <Exchange>[])
+        .where((e) => e.name == name)
+        .toList();
+    if (matches.length != 1) return;
+    final companies = ref.read(companiesListProvider).value ?? const <Company>[];
+    for (final c in companies) {
+      if (c.id == matches.first.companyId) {
+        setState(() {
+          _myCompany = c;
+          _exchange = matches.first;
+        });
+        break;
+      }
+    }
   }
 
   Future<void> _openAddClientDialog() async {
@@ -512,12 +570,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final dailyAsync = ref.watch(dailyBuysProvider);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
       children: [
         _CollapsibleSection(
+          color: AppColors.positive,
           header: const _AccentSectionTitle(
             text: 'دخول لحسابي',
-            color: AppColors.warning,
+            color: AppColors.positive,
             icon: FontAwesomeIcons.userTie,
           ),
           expanded: _activeSection == 1,
@@ -536,8 +595,37 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         onAdd: _openAddExchangeCompanyDialog,
                       );
                     }
-                    final names =
-                        items.map((ec) => ec.name).toList();
+                    if (allExchangesAsync.isLoading &&
+                        !allExchangesAsync.hasValue) {
+                      return const LinearProgressIndicator();
+                    }
+                    // Only companies where I actually hold an account
+                    // (an exchange with the same name), sorted by name.
+                    final accountNames = {
+                      for (final e
+                          in allExchangesAsync.value ?? const <Exchange>[])
+                        e.name,
+                    };
+                    final names = items
+                        .map((ec) => ec.name)
+                        .where(accountNames.contains)
+                        .toSet()
+                        .toList()
+                      ..sort();
+                    if (names.isEmpty) {
+                      return const InputDecorator(
+                        decoration: InputDecoration(
+                          suffixIcon: _IconBox(
+                            FontAwesomeIcons.building,
+                            color: AppColors.warning,
+                          ),
+                        ),
+                        child: Text(
+                          'لا توجد شركة لديك فيها حساب — أضف حساباً من تبويب حساباتي',
+                          style: TextStyle(color: AppColors.textLow),
+                        ),
+                      );
+                    }
                     final liveValue =
                         names.contains(_exchangeCompanyName)
                             ? _exchangeCompanyName
@@ -669,6 +757,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         const SizedBox(height: 14),
 
         _CollapsibleSection(
+          color: AppColors.accent,
           header: const _AccentSectionTitle(
             text: 'الجهة المرسلة',
             color: AppColors.accent,
@@ -804,15 +893,26 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               const SizedBox(height: 12),
               _LabeledField(
                 label: 'كود حساب المرسل',
-                child: TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _client?.code ?? '',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'كود حساب المرسل',
+                // A stored code is official and locked. Only a sender with no
+                // code yet may have one typed — once, saved with the entry.
+                child: TextFormField(
+                  key: ValueKey('sender-code-${_client?.id}'),
+                  initialValue: _client?.code ?? '',
+                  readOnly: _client == null || _senderCodeStored,
+                  onChanged: (v) {
+                    _senderCodeTyped = v;
+                    _senderCodeFor = _client?.id;
+                  },
+                  decoration: InputDecoration(
+                    hintText: _client == null
+                        ? 'كود حساب المرسل'
+                        : (_senderCodeStored
+                            ? 'كود رسمي — لا يمكن تعديله'
+                            : 'أدخل كود المرسل (مرة واحدة)'),
                     suffixIcon: _IconBox(
-                      FontAwesomeIcons.user,
+                      _senderCodeStored
+                          ? FontAwesomeIcons.lock
+                          : FontAwesomeIcons.user,
                       color: AppColors.accent,
                     ),
                   ),
@@ -961,6 +1061,7 @@ class _CollapsibleSection extends StatelessWidget {
     required this.child,
     required this.expanded,
     required this.onToggle,
+    this.color,
   });
 
   final Widget header;
@@ -968,9 +1069,14 @@ class _CollapsibleSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// Optional tint that sets this section apart from its neighbour.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      fill: color?.withValues(alpha: 0.16) ?? AppColors.glassFill,
+      border: color?.withValues(alpha: 0.55) ?? AppColors.glassBorder,
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1259,7 +1365,10 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
                 DataColumn(label: Text('المنفّذ')),
               ],
               rows: visible
-                  .map((b) => DataRow(cells: [
+                  .map((b) => DataRow(
+                      onSelectChanged: (_) =>
+                          showCurrencyBuyDetails(context, ref, buy: b),
+                      cells: [
                         DataCell(Text(
                           clientById[b.clientId]?.company ??
                               b.clientFromAccount ??

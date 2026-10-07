@@ -10,6 +10,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/transaction_details.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../companies/domain/company.dart';
@@ -887,9 +888,12 @@ class _OperationRow {
     required this.party,
     required this.status,
     required this.reference,
+    required this.onOpen,
     this.runningDiff = 0,
   });
   final DateTime t;
+  /// Opens the full-screen details page for the underlying record.
+  final VoidCallback onOpen;
   final String kind;
   final double amountSigned;
   final String account;
@@ -921,7 +925,7 @@ class _OperationsTable extends ConsumerWidget {
     return 'يومية';
   }
 
-  List<_OperationRow> _buildRows(WidgetRef ref) {
+  List<_OperationRow> _buildRows(BuildContext context, WidgetRef ref) {
     final companies =
         ref.read(companiesListProvider).value ?? const <Company>[];
     final exchanges =
@@ -951,6 +955,7 @@ class _OperationsTable extends ConsumerWidget {
             : (b.clientFromAccount ?? '—'),
         status: _statusLabel(b.status),
         reference: b.reference.isEmpty ? '—' : b.reference,
+        onOpen: () => showCurrencyBuyDetails(context, ref, buy: b),
       ));
     }
     for (final t in transfers) {
@@ -963,6 +968,16 @@ class _OperationsTable extends ConsumerWidget {
         party: t.beneficiaryName.isEmpty ? '—' : t.beneficiaryName,
         status: _statusLabel(t.status),
         reference: t.reference.isEmpty ? '—' : t.reference,
+        onOpen: () => showTransferDetails(
+          context,
+          transfer: t,
+          companyName: companyName[t.companyId],
+          exchangeName: exchangeName[t.exchangeId],
+          exchangeCode: exchanges
+              .where((e) => e.id == t.exchangeId)
+              .map((e) => e.ourCode)
+              .firstOrNull,
+        ),
       ));
     }
     all.sort((a, b) => a.t.compareTo(b.t));
@@ -977,7 +992,7 @@ class _OperationsTable extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rows = _buildRows(ref);
+    final rows = _buildRows(context, ref);
     final tf = DateFormat('hh:mm a');
     final df = DateFormat('yyyy/MM/dd');
     return GlassCard(
@@ -1025,6 +1040,7 @@ class _OperationsTable extends ConsumerWidget {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  showCheckboxColumn: false,
                   headingRowHeight: 36,
                   dataRowMinHeight: 36,
                   dataRowMaxHeight: 44,
@@ -1038,7 +1054,7 @@ class _OperationsTable extends ConsumerWidget {
                   ],
                   rows: [
                     for (final r in rows)
-                      DataRow(cells: [
+                      DataRow(onSelectChanged: (_) => r.onOpen(), cells: [
                         DataCell(Text(
                           '${tf.format(r.t)}\n${df.format(r.t)}',
                           style: const TextStyle(fontSize: 11),

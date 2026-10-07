@@ -8,6 +8,7 @@ import '../../../shared/audio_feedback.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
 import '../../admin/presentation/admin_screen.dart';
+import '../../admin/presentation/backup_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
 import '../../branches/presentation/branches_screen.dart';
 import '../../clients/presentation/clients_screen.dart';
@@ -47,6 +48,14 @@ class SettingsScreen extends ConsumerWidget {
               title: 'إدارة الحسابات',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SettingsRow(
+              icon: FontAwesomeIcons.database,
+              title: 'النسخ الاحتياطي',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BackupScreen()),
               ),
             ),
           ],

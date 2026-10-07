@@ -18,7 +18,9 @@ import '../../companies/data/companies_repository.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
+import '../../clients/data/clients_repository.dart';
 import '../../clients/domain/client.dart';
+import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
@@ -51,6 +53,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   final _beneficiaryName = TextEditingController();
   final _beneficiaryAccount = TextEditingController();
   final _beneficiaryCode = TextEditingController();
+  Client? _pickedBeneficiary;
 
   bool _busy = false;
 
@@ -97,6 +100,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _company = null;
       _reference = null;
     });
+    // A single account under this company: pick it (and so fill the account
+    // name, code and balance) without another tap.
+    if (name == null) return;
+    final matches = (ref.read(allExchangesProvider).value ?? const <Exchange>[])
+        .where((e) => e.name == name)
+        .toList();
+    if (matches.length == 1) _onExchangeChanged(matches.first);
   }
 
   void _resetTransferForm() {
@@ -105,6 +115,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _beneficiaryName.clear();
       _beneficiaryAccount.clear();
       _beneficiaryCode.clear();
+      _pickedBeneficiary = null;
       _reference = null;
       _exchangeCompanyName = null;
       _exchange = null;
@@ -226,6 +237,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             amount: amount,
             reference: _reference!,
           );
+      await _persistBeneficiaryCode();
       ref.invalidate(dailyTransfersProvider);
       ref.invalidate(allExchangesProvider);
       ref.invalidate(exchangesByCompanyProvider(_company!.id));
@@ -285,6 +297,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           _beneficiaryName.clear();
           _beneficiaryAccount.clear();
           _beneficiaryCode.clear();
+          _pickedBeneficiary = null;
         });
       }
       playAlert();
@@ -349,7 +362,42 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         _beneficiaryAccount.text = picked.company ?? '';
         _beneficiaryName.text = picked.name;
         _beneficiaryCode.text = picked.code ?? '';
+        _pickedBeneficiary = picked;
       });
+    }
+  }
+
+  /// The picked saved beneficiary, only while the name / company fields
+  /// still match it (editing them detaches the entry from that record).
+  Client? get _matchedBeneficiary {
+    final p = _pickedBeneficiary;
+    if (p == null) return null;
+    final matches = _beneficiaryName.text.trim() == p.name.trim() &&
+        _beneficiaryAccount.text.trim() == (p.company ?? '').trim();
+    return matches ? p : null;
+  }
+
+  /// True when the matched beneficiary already has an official code.
+  bool get _beneficiaryCodeLocked =>
+      (_matchedBeneficiary?.code ?? '').trim().isNotEmpty;
+
+  /// First code typed for a saved beneficiary without one becomes its
+  /// official code. Never overwrites an existing code; a failure here must
+  /// not fail the transfer.
+  Future<void> _persistBeneficiaryCode() async {
+    final p = _matchedBeneficiary;
+    final code = _beneficiaryCode.text.trim();
+    if (p == null || _beneficiaryCodeLocked || code.isEmpty) return;
+    try {
+      await ref.read(clientsRepositoryProvider).update(
+            id: p.id,
+            name: p.name,
+            company: p.company,
+            code: code,
+          );
+      ref.invalidate(clientsListProvider);
+    } catch (e, st) {
+      AppLogger.error('transfers.persistBeneficiaryCode', e, st);
     }
   }
 
@@ -427,11 +475,16 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     };
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
       children: [
         // Section 1 (top) — خروج من حسابي
         _CollapsibleSection(
-          header: const _NumberedSectionTitle(1, 'خروج من حسابي'),
+          color: AppColors.negative,
+          header: const _NumberedSectionTitle(
+            1,
+            'خروج من حسابي',
+            color: AppColors.negative,
+          ),
           expanded: _activeSection == 1,
           onToggle: () => setState(
             () => _activeSection = _activeSection == 1 ? null : 1,
@@ -448,7 +501,32 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         onAdd: _openAddExchangeCompanyDialog,
                       );
                     }
-                    final names = items.map((ec) => ec.name).toList();
+                    if (exchangesAsync.isLoading && !exchangesAsync.hasValue) {
+                      return const LinearProgressIndicator();
+                    }
+                    // Only companies where I actually hold an account
+                    // (an exchange with the same name), sorted by name.
+                    final accountNames = {
+                      for (final e in exchangesAsync.value ?? const <Exchange>[])
+                        e.name,
+                    };
+                    final names = items
+                        .map((ec) => ec.name)
+                        .where(accountNames.contains)
+                        .toSet()
+                        .toList()
+                      ..sort();
+                    if (names.isEmpty) {
+                      return const InputDecorator(
+                        decoration: InputDecoration(
+                          suffixIcon: _IconBox(FontAwesomeIcons.building),
+                        ),
+                        child: Text(
+                          'لا توجد شركة لديك فيها حساب — أضف حساباً من تبويب حساباتي',
+                          style: TextStyle(color: AppColors.textLow),
+                        ),
+                      );
+                    }
                     final liveValue =
                         names.contains(_exchangeCompanyName)
                             ? _exchangeCompanyName
@@ -638,6 +716,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
         // Section 2 (bottom) — الجهة المستفيدة
         _CollapsibleSection(
+          color: AppColors.accent,
           header: const _NumberedSectionTitle(2, 'الجهة المستفيدة'),
           expanded: _activeSection == 2,
           onToggle: () => setState(
@@ -667,6 +746,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 label: 'الشركة المستفيدة',
                 child: TextField(
                   controller: _beneficiaryAccount,
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     hintText: 'اسم الشركة المستفيدة',
                     suffixIcon: _IconBox(FontAwesomeIcons.building),
@@ -678,6 +758,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 label: 'حساب المستفيد',
                 child: TextField(
                   controller: _beneficiaryName,
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     hintText: 'اسم حساب المستفيد',
                     suffixIcon: _IconBox(FontAwesomeIcons.wallet),
@@ -687,11 +768,21 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               const SizedBox(height: 12),
               _LabeledField(
                 label: 'كود حساب المستفيد',
+                // A stored code is official and locked. A saved beneficiary
+                // with no code yet may have one typed — once, saved with the
+                // transfer.
                 child: TextField(
                   controller: _beneficiaryCode,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل كود حساب المستفيد',
-                    suffixIcon: _IconBox(FontAwesomeIcons.user),
+                  readOnly: _beneficiaryCodeLocked,
+                  decoration: InputDecoration(
+                    hintText: _beneficiaryCodeLocked
+                        ? 'كود رسمي — لا يمكن تعديله'
+                        : 'أدخل كود حساب المستفيد',
+                    suffixIcon: _IconBox(
+                      _beneficiaryCodeLocked
+                          ? FontAwesomeIcons.lock
+                          : FontAwesomeIcons.user,
+                    ),
                   ),
                 ),
               ),
@@ -816,9 +907,14 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _NumberedSectionTitle extends StatelessWidget {
-  const _NumberedSectionTitle(this.number, this.text);
+  const _NumberedSectionTitle(
+    this.number,
+    this.text, {
+    this.color = AppColors.accent,
+  });
   final int number;
   final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -831,16 +927,16 @@ class _NumberedSectionTitle extends StatelessWidget {
             height: 22,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.15),
+              color: color.withValues(alpha: 0.15),
               border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.5),
+                color: color.withValues(alpha: 0.5),
               ),
               shape: BoxShape.circle,
             ),
             child: Text(
               '$number.',
-              style: const TextStyle(
-                color: AppColors.accent,
+              style: TextStyle(
+                color: color,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -1000,6 +1096,7 @@ class _CollapsibleSection extends StatelessWidget {
     required this.child,
     required this.expanded,
     required this.onToggle,
+    this.color,
   });
 
   final Widget header;
@@ -1007,9 +1104,14 @@ class _CollapsibleSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// Optional tint that sets this section apart from its neighbour.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      fill: color?.withValues(alpha: 0.16) ?? AppColors.glassFill,
+      border: color?.withValues(alpha: 0.55) ?? AppColors.glassBorder,
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

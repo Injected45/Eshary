@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 
+/// Top padding for scrollable content that sits behind a transparent
+/// [AppBar] (`extendBodyBehindAppBar`): status-bar inset + toolbar + a gap.
+double contentTopPadding(BuildContext context, {double gap = 20}) =>
+    MediaQuery.paddingOf(context).top + kToolbarHeight + gap;
+
 /// Frosted-glass surface — backdrop blur + translucent fill + hairline border.
 class GlassCard extends StatelessWidget {
   const GlassCard({

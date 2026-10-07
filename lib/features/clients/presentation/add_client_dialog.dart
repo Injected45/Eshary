@@ -39,6 +39,9 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
 
   bool get _isEdit => widget.existing != null;
 
+  bool get _codeLocked =>
+      _isEdit && (widget.existing!.code ?? '').trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -108,7 +111,9 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
               id: widget.existing!.id,
               name: _name.text.trim(),
               company: _companySelection?.trim(),
-              code: _code.text.trim(),
+              code: _codeLocked
+                  ? widget.existing!.code!.trim()
+                  : _code.text.trim(),
             );
       } else {
         final ownerId = ref.read(currentUserIdProvider);
@@ -248,8 +253,15 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
               const SizedBox(height: 14),
               TextField(
                 controller: _code,
-                decoration:
-                    const InputDecoration(labelText: 'كود الحساب'),
+                // An existing code is official: it cannot be edited here.
+                readOnly: _codeLocked,
+                decoration: InputDecoration(
+                  labelText: 'كود الحساب',
+                  helperText: _codeLocked ? 'كود رسمي — لا يمكن تعديله' : null,
+                  suffixIcon: _codeLocked
+                      ? const Icon(Icons.lock_outline, size: 18)
+                      : null,
+                ),
               ),
               const SizedBox(height: 20),
               Row(children: [

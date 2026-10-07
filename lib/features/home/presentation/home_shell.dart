@@ -176,7 +176,7 @@ class _TransfersHub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
       children: [
         _HubButton(
           icon: FontAwesomeIcons.paperPlane,
