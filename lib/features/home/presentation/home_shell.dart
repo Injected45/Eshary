@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/glass.dart';
 import '../../../shared/realtime_sync.dart';
 import '../../archive/presentation/archive_screen.dart';
 import '../../companies/presentation/accounts_screen.dart';
@@ -25,21 +26,47 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
+  /// Inside the "الحوالات" tab: null = hub with the two buttons,
+  /// 0 = خروج (transfers), 1 = دخول (currency buy).
+  int? _sub;
+
   static const _titles = [
-    'تنفيذ خروج حوالة',
-    'تنفيذ دخول حوالة',
+    'الحوالات',
     'الإقفالات',
     'حساباتي',
     'الإعدادات',
   ];
 
-  static final _screens = <Widget>[
-    TransfersScreen(key: transfersScreenKey),
-    const CurrencyBuyScreen(),
+  static const _subTitles = [
+    'تنفيذ خروج حوالة',
+    'تنفيذ دخول حوالة',
+  ];
+
+  static final _transfersScreen = TransfersScreen(key: transfersScreenKey);
+  static const _currencyBuyScreen = CurrencyBuyScreen();
+
+  static final _otherScreens = <Widget>[
     const ArchiveScreen(),
     const AccountsScreen(),
     const SettingsScreen(),
   ];
+
+  bool get _inSub => _index == 0 && _sub != null;
+
+  static const _outColor = AppColors.negative;
+  static const _inColor = AppColors.positive;
+
+  /// Re-themes [child] so buttons, focus borders and other primary-coloured
+  /// widgets pick up [color] without touching the screen itself.
+  Widget _tinted(BuildContext context, Color color, Widget child) {
+    final base = Theme.of(context);
+    return Theme(
+      data: base.copyWith(
+        colorScheme: base.colorScheme.copyWith(primary: color),
+      ),
+      child: child,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +74,31 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // so cross-device DB changes (admin archiving, balances moving) flow
     // into provider invalidations without manual refresh.
     ref.watch(realtimeSyncProvider);
+    return PopScope(
+      canPop: !_inSub,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _inSub) setState(() => _sub = null);
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    // Inner IndexedStack keeps both entry forms alive so they retain their
+    // state when switching between hub / خروج / دخول.
+    final screens = <Widget>[
+      IndexedStack(
+        index: _sub == null ? 0 : _sub! + 1,
+        children: [
+          _TransfersHub(onSelect: (i) => setState(() => _sub = i)),
+          _tinted(context, _outColor, _transfersScreen),
+          _tinted(context, _inColor, _currencyBuyScreen),
+        ],
+      ),
+      ..._otherScreens,
+    ];
+    // Each entry screen has its own accent: خروج red, دخول green.
+    final subColor = _inSub ? (_sub == 0 ? _outColor : _inColor) : null;
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
@@ -57,9 +109,23 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: AppBar(
-              title: Text(_titles[_index]),
-              backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
+              title: Text(_inSub ? _subTitles[_sub!] : _titles[_index]),
+              leading: _inSub
+                  ? BackButton(onPressed: () => setState(() => _sub = null))
+                  : null,
+              backgroundColor: subColor == null
+                  ? AppColors.bgDeep.withValues(alpha: 0.35)
+                  : Color.alphaBlend(
+                      subColor.withValues(alpha: 0.28),
+                      AppColors.bgDeep.withValues(alpha: 0.35),
+                    ),
               elevation: 0,
+              bottom: subColor == null
+                  ? null
+                  : PreferredSize(
+                      preferredSize: const Size.fromHeight(3),
+                      child: Container(height: 3, color: subColor),
+                    ),
               actions: [
                 IconButton(
                   tooltip: 'تحديث',
@@ -87,23 +153,84 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: IndexedStack(index: _index, children: _screens),
+        child: IndexedStack(index: _index, children: screens),
       ),
-      floatingActionButton: _index == 0 ? _testDataFab() : null,
       bottomNavigationBar: _GlassBottomNav(
         index: _index,
-        onChanged: (i) => setState(() => _index = i),
+        onChanged: (i) => setState(() {
+          // Tapping "الحوالات" again returns to the hub.
+          if (i == 0) _sub = null;
+          _index = i;
+        }),
       ),
     );
   }
+}
 
-  Widget _testDataFab() => FloatingActionButton.extended(
-        backgroundColor: AppColors.accent,
-        foregroundColor: Colors.black,
-        icon: const FaIcon(FontAwesomeIcons.flaskVial, size: 16),
-        label: const Text('بيانات اختبار'),
-        onPressed: () => transfersScreenKey.currentState?.fillDefaults(),
-      );
+/// Landing screen of the "الحوالات" tab: two big buttons that open the
+/// existing خروج (transfers) and دخول (currency buy) screens unchanged.
+class _TransfersHub extends StatelessWidget {
+  const _TransfersHub({required this.onSelect});
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      children: [
+        _HubButton(
+          icon: FontAwesomeIcons.paperPlane,
+          label: 'خروج',
+          color: AppColors.negative,
+          onTap: () => onSelect(0),
+        ),
+        const SizedBox(height: 16),
+        _HubButton(
+          icon: FontAwesomeIcons.moneyBillTransfer,
+          label: 'دخول',
+          color: AppColors.positive,
+          onTap: () => onSelect(1),
+        ),
+      ],
+    );
+  }
+}
+
+class _HubButton extends StatelessWidget {
+  const _HubButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          children: [
+            FaIcon(icon, size: 36, color: color),
+            const SizedBox(height: 14),
+            Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _GlassBottomNav extends StatelessWidget {
@@ -147,13 +274,11 @@ class _GlassBottomNav extends StatelessWidget {
                     NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: const [
                   NavigationDestination(
-                    icon: FaIcon(FontAwesomeIcons.paperPlane, size: 18),
-                    label: 'خروج',
-                  ),
-                  NavigationDestination(
-                    icon: FaIcon(FontAwesomeIcons.moneyBillTransfer,
-                        size: 18),
-                    label: 'دخول',
+                    icon: FaIcon(
+                      FontAwesomeIcons.moneyBillTransfer,
+                      size: 18,
+                    ),
+                    label: 'الحوالات',
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.boxArchive, size: 18),

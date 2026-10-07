@@ -6,9 +6,12 @@ import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../exchange_companies/presentation/exchange_companies_screen.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
+import 'clients_providers.dart';
 import 'saved_clients_dialog.dart';
 
 class AddClientDialog extends ConsumerStatefulWidget {
@@ -32,6 +35,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
   String? _companySelection;
   final _code = TextEditingController();
   bool _busy = false;
+  String? _nameError;
 
   bool get _isEdit => widget.existing != null;
 
@@ -52,10 +56,53 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
     super.dispose();
   }
 
+  /// Opens the add-exchange-company dialog on top of this one and, once it
+  /// closes, selects the company that was just created so the user can keep
+  /// filling the form without leaving the screen.
+  Future<void> _addNewCompany() async {
+    final before = (ref.read(exchangeCompaniesListProvider).valueOrNull ??
+            const <ExchangeCompany>[])
+        .map((c) => c.name)
+        .toSet();
+    await showGlassDialog<void>(
+      context: context,
+      builder: (_) => AddExchangeCompanyDialog(
+        onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
+      ),
+    );
+    if (!mounted) return;
+    final after = await ref.read(exchangeCompaniesListProvider.future);
+    if (!mounted) return;
+    final added = after.where((c) => !before.contains(c.name));
+    if (added.isNotEmpty) {
+      setState(() => _companySelection = added.first.name);
+    }
+  }
+
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return;
     setState(() => _busy = true);
     try {
+      // Same name under the same company is a duplicate; the same name under
+      // a different company is allowed.
+      String norm(String? s) => (s ?? '').trim().toLowerCase();
+      final existing = await ref.read(clientsListProvider.future);
+      final duplicate = existing.any(
+        (c) =>
+            c.id != widget.existing?.id &&
+            norm(c.name) == norm(_name.text) &&
+            norm(c.company) == norm(_companySelection),
+      );
+      if (duplicate) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _nameError = 'هذه الجهة مسجلة مسبقًا على نفس الشركة';
+          });
+        }
+        return;
+      }
+
       if (_isEdit) {
         await ref.read(clientsRepositoryProvider).update(
               id: widget.existing!.id,
@@ -90,23 +137,45 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
     final cfg = widget.config;
     final nameField = TextField(
       controller: _name,
-      decoration: InputDecoration(labelText: cfg.nameLabel),
+      onChanged: (_) {
+        if (_nameError != null) setState(() => _nameError = null);
+      },
+      decoration: InputDecoration(
+        labelText: cfg.nameLabel,
+        errorText: _nameError,
+      ),
     );
     final companyField = ref.watch(exchangeCompaniesListProvider).when(
-          data: (companies) => DropdownButtonFormField<String>(
-            value: _companySelection,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'من حساب شركة',
-              hintText: 'اختر الشركة',
-            ),
-            items: companies
-                .map((c) => DropdownMenuItem<String>(
-                      value: c.name,
-                      child: Text(c.name),
-                    ))
-                .toList(),
-            onChanged: (v) => setState(() => _companySelection = v),
+          data: (companies) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _companySelection,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'من حساب شركة',
+                  hintText: 'اختر الشركة',
+                ),
+                items: companies
+                    .map((c) => DropdownMenuItem<String>(
+                          value: c.name,
+                          child: Text(c.name),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _companySelection = v;
+                  _nameError = null;
+                }),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : _addNewCompany,
+                  icon: const FaIcon(FontAwesomeIcons.plus, size: 12),
+                  label: const Text('إضافة شركة جديدة'),
+                ),
+              ),
+            ],
           ),
           loading: () => const LinearProgressIndicator(),
           error: (e, _) => Text('$e'),

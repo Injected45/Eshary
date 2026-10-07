@@ -368,25 +368,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     }
   }
 
-  void fillDefaults() {
-    setState(() {
-      _amount.text = '1000.00';
-      // After Task 7 label swap: _beneficiaryAccount is labeled
-      // "الشركة المستفيدة" and _beneficiaryName is labeled "حساب المستفيد".
-      _beneficiaryAccount.text = 'شركة الاختبار التجريبية';
-      _beneficiaryName.text = 'حساب اختبار';
-      _beneficiaryCode.text = 'TEST-001';
-    });
-    if (_exchange == null) {
-      final list = ref.read(allExchangesProvider).value ?? const [];
-      if (list.isNotEmpty) {
-        _onExchangeChanged(list.first);
-      } else {
-        _snack('لا توجد شركة صرافة محفوظة — أضف واحدة أولًا');
-      }
-    }
-  }
-
   Future<void> _exportDailyPdf(List<Transfer> rows) async {
     if (rows.isEmpty) {
       _snack('لا توجد سجلات للتصدير');

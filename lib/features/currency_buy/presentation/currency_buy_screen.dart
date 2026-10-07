@@ -55,7 +55,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   bool _busy = false;
   int? _activeSection;
-  bool _pendingExpanded = false;
   bool _executedExpanded = false;
 
   @override
@@ -103,11 +102,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       return false;
     }
     return true;
-  }
-
-  Future<void> _savePendingAndOpenMessages() async {
-    if (!_validateBuyForm()) return;
-    await _saveAndOpenBuyMessages(kind: _PendingBuyKind.pending);
   }
 
   Future<void> _saveDailyAndOpenMessages() async {
@@ -358,44 +352,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     await _saveDailyAndOpenMessages();
   }
 
-  Future<void> _confirmPendingBuy(CurrencyBuy row) async {
-    final ok = await _showBuyConfirmDialog(
-      amountUsd: row.usdAmount,
-    );
-    if (ok != true || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final repo = ref.read(currencyBuysRepositoryProvider);
-      await repo.createDaily(
-        myCompanyId: row.myCompanyId,
-        exchangeId: row.exchangeId,
-        clientId: row.clientId,
-        clientFromAccount: row.clientFromAccount,
-        usdAmount: row.usdAmount,
-        rate: row.rate,
-        lydAmount: row.lydAmount,
-        reference: row.reference,
-      );
-      final supabase = ref.read(supabaseClientProvider);
-      await supabase.from('currency_buys').delete().eq('id', row.id);
-
-      ref.invalidate(pendingBuysProvider);
-      ref.invalidate(dailyBuysProvider);
-      ref.invalidate(allExchangesProvider);
-      if (mounted) {
-        setState(_resetBuyForm);
-      }
-      playAlert();
-      if (mounted) _snack('تم تنفيذ العملية');
-    } catch (e, st) {
-      AppLogger.error('currencyBuy.confirmPending', e, st);
-      if (mounted) _snack(friendlyError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _archiveAll() async {
     final pendingCount =
         (ref.read(pendingBuysProvider).value ?? const <CurrencyBuy>[])
@@ -553,7 +509,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
     final allExchangesAsync = ref.watch(allExchangesProvider);
-    final pendingAsync = ref.watch(pendingBuysProvider);
     final dailyAsync = ref.watch(dailyBuysProvider);
 
     return ListView(
@@ -897,67 +852,21 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 14),
 
-        Row(children: [
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: _busy ? null : _savePendingAndOpenMessages,
-              icon: const FaIcon(FontAwesomeIcons.clock, size: 14),
-              label: Text(_busy ? '...' : 'قيد التنفيذ + فتح الرسائل'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.warning,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _confirmExecuteBuy,
+            icon: const FaIcon(
+              FontAwesomeIcons.paperPlane,
+              size: 14,
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: _busy ? null : _confirmExecuteBuy,
-              icon: const FaIcon(
-                FontAwesomeIcons.paperPlane,
-                size: 14,
-              ),
-              label: Text(_busy ? '...' : 'حفظ وفتح الرسائل'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+            label: Text(_busy ? '...' : 'حفظ'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-          ),
-        ]),
-        const SizedBox(height: 24),
-
-        _CollapsibleSection(
-          header: Row(children: [
-            const Expanded(
-              child: _AccentSectionTitle(
-                text: 'دخول قيد التنفيذ',
-                color: AppColors.accent,
-                icon: FontAwesomeIcons.clock,
-              ),
-            ),
-            if (!_pendingExpanded)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 8),
-                child: _CountBadge(
-                  count: pendingAsync.value?.length ?? 0,
-                  color: AppColors.accent,
-                ),
-              ),
-          ]),
-          expanded: _pendingExpanded,
-          onToggle: () =>
-              setState(() => _pendingExpanded = !_pendingExpanded),
-          child: pendingAsync.when(
-            data: (rows) => _PendingTable(
-              rows: rows,
-              onTapRow: _confirmPendingBuy,
-            ),
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('$e'),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 24),
 
         _CollapsibleSection(
           header: Row(children: [
@@ -1290,97 +1199,6 @@ class _IconBox extends StatelessWidget {
         ),
         child: FaIcon(icon, size: 14, color: color),
       ),
-    );
-  }
-}
-
-class _PendingTable extends ConsumerStatefulWidget {
-  const _PendingTable({required this.rows, required this.onTapRow});
-  final List<CurrencyBuy> rows;
-  final ValueChanged<CurrencyBuy> onTapRow;
-
-  @override
-  ConsumerState<_PendingTable> createState() => _PendingTableState();
-}
-
-class _PendingTableState extends ConsumerState<_PendingTable> {
-  String _filter = kCreatorAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final clients = ref.watch(clientsListProvider);
-    final companies = ref.watch(companiesListProvider);
-    final clientById = <String, Client>{
-      for (final c in (clients.value ?? const <Client>[])) c.id: c,
-    };
-    final companyById = <String, String>{
-      for (final c in (companies.value ?? const <Company>[])) c.id: c.name,
-    };
-    final tf = DateFormat('hh:mm a');
-    String fmt(DateTime t) => tf.format(_tripoliTime(t));
-    final visible = widget.rows
-        .where((b) => creatorPasses(_filter, b.createdByEmployeeId))
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        CreatorFilter<CurrencyBuy>(
-          selected: _filter,
-          onChanged: (v) => setState(() => _filter = v),
-          rows: widget.rows,
-          amountOf: (b) => b.usdAmount,
-          creatorOf: (b) => b.createdByEmployeeId,
-          amountColor: AppColors.warning,
-        ),
-        if (visible.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(8),
-            child: Text('لا توجد عمليات معلقة'),
-          )
-        else
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              columns: const [
-                DataColumn(label: Text('من شركة')),
-                DataColumn(label: Text('المرسل')),
-                DataColumn(label: Text('القيمة')),
-                DataColumn(label: Text('في حسابي')),
-                DataColumn(label: Text('التوقيت')),
-                DataColumn(label: Text('المنفّذ')),
-              ],
-              rows: visible
-                  .map((b) => DataRow(
-                        onSelectChanged: (_) => widget.onTapRow(b),
-                        cells: [
-                          DataCell(Text(
-                            clientById[b.clientId]?.company ??
-                                b.clientFromAccount ??
-                                '—',
-                          )),
-                          DataCell(Text(
-                            clientById[b.clientId]?.name ?? '—',
-                          )),
-                          DataCell(Text(
-                            '\$${formatMoney(b.usdAmount)}',
-                            style: const TextStyle(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          )),
-                          DataCell(
-                              Text(companyById[b.myCompanyId] ?? '—')),
-                          DataCell(Text(fmt(b.createdAt))),
-                          DataCell(CreatorChip(
-                            createdByEmployeeId: b.createdByEmployeeId,
-                          )),
-                        ],
-                      ))
-                  .toList(),
-            ),
-          ),
-      ],
     );
   }
 }

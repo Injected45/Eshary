@@ -10,18 +10,14 @@ import '../../../shared/glass.dart';
 import '../../admin/presentation/admin_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
 import '../../branches/presentation/branches_screen.dart';
-import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/clients_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../companies/presentation/companies_screen.dart';
-import '../../countries/presentation/countries_providers.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
-import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
 import '../../license/presentation/license_provider.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../sub_users/presentation/sub_users_screen.dart';
-import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -96,13 +92,6 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _DestructiveSettingsRow(
-            icon: FontAwesomeIcons.triangleExclamation,
-            title: 'حذف بيانات الاختبار',
-            subtitle: 'لإعادة الاختبار من الصفر — لا يحذف الحساب',
-            onTap: () => _confirmAndWipe(context, ref),
-          ),
-          const SizedBox(height: 12),
           _DestructiveSettingsRow(
             icon: FontAwesomeIcons.eraser,
             title: 'حذف المدخلات',
@@ -214,73 +203,6 @@ Future<bool?> _showWipeConfirmDialog(
       ),
     ),
   ).whenComplete(controller.dispose);
-}
-
-Future<void> _confirmAndWipe(BuildContext context, WidgetRef ref) async {
-  final confirmed = await _showWipeConfirmDialog(
-    context,
-    title: 'حذف كل البيانات؟',
-    body:
-        'ستُحذف جميع: الحسابات + شركات الصرافة + العملاء + المستفيدين + الدول + الحوالات + المشتريات. لا يمكن التراجع.',
-  );
-  if (confirmed != true) return;
-
-  final uid = ref.read(currentUserIdProvider);
-  if (uid == null) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('لم يتم تسجيل الدخول')),
-    );
-    return;
-  }
-
-  final client = ref.read(supabaseClientProvider);
-  final errors = <String>[];
-  const tables = [
-    'transfers',
-    'currency_buys',
-    'beneficiaries',
-    'exchange_companies',
-    'countries',
-    'clients',
-    'companies',
-  ];
-  for (final table in tables) {
-    try {
-      await client.from(table).delete().eq('owner_id', uid);
-    } catch (e) {
-      errors.add('$table: $e');
-    }
-  }
-
-  await ref.read(jsonCacheProvider).clear();
-
-  ref.invalidate(companiesListProvider);
-  ref.invalidate(allExchangesProvider);
-  ref.invalidate(exchangeCompaniesListProvider);
-  ref.invalidate(countriesListProvider);
-  ref.invalidate(clientsListProvider);
-  ref.invalidate(beneficiariesListProvider);
-  ref.invalidate(dailyTransfersProvider);
-  ref.invalidate(archivedTransfersProvider);
-  ref.invalidate(dailyBuysProvider);
-  ref.invalidate(pendingBuysProvider);
-  ref.invalidate(archivedBuysProvider);
-  ref.invalidate(archivedSoldTotalProvider);
-  ref.invalidate(archivedBoughtTotalProvider);
-
-  playAlert();
-
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        errors.isEmpty
-            ? 'تم حذف جميع البيانات'
-            : 'حُذفت جزئيًا. أخطاء: ${errors.length}',
-      ),
-    ),
-  );
 }
 
 Future<void> _confirmAndWipeEntries(
