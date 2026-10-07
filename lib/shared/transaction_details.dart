@@ -140,7 +140,7 @@ void showCurrencyBuyDetails(
         createdAt: buy.createdAt,
         sections: [
           _DetailSection(
-            title: 'حسابي المستفيد',
+            title: 'دخول الى حسابي',
             icon: FontAwesomeIcons.shop,
             accent: AppColors.positive,
             rows: [
@@ -178,8 +178,6 @@ void showCurrencyBuyDetails(
             icon: FontAwesomeIcons.circleInfo,
             accent: AppColors.accent,
             rows: [
-              _Kv('سعر الصرف', formatMoney(buy.rate)),
-              _Kv('القيمة بالدينار', formatMoney(buy.lydAmount)),
               _Kv(
                 'المنفّذ',
                 '',
