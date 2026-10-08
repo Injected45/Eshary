@@ -60,6 +60,9 @@ coverage/
 
 # Build artifacts (kept locally, distributed via Releases)
 Eshary.apk
+Eshary-64.apk
+Eshary-32.apk
+/APK/*.apk
 
 # Working-session scratch (debug screenshots, prompt notes)
 /task.md

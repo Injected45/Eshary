@@ -16,6 +16,7 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import 'employee_auth_providers.dart';
 
 /// History screen shown to employees so they can review every transaction
 /// they have ever authored — both today's still-daily rows AND archived
@@ -64,16 +65,43 @@ class _EmployeeRecordsScreenState
     final incomingTotal =
         allIncoming.fold<double>(0, (s, b) => s + b.usdAmount);
 
+    // Show only the type(s) the admin granted. An employee given exits only
+    // sees no "دخول" card or section.
+    final seesExits = ref.watch(seesExitsProvider);
+    final seesEntries = ref.watch(seesEntriesProvider);
+    final open = (!seesExits && _open == _OpenSection.outgoing)
+        ? _OpenSection.incoming
+        : (!seesEntries && _open == _OpenSection.incoming)
+            ? _OpenSection.outgoing
+            : _open;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
         _SummaryRow(
+          showOutgoing: seesExits,
+          showIncoming: seesEntries,
           outgoingCount: allOutgoing.length,
           outgoingTotal: outgoingTotal,
           incomingCount: allIncoming.length,
           incomingTotal: incomingTotal,
         ),
+        if (!seesExits && !seesEntries)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: GlassCard(
+              child: Text(
+                'لا توجد أنواع عمليات مفعّلة لحسابك بعد. '
+                'تواصل مع المدير لتفعيل الخروج أو الدخول.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textLow, fontSize: 13),
+              ),
+            ),
+          ),
         const SizedBox(height: 12),
+        // The movement difference compares entries with exits, so it needs
+        // both types.
+        if (seesExits && seesEntries)
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
@@ -97,25 +125,27 @@ class _EmployeeRecordsScreenState
           ),
         ),
         const SizedBox(height: 14),
-        _Section(
-          title: 'حوالات الخروج',
-          count: allOutgoing.length,
-          icon: FontAwesomeIcons.paperPlane,
-          accent: AppColors.negative,
-          expanded: _open == _OpenSection.outgoing,
-          onToggle: () => _toggle(_OpenSection.outgoing),
-          child: _TransferList(rows: allOutgoing),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'حوالات الدخول',
-          count: allIncoming.length,
-          icon: FontAwesomeIcons.moneyBillTransfer,
-          accent: AppColors.positive,
-          expanded: _open == _OpenSection.incoming,
-          onToggle: () => _toggle(_OpenSection.incoming),
-          child: _CurrencyBuyList(rows: allIncoming),
-        ),
+        if (seesExits)
+          _Section(
+            title: 'حوالات الخروج',
+            count: allOutgoing.length,
+            icon: FontAwesomeIcons.paperPlane,
+            accent: AppColors.negative,
+            expanded: open == _OpenSection.outgoing,
+            onToggle: () => _toggle(_OpenSection.outgoing),
+            child: _TransferList(rows: allOutgoing),
+          ),
+        if (seesExits && seesEntries) const SizedBox(height: 12),
+        if (seesEntries)
+          _Section(
+            title: 'حوالات الدخول',
+            count: allIncoming.length,
+            icon: FontAwesomeIcons.moneyBillTransfer,
+            accent: AppColors.positive,
+            expanded: open == _OpenSection.incoming,
+            onToggle: () => _toggle(_OpenSection.incoming),
+            child: _CurrencyBuyList(rows: allIncoming),
+          ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
@@ -131,12 +161,16 @@ class _EmployeeRecordsScreenState
 
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({
+    required this.showOutgoing,
+    required this.showIncoming,
     required this.outgoingCount,
     required this.outgoingTotal,
     required this.incomingCount,
     required this.incomingTotal,
   });
 
+  final bool showOutgoing;
+  final bool showIncoming;
   final int outgoingCount;
   final double outgoingTotal;
   final int incomingCount;
@@ -146,25 +180,27 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _SummaryCard(
-            label: 'خروج',
-            count: outgoingCount,
-            total: outgoingTotal,
-            icon: FontAwesomeIcons.paperPlane,
-            accent: AppColors.negative,
+        if (showOutgoing)
+          Expanded(
+            child: _SummaryCard(
+              label: 'خروج',
+              count: outgoingCount,
+              total: outgoingTotal,
+              icon: FontAwesomeIcons.paperPlane,
+              accent: AppColors.negative,
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SummaryCard(
-            label: 'دخول',
-            count: incomingCount,
-            total: incomingTotal,
-            icon: FontAwesomeIcons.moneyBillTransfer,
-            accent: AppColors.positive,
+        if (showOutgoing && showIncoming) const SizedBox(width: 12),
+        if (showIncoming)
+          Expanded(
+            child: _SummaryCard(
+              label: 'دخول',
+              count: incomingCount,
+              total: incomingTotal,
+              icon: FontAwesomeIcons.moneyBillTransfer,
+              accent: AppColors.positive,
+            ),
           ),
-        ),
       ],
     );
   }

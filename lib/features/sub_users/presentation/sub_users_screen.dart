@@ -144,13 +144,15 @@ class _SubUserCard extends ConsumerWidget {
                     children: [
                       Text(
                         user.employeeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textHigh,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 6),
                       InkWell(
                         onTap: () => _editPhone(context, ref),
                         child: Row(
@@ -211,6 +213,16 @@ class _SubUserCard extends ConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                _StatusBadge(status: user.status),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Quick actions on their own line, so they no longer squeeze the
+            // name and the phone number above.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
                 IconButton(
                   onPressed: () => _openActivity(context),
                   icon: const FaIcon(
@@ -253,10 +265,9 @@ class _SubUserCard extends ConsumerWidget {
                   tooltip: 'إظهار / توليد كود جديد',
                   visualDensity: VisualDensity.compact,
                 ),
-                _StatusBadge(status: user.status),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Row(
               children: [
                 _PermissionsSummary(permissions: user.permissions),

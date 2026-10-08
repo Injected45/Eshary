@@ -5,6 +5,27 @@ import '../../../core/supabase_provider.dart';
 import '../../../shared/cache.dart';
 import '../domain/transfer.dart';
 
+/// What an exit may still draw from an account:
+/// [available] = [balance] - [openOut] (today's exits not yet closed).
+class ExchangeBalance {
+  const ExchangeBalance({
+    required this.balance,
+    required this.openOut,
+    required this.available,
+  });
+
+  final double balance;
+  final double openOut;
+  final double available;
+
+  factory ExchangeBalance.fromJson(Map<String, dynamic> json) =>
+      ExchangeBalance(
+        balance: (json['balance'] as num).toDouble(),
+        openOut: (json['open_out'] as num).toDouble(),
+        available: (json['available'] as num).toDouble(),
+      );
+}
+
 class TransfersRepository {
   TransfersRepository(this._client, this._cache);
   final SupabaseClient _client;
@@ -66,6 +87,22 @@ class TransfersRepository {
       },
     );
     return Transfer.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// Per account: its balance, the exits of the day not yet closed, and what
+  /// is really available. The server adds up everyone's open exits, so an
+  /// employee sees the true figure. Empty if the function is not installed
+  /// yet; the screen then falls back to the plain balance.
+  Future<Map<String, ExchangeBalance>> exchangeBalances() async {
+    try {
+      final res = await _client.rpc<dynamic>('exchange_balances');
+      return {
+        for (final r in (res as List).cast<Map<String, dynamic>>())
+          r['exchange_id'] as String: ExchangeBalance.fromJson(r),
+      };
+    } catch (_) {
+      return const <String, ExchangeBalance>{};
+    }
   }
 
   Future<int> archiveDaily(String ownerId) async {

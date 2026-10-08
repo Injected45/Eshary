@@ -60,6 +60,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   bool _busy = false;
   int? _activeSection;
+  bool _autoPicked = false;
   bool _executedExpanded = false;
 
   @override
@@ -97,6 +98,27 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _lyd.text = '0.00';
     _reference.clear();
     _activeSection = null;
+    _autoPicked = false; // a single account is filled in again
+  }
+
+  /// "دخول لحسابي" is filled: company, account (so its balance row) and, by
+  /// the account itself, its code. An account without a code cannot be asked
+  /// for one here.
+  bool get _accountComplete =>
+      _exchangeCompanyName != null && _myCompany != null && _exchange != null;
+
+  void _showSenderBlocked() {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text(
+          'عذراً لا يمكن فتح الجهة المرسلة.\n'
+          'عليك استكمال بيانات حسابك أولاً.',
+        ),
+      ),
+    );
   }
 
   bool _validateBuyForm() {
@@ -570,6 +592,46 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final allExchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(dailyBuysProvider);
 
+    // Exactly one account in total: fill the company, account and code as
+    // soon as the screen opens (and again after each save) and go straight
+    // to the sender section. With several accounts nothing is chosen for me.
+    final loadedExchanges = allExchangesAsync.value;
+    final loadedCompanies = companiesAsync.value;
+    final loadedExchangeCompanies = exchangeCompaniesAsync.value;
+    if (!_autoPicked &&
+        loadedExchanges != null &&
+        loadedCompanies != null &&
+        loadedExchangeCompanies != null) {
+      _autoPicked = true;
+      if (_exchange == null && _exchangeCompanyName == null) {
+        final names = {for (final ec in loadedExchangeCompanies) ec.name};
+        final mine =
+            loadedExchanges.where((e) => names.contains(e.name)).toList();
+        if (mine.length == 1) {
+          final only = mine.first;
+          Company? owner;
+          for (final c in loadedCompanies) {
+            if (c.id == only.companyId) {
+              owner = c;
+              break;
+            }
+          }
+          if (owner != null) {
+            final company = owner;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted || _exchange != null) return;
+              setState(() {
+                _exchangeCompanyName = only.name;
+                _myCompany = company;
+                _exchange = only;
+                _activeSection = 2;
+              });
+            });
+          }
+        }
+      }
+    }
+
     return ListView(
       padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
       children: [
@@ -764,10 +826,20 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             color: AppColors.accent,
             icon: FontAwesomeIcons.paperPlane,
           ),
-          expanded: _activeSection == 2,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 2 ? null : 2,
-          ),
+          // Never open while "دخول لحسابي" is incomplete, even if the header
+          // is tapped by hand.
+          expanded: _activeSection == 2 && _accountComplete,
+          onToggle: () {
+            if (_activeSection == 2) {
+              setState(() => _activeSection = null);
+              return;
+            }
+            if (!_accountComplete) {
+              _showSenderBlocked();
+              return;
+            }
+            setState(() => _activeSection = 2);
+          },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

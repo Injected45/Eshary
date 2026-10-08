@@ -34,7 +34,7 @@ const List<EmployeePermission> kEmployeePermissions = [
   EmployeePermission(
     key: kPermTransfersCreate,
     label: 'تنفيذ خروج حوالة',
-    description: 'تظهر له شاشة الخروج ويستطيع التنفيذ، ويرى عمليات اليوم التي نفّذها هو.',
+    description: 'تظهر له شاشة الخروج ويستطيع التنفيذ، ويرى رصيد الحساب الذي يحوّل منه ليعرف إن كان يكفي، ويرى عمليات اليوم التي نفّذها هو.',
     group: 'العمليات',
   ),
   EmployeePermission(
@@ -46,13 +46,13 @@ const List<EmployeePermission> kEmployeePermissions = [
   EmployeePermission(
     key: kPermViewOwn,
     label: 'عرض سجل عملياتي',
-    description: 'يرى سجل كل ما نفّذه هو فقط، اليومي والمقفل، ولا يرى عمليات غيره.',
+    description: 'يرى سجل ما نفّذه هو فقط، اليومي والمقفل، من النوع المسموح له (خروج أو دخول أو الاثنين)، ولا يرى عمليات غيره.',
     group: 'العرض',
   ),
   EmployeePermission(
     key: kPermViewAll,
     label: 'عرض جميع العمليات',
-    description: 'يرى عمليات كل الموظفين والمدير، اليومية والمقفلة. بدونها لا يرى إلا عملياته.',
+    description: 'يرى عمليات كل الموظفين والمدير، اليومية والمقفلة، من النوع المسموح له (خروج أو دخول). بدونها لا يرى إلا عملياته.',
     group: 'العرض',
   ),
   EmployeePermission(

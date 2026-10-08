@@ -58,6 +58,9 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
             rows.fold<double>(0, (s, r) => s + f(r));
         final outTotal = sum((r) => r.outOpenTotal + r.outClosedTotal);
         final inTotal = sum((r) => r.inOpenTotal + r.inClosedTotal);
+        // Only the type(s) the admin granted: exits-only shows no "دخول" rows.
+        final seesExits = ref.watch(seesExitsProvider);
+        final seesEntries = ref.watch(seesEntriesProvider);
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -69,26 +72,32 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Expanded(
-                    child: _TotalTile(
-                      label: 'إجمالي ما نفّذته خروجاً',
-                      total: outTotal,
-                      color: AppColors.negative,
+                  if (seesExits)
+                    Expanded(
+                      child: _TotalTile(
+                        label: 'إجمالي ما نفّذته خروجاً',
+                        total: outTotal,
+                        color: AppColors.negative,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _TotalTile(
-                      label: 'إجمالي ما نفّذته دخولاً',
-                      total: inTotal,
-                      color: AppColors.positive,
+                  if (seesExits && seesEntries) const SizedBox(width: 12),
+                  if (seesEntries)
+                    Expanded(
+                      child: _TotalTile(
+                        label: 'إجمالي ما نفّذته دخولاً',
+                        total: inTotal,
+                        color: AppColors.positive,
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 14),
               for (final r in rows) ...[
-                _AccountCard(row: r),
+                _AccountCard(
+                  row: r,
+                  showOutgoing: seesExits,
+                  showIncoming: seesEntries,
+                ),
                 const SizedBox(height: 12),
               ],
             ],
@@ -136,8 +145,14 @@ class _TotalTile extends StatelessWidget {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.row});
+  const _AccountCard({
+    required this.row,
+    required this.showOutgoing,
+    required this.showIncoming,
+  });
   final MyAccountRow row;
+  final bool showOutgoing;
+  final bool showIncoming;
 
   @override
   Widget build(BuildContext context) {
@@ -168,30 +183,34 @@ class _AccountCard extends StatelessWidget {
             ],
           ),
           const Divider(color: AppColors.glassBorder, height: 20),
-          _Line(
-            label: 'خروج لم يُقفل',
-            count: row.outOpenCount,
-            total: row.outOpenTotal,
-            color: AppColors.negative,
-          ),
-          _Line(
-            label: 'خروج مقفل',
-            count: row.outClosedCount,
-            total: row.outClosedTotal,
-            color: AppColors.negative,
-          ),
-          _Line(
-            label: 'دخول لم يُقفل',
-            count: row.inOpenCount,
-            total: row.inOpenTotal,
-            color: AppColors.positive,
-          ),
-          _Line(
-            label: 'دخول مقفل',
-            count: row.inClosedCount,
-            total: row.inClosedTotal,
-            color: AppColors.positive,
-          ),
+          if (showOutgoing) ...[
+            _Line(
+              label: 'خروج لم يُقفل',
+              count: row.outOpenCount,
+              total: row.outOpenTotal,
+              color: AppColors.negative,
+            ),
+            _Line(
+              label: 'خروج مقفل',
+              count: row.outClosedCount,
+              total: row.outClosedTotal,
+              color: AppColors.negative,
+            ),
+          ],
+          if (showIncoming) ...[
+            _Line(
+              label: 'دخول لم يُقفل',
+              count: row.inOpenCount,
+              total: row.inOpenTotal,
+              color: AppColors.positive,
+            ),
+            _Line(
+              label: 'دخول مقفل',
+              count: row.inClosedCount,
+              total: row.inClosedTotal,
+              color: AppColors.positive,
+            ),
+          ],
         ],
       ),
     );

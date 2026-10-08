@@ -41,6 +41,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(pendingBuysProvider);
     ref.invalidate(archivedBuysProvider);
     ref.invalidate(allExchangesProvider);
+    ref.invalidate(exchangeBalancesProvider);
     // Notifications: admin alerts / sent messages, and the employee inbox.
     // Unwatched providers are not re-read, so this costs nothing on screens
     // that do not show them.

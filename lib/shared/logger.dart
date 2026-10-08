@@ -168,6 +168,9 @@ String friendlyError(Object e) {
   if (s.contains('permission_denied')) {
     return 'ليست لديك صلاحية لهذا الإجراء. تواصل مع المدير.';
   }
+  if (s.contains('insufficient_balance')) {
+    return 'الرصيد المتاح في الحساب لا يكفي لهذه الحوالة. تحقق من الرصيد المتاح.';
+  }
   if (s.contains('empty_message')) {
     return 'اكتب نص الرسالة أولاً.';
   }

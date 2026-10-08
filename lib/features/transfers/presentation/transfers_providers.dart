@@ -6,6 +6,13 @@ import '../../sub_users/domain/employee_permissions.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 
+/// Available balance per account id (balance minus today's open exits). An
+/// employee allowed to execute exits gets the same figures as the admin.
+final exchangeBalancesProvider =
+    FutureProvider<Map<String, ExchangeBalance>>((ref) {
+  return ref.watch(transfersRepositoryProvider).exchangeBalances();
+});
+
 final dailyTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listByStatus(

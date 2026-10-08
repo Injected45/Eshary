@@ -68,6 +68,8 @@ Apply with the Supabase CLI: `supabase db reset` (local) or `supabase db push` (
 - **Atomic balance mutations** — every insert + balance update happens in one Postgres transaction (`record_*` RPCs).
 - **Per-user RLS isolation** — each user only sees their own rows.
 - **Offline read cache** — recent list responses are cached in `SharedPreferences` and served when the live call fails.
+- **Exits are limited to the available balance** (migration 0046) — available = `exchanges.balance` minus the day's open (unarchived) exits on that account; a trigger on `transfers` refuses an exit above it (`insufficient_balance`), for the admin, employees and direct API inserts alike. Entries only count once closed, like the balance. Restoring a backup skips the check.
+- **Employee permissions, notifications, per-type visibility** (migrations 0039–0045) — see the migration headers.
 
 ## Phases
 

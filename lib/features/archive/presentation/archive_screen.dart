@@ -58,6 +58,8 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
         ref.watch(archivedBuysProvider).value ?? const <CurrencyBuy>[];
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
+    final seesExits = ref.watch(seesExitsProvider);
+    final seesEntries = ref.watch(seesEntriesProvider);
 
     final r = resolveActiveRange(mode: _mode, from: _from, to: _to);
     final filteredBuys = archivedBuys
@@ -101,62 +103,82 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
               _mode == DateFilterMode.range && !_rangeReady,
         ),
         const SizedBox(height: 12),
+        // An employee sees only the type(s) they are allowed to execute or
+        // close (admins: both).
+        if (!seesExits && !seesEntries)
+          const GlassCard(
+            child: Text(
+              'لا توجد أنواع عمليات مفعّلة لحسابك بعد. '
+              'تواصل مع المدير لتفعيل الخروج أو الدخول.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textLow, fontSize: 13),
+            ),
+          ),
         Row(
           children: [
-            Expanded(
-              child: _StatCard(
-                income: true,
-                total: incomeTotal,
-                archivedCount: filteredBuys.length,
-                titleSuffix: titleSuffix,
+            if (seesEntries)
+              Expanded(
+                child: _StatCard(
+                  income: true,
+                  total: incomeTotal,
+                  archivedCount: filteredBuys.length,
+                  titleSuffix: titleSuffix,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                income: false,
-                total: outgoingTotal,
-                archivedCount: filteredTransfers.length,
-                titleSuffix: titleSuffix,
+            if (seesEntries && seesExits) const SizedBox(width: 12),
+            if (seesExits)
+              Expanded(
+                child: _StatCard(
+                  income: false,
+                  total: outgoingTotal,
+                  archivedCount: filteredTransfers.length,
+                  titleSuffix: titleSuffix,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 16),
-        _DiffNavTile(
-          diff: diff,
-          hasAny: filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => DiffDetailsScreen(initialRange: detailsRange),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _DetailNavTile(
-          income: true,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => HistoryDetailsScreen(
-                kind: HistoryKind.income,
-                initialRange: detailsRange,
+        // The difference compares entries with exits, so it needs both.
+        if (seesEntries && seesExits) ...[
+          _DiffNavTile(
+            diff: diff,
+            hasAny: filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => DiffDetailsScreen(initialRange: detailsRange),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        _DetailNavTile(
-          income: false,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => HistoryDetailsScreen(
-                kind: HistoryKind.outgoing,
-                initialRange: detailsRange,
+          const SizedBox(height: 16),
+        ],
+        if (seesEntries) ...[
+          _DetailNavTile(
+            income: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => HistoryDetailsScreen(
+                  kind: HistoryKind.income,
+                  initialRange: detailsRange,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
+        if (seesExits) ...[
+          _DetailNavTile(
+            income: false,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => HistoryDetailsScreen(
+                  kind: HistoryKind.outgoing,
+                  initialRange: detailsRange,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         // Per-employee activity is an admin tool.
         if (!ref.watch(isEmployeeProvider))
           _EmployeesNavTile(

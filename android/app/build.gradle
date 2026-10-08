@@ -23,13 +23,6 @@ android {
             // (uncompressed) makes the file ~40% bigger; the app is unpacked on
             // install either way.
             useLegacyPackaging = true
-
-            // Release ships arm64 only. Plugin AARs (the QR scanner) still
-            // bundle armv7/x86 copies of their own libraries; drop them. Debug
-            // builds keep every ABI so the x86_64 emulator still works.
-            if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
-                excludes += ['lib/armeabi-v7a/**', 'lib/x86/**', 'lib/x86_64/**']
-            }
         }
     }
 
