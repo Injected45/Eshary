@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../sub_users/domain/employee_permissions.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 
@@ -9,7 +10,12 @@ final dailyTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.daily,
-        createdByEmployeeId: employee?.subUserId,
+        // An employee sees everyone's rows only with view_all;
+        // otherwise only their own (the database enforces the same).
+        createdByEmployeeId:
+            (employee != null && !employee.permissions.contains(kPermViewAll))
+                ? employee.subUserId
+                : null,
       );
 });
 
@@ -17,7 +23,12 @@ final archivedTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.archived,
-        createdByEmployeeId: employee?.subUserId,
+        createdByEmployeeId:
+            (employee != null &&
+                    !employee.permissions.contains(kPermViewAll) &&
+                    !employee.permissions.contains(kPermClosingsAll))
+                ? employee.subUserId
+                : null,
       );
 });
 
@@ -25,7 +36,9 @@ final archivedTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
 /// Returns the number of rows archived. Throws if not signed in.
 final archiveTransfersActionProvider = Provider<Future<int> Function()>((ref) {
   return () async {
-    final ownerId = ref.read(currentUserIdProvider);
+    // An employee closes the day for the admin who owns the data.
+    final ownerId = ref.read(currentEmployeeProvider).value?.parentAdminId ??
+        ref.read(currentUserIdProvider);
     if (ownerId == null) {
       throw StateError('not signed in');
     }

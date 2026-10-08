@@ -38,7 +38,6 @@ class _AddSubUserDialogState extends ConsumerState<AddSubUserDialog> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
   String? _branchId;
-  SubUserRole _role = SubUserRole.both;
   bool _busy = false;
   String? _phoneError;
   String? _nameError;
@@ -70,7 +69,6 @@ class _AddSubUserDialogState extends ConsumerState<AddSubUserDialog> {
       final result = await ref.read(subUsersRepositoryProvider).create(
             employeeName: name,
             phoneNumber: phone,
-            role: _role,
             branchId: _branchId,
           );
       if (!mounted) return;
@@ -209,20 +207,25 @@ class _AddSubUserDialogState extends ConsumerState<AddSubUserDialog> {
                   selected: _branchId,
                   onChanged: (id) => setState(() => _branchId = id),
                 ),
-                const SizedBox(height: 16),
-                const _Label('نوع الصلاحية'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: SubUserRole.values
-                      .map(
-                        (r) => ChoiceChip(
-                          label: Text(subUserRoleLabel(r)),
-                          selected: _role == r,
-                          onSelected: (_) => setState(() => _role = r),
-                        ),
-                      )
-                      .toList(),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Text(
+                    'الموظف الجديد يفتح تطبيقاً فارغاً. حدّد ما يستطيع فعله '
+                    'من زر «صلاحيات» في بطاقته بعد الإضافة.',
+                    style: TextStyle(
+                      color: AppColors.textMid,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(

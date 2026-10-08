@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/audio_feedback.dart';
+import '../../../shared/background_alerts.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/realtime_sync.dart';
 import '../../archive/presentation/archive_screen.dart';
@@ -12,6 +14,8 @@ import '../../companies/presentation/accounts_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/presentation/currency_buy_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../employee_alerts/presentation/employee_alerts_providers.dart';
+import '../../employee_alerts/presentation/employee_alerts_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../transfers/presentation/transfers_screen.dart';
@@ -53,6 +57,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   bool get _inSub => _index == 0 && _sub != null;
 
+  @override
+  void initState() {
+    super.initState();
+    // Keep the app connected in the background so alerts can ring.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => BackgroundAlerts.instance.start());
+  }
+
+  @override
+  void dispose() {
+    BackgroundAlerts.instance.stop();
+    super.dispose();
+  }
+
   static const _outColor = AppColors.negative;
   static const _inColor = AppColors.positive;
 
@@ -74,6 +92,37 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     // so cross-device DB changes (admin archiving, balances moving) flow
     // into provider invalidations without manual refresh.
     ref.watch(realtimeSyncProvider);
+    // Tell the admin the moment an employee saves an operation.
+    ref.listen(employeeAlertsProvider, (prev, next) {
+      final before = prev?.valueOrNull;
+      final now = next.valueOrNull;
+      if (before == null || now == null) return; // first load: no popup
+      final known = before.map((a) => a.id).toSet();
+      final fresh = now.where((a) => !a.isRead && !known.contains(a.id));
+      if (fresh.isEmpty) return;
+      final text = fresh.length == 1
+          ? alertText(fresh.first)
+          : 'وصلت ${fresh.length} إشعارات جديدة من الموظفين';
+
+      if (BackgroundAlerts.instance.inBackground) {
+        // Not on screen: system banner with sound.
+        final list = fresh.take(5).toList();
+        for (final a in list) {
+          BackgroundAlerts.instance.notify(
+            id: a.id.hashCode,
+            title: 'عملية جديدة من ${a.employeeName}',
+            body: alertText(a),
+          );
+        }
+        return;
+      }
+      playAlert();
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(duration: const Duration(seconds: 6), content: Text(text)),
+      );
+    });
     return PopScope(
       canPop: !_inSub,
       onPopInvokedWithResult: (didPop, _) {

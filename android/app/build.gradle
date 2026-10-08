@@ -13,6 +13,24 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications.
+        coreLibraryDesugaringEnabled true
+    }
+
+    packaging {
+        jniLibs {
+            // Store the native libraries compressed inside the APK. The default
+            // (uncompressed) makes the file ~40% bigger; the app is unpacked on
+            // install either way.
+            useLegacyPackaging = true
+
+            // Release ships arm64 only. Plugin AARs (the QR scanner) still
+            // bundle armv7/x86 copies of their own libraries; drop them. Debug
+            // builds keep every ABI so the x86_64 emulator still works.
+            if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }) {
+                excludes += ['lib/armeabi-v7a/**', 'lib/x86/**', 'lib/x86_64/**']
+            }
+        }
     }
 
     kotlinOptions {
@@ -41,4 +59,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }

@@ -165,6 +165,21 @@ String friendlyError(Object e) {
   if (s.contains('invalid_qr')) {
     return 'رمز QR غير صالح أو منتهي أو مستخدم. اطلب من المدير إصدار رمز جديد.';
   }
+  if (s.contains('permission_denied')) {
+    return 'ليست لديك صلاحية لهذا الإجراء. تواصل مع المدير.';
+  }
+  if (s.contains('empty_message')) {
+    return 'اكتب نص الرسالة أولاً.';
+  }
+  if (s.contains('no_recipients')) {
+    return 'لا يوجد موظفون فعّالون لإرسال الرسالة إليهم.';
+  }
+  if (s.contains('invalid_recipients')) {
+    return 'أحد الموظفين المختارين غير متاح. حدّث القائمة وأعد المحاولة.';
+  }
+  if (s.contains('license_inactive')) {
+    return 'حساب الشركة غير مفعّل أو منتهٍ. تواصل مع الإدارة.';
+  }
   if (s.contains('invalid_email_code')) {
     return 'رمز البريد الإلكتروني غير صحيح أو منتهي.';
   }
@@ -194,7 +209,7 @@ String friendlyError(Object e) {
     return 'انتهت صلاحية رمز التحقق. اطلب رمزاً جديداً.';
   }
   if (s.contains('too_many_attempts')) {
-    return 'تجاوزت عدد المحاولات. اطلب من المدير إصدار QR جديد.';
+    return 'تجاوزت عدد المحاولات. انتظر قليلاً أو اطلب من المدير كوداً أو QR جديداً.';
   }
   if (s.contains('too_many_sends')) {
     return 'تم إرسال عدد كبير من الرموز. اطلب من المدير إصدار QR جديد أو حاول لاحقاً.';

@@ -16,6 +16,7 @@ import '../../../shared/pending_dispatch.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../sub_users/domain/employee_permissions.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../clients/data/clients_repository.dart';
@@ -311,6 +312,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   Future<void> _maybeAutoArchivePreviousDay() async {
     if (_autoArchiveChecked) return;
     _autoArchiveChecked = true;
+    // Employees close the day only if the admin granted it.
+    if (!ref.read(canProvider(kPermArchiveTransfers))) return;
     try {
       final rows = await ref.read(dailyTransfersProvider.future);
       final now = DateTime.now();
@@ -840,7 +843,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        if (!ref.watch(isEmployeeProvider))
+        if (ref.watch(canProvider(kPermArchiveTransfers)))
           FilledButton.icon(
             onPressed: _archiveAll,
             icon: const FaIcon(FontAwesomeIcons.lock, size: 16),

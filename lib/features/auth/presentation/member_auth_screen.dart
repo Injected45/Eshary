@@ -103,7 +103,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
   /// user never has to look for a button.
   void _autoVerify() {
     if (_busy || !_sent) return;
-    final waReady = _code.text.trim().length == 6;
+    final waReady = _code.text.trim().length == 4;
     final mailReady = !_needsEmail || _emailCode.text.trim().length >= 6;
     if (waReady && mailReady) _verify();
   }
@@ -111,8 +111,8 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
   Future<void> _verify() async {
     final otp = _code.text.trim();
     final emailCode = _emailCode.text.trim();
-    if (otp.length != 6) {
-      setState(() => _error = 'أدخل رمز واتساب المكوّن من 6 أرقام');
+    if (otp.length != 4) {
+      setState(() => _error = 'أدخل رمز واتساب المكوّن من 4 أرقام');
       return;
     }
     if (_needsEmail && emailCode.length < 6) {
@@ -330,9 +330,9 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
           keyboardType: TextInputType.number,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(6),
+            LengthLimitingTextInputFormatter(4),
           ],
-          maxLength: 6,
+          maxLength: 4,
           textAlign: TextAlign.center,
           autofocus: !_needsEmail,
           style: const TextStyle(

@@ -92,8 +92,8 @@ class _EmployeeOtpScreenState extends ConsumerState<EmployeeOtpScreen> {
 
   Future<void> _verify() async {
     final otp = _code.text.trim();
-    if (otp.length != 6) {
-      setState(() => _error = 'أدخل الرمز المكوّن من 6 أرقام');
+    if (otp.length != 4) {
+      setState(() => _error = 'أدخل الرمز المكوّن من 4 أرقام');
       return;
     }
     setState(() {
@@ -174,7 +174,7 @@ class _EmployeeOtpScreenState extends ConsumerState<EmployeeOtpScreen> {
                       const SizedBox(height: 6),
                       Text(
                         _sent
-                            ? 'أرسلنا رمزاً من 6 أرقام عبر واتساب إلى '
+                            ? 'أرسلنا رمزاً من 4 أرقام عبر واتساب إلى '
                                 'رقم ${widget.employeeName} المسجَّل لدى المدير '
                                 '(${_phone ?? ''}).'
                             : 'جارٍ إرسال الرمز إلى رقمك المسجَّل لدى المدير...',
@@ -192,9 +192,9 @@ class _EmployeeOtpScreenState extends ConsumerState<EmployeeOtpScreen> {
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
+                          LengthLimitingTextInputFormatter(4),
                         ],
-                        maxLength: 6,
+                        maxLength: 4,
                         textAlign: TextAlign.center,
                         autofocus: true,
                         style: const TextStyle(

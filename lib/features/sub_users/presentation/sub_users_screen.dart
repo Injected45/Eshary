@@ -7,10 +7,12 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../branches/presentation/branches_providers.dart';
 import '../data/sub_users_repository.dart';
+import '../domain/employee_permissions.dart';
 import '../domain/sub_user.dart';
 import 'add_sub_user_dialog.dart';
 import 'code_display_dialog.dart';
 import 'employee_activity_screen.dart';
+import 'employee_permissions_dialog.dart';
 import 'qr_display_dialog.dart';
 import 'sub_users_providers.dart';
 
@@ -149,12 +151,26 @@ class _SubUserCard extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        user.phoneNumber,
-                        style: const TextStyle(
-                          color: AppColors.textLow,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
+                      InkWell(
+                        onTap: () => _editPhone(context, ref),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              user.phoneNumber,
+                              style: const TextStyle(
+                                color: AppColors.textLow,
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const FaIcon(
+                              FontAwesomeIcons.pen,
+                              size: 9,
+                              color: AppColors.textLow,
+                            ),
+                          ],
                         ),
                       ),
                       if (user.googleEmail != null &&
@@ -206,6 +222,16 @@ class _SubUserCard extends ConsumerWidget {
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
+                  onPressed: () => _openPermissions(context),
+                  icon: const FaIcon(
+                    FontAwesomeIcons.userShield,
+                    size: 14,
+                    color: AppColors.warning,
+                  ),
+                  tooltip: 'صلاحيات',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
                   onPressed: user.status == SubUserStatus.active
                       ? () => _issueQr(context, ref)
                       : null,
@@ -233,7 +259,7 @@ class _SubUserCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _RoleChip(role: user.role),
+                _PermissionsSummary(permissions: user.permissions),
                 const Spacer(),
                 if (!user.loginCodeUsed)
                   Container(
@@ -340,12 +366,81 @@ class _SubUserCard extends ConsumerWidget {
     );
   }
 
+  Future<void> _openPermissions(BuildContext context) async {
+    final saved = await showGlassDialog<bool>(
+      context: context,
+      builder: (_) => EmployeePermissionsDialog(user: user),
+    );
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تم حفظ صلاحيات ${user.employeeName}')),
+      );
+    }
+  }
+
   void _openActivity(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EmployeeActivityScreen(subUser: user),
       ),
     );
+  }
+
+  /// The employee got a new number: WhatsApp codes follow the registered one.
+  Future<void> _editPhone(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: user.phoneNumber);
+    final phone = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('رقم ${user.employeeName}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.phone,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: '09XXXXXXXX'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'يجب أن يكون رقم واتساب. رمز التحقق يصل إلى هذا الرقم.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('حفظ'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (phone == null || phone == user.phoneNumber || !context.mounted) return;
+    if (!RegExp(r'^09[0-9]{8}$').hasMatch(phone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الصيغة: 09XXXXXXXX (10 أرقام)')),
+      );
+      return;
+    }
+    try {
+      await ref.read(subUsersRepositoryProvider).updatePhone(user.id, phone);
+      ref.invalidate(subUsersListProvider);
+    } catch (e, st) {
+      AppLogger.error('subUsers.updatePhone', e, st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e))),
+        );
+      }
+    }
   }
 
   Future<void> _issueQr(BuildContext context, WidgetRef ref) async {
@@ -583,23 +678,29 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _RoleChip extends StatelessWidget {
-  const _RoleChip({required this.role});
-  final SubUserRole role;
+/// What the employee can do right now, at a glance. Orange when nothing is
+/// granted: that employee opens an empty app.
+class _PermissionsSummary extends StatelessWidget {
+  const _PermissionsSummary({required this.permissions});
+  final List<String> permissions;
 
   @override
   Widget build(BuildContext context) {
+    final none = permissions.isEmpty;
+    final color = none ? AppColors.warning : AppColors.accent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.accent.withValues(alpha: 0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        subUserRoleLabel(role),
-        style: const TextStyle(
-          color: AppColors.accent,
+        none
+            ? 'بدون صلاحيات'
+            : '${permissions.length} من ${kEmployeePermissions.length} صلاحيات',
+        style: TextStyle(
+          color: color,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),

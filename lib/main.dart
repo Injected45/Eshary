@@ -11,6 +11,7 @@ import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'features/license/presentation/license_provider.dart';
+import 'shared/background_alerts.dart';
 import 'shared/cache.dart';
 import 'shared/liquid_background.dart';
 import 'shared/logger.dart';
@@ -37,6 +38,7 @@ Future<void> main() async {
   );
   final prefs = await SharedPreferences.getInstance();
   AppLogger.init(prefs);
+  await BackgroundAlerts.instance.init();
 
   FlutterError.onError = (details) {
     AppLogger.error(

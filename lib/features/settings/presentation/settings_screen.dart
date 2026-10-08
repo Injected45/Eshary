@@ -15,6 +15,8 @@ import '../../clients/presentation/clients_screen.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../companies/presentation/companies_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../employee_alerts/presentation/employee_alerts_providers.dart';
+import '../../employee_alerts/presentation/employee_alerts_screen.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
 import '../../license/presentation/license_provider.dart';
 import '../../profile/presentation/profile_details_screen.dart';
@@ -98,6 +100,17 @@ class SettingsScreen extends ConsumerWidget {
             title: 'إدارة الموظفين',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const SubUsersScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.bell,
+            title: 'إشعارات الموظفين',
+            badge: ref.watch(unreadAlertsCountProvider),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const EmployeeAlertsScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -300,11 +313,15 @@ class _SettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.badge = 0,
   });
 
   final IconData icon;
   final String title;
   final VoidCallback onTap;
+
+  /// Unread count shown as a red pill before the chevron; hidden at 0.
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -341,6 +358,25 @@ class _SettingsRow extends StatelessWidget {
                   ),
                 ),
               ),
+              if (badge > 0) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.negative,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    badge > 99 ? '99+' : '$badge',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               const FaIcon(
                 FontAwesomeIcons.chevronLeft,
                 size: 14,

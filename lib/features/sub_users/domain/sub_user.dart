@@ -1,38 +1,3 @@
-enum SubUserRole { entry, exit, both }
-
-SubUserRole _parseRole(String s) {
-  switch (s) {
-    case 'entry':
-      return SubUserRole.entry;
-    case 'exit':
-      return SubUserRole.exit;
-    default:
-      return SubUserRole.both;
-  }
-}
-
-String subUserRoleToDb(SubUserRole r) {
-  switch (r) {
-    case SubUserRole.entry:
-      return 'entry';
-    case SubUserRole.exit:
-      return 'exit';
-    case SubUserRole.both:
-      return 'both';
-  }
-}
-
-String subUserRoleLabel(SubUserRole r) {
-  switch (r) {
-    case SubUserRole.entry:
-      return 'دخول فقط';
-    case SubUserRole.exit:
-      return 'خروج فقط';
-    case SubUserRole.both:
-      return 'دخول وخروج';
-  }
-}
-
 enum SubUserStatus { active, disabled }
 
 SubUserStatus _parseStatus(String s) =>
@@ -48,7 +13,7 @@ class SubUser {
     required this.employeeName,
     required this.phoneNumber,
     required this.loginCodeUsed,
-    required this.role,
+    required this.permissions,
     required this.status,
     required this.deviceId,
     required this.branchId,
@@ -62,7 +27,9 @@ class SubUser {
   final String employeeName;
   final String phoneNumber;
   final bool loginCodeUsed;
-  final SubUserRole role;
+  /// Granted permissions (keys from employee_permissions.dart). Empty for a
+  /// new employee: they see an empty app until the admin grants some.
+  final List<String> permissions;
   final SubUserStatus status;
   final String? deviceId;
   final String? branchId;
@@ -79,7 +46,9 @@ class SubUser {
         employeeName: json['employee_name'] as String,
         phoneNumber: json['phone_number'] as String,
         loginCodeUsed: (json['login_code_used'] as bool?) ?? false,
-        role: _parseRole(json['role'] as String),
+        permissions: ((json['permissions'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
         status: _parseStatus(json['status'] as String),
         deviceId: json['device_id'] as String?,
         branchId: json['branch_id'] as String?,

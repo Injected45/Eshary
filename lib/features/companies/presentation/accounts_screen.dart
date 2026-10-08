@@ -11,6 +11,7 @@ import '../../exchange_companies/presentation/exchange_companies_providers.dart'
 import '../../transfers/presentation/transfers_providers.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import 'companies_providers.dart';
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -50,7 +51,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final hasArchive =
         archivedBuys.isNotEmpty || archivedTransfers.isNotEmpty;
 
-    if (!hasArchive) {
+    // Employees may see the accounts before the first close; for the admin the
+    // empty state is kept as it was.
+    if (!hasArchive && !ref.watch(isEmployeeProvider)) {
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: Padding(

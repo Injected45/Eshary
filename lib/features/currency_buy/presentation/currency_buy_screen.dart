@@ -26,6 +26,7 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../sub_users/domain/employee_permissions.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
 import '../../notifications/presentation/notifications_providers.dart';
@@ -1003,7 +1004,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (!ref.watch(isEmployeeProvider))
+        if (ref.watch(canProvider(kPermArchiveBuys)))
           FilledButton.icon(
             onPressed: _archiveAll,
             icon: const FaIcon(FontAwesomeIcons.lock, size: 16),

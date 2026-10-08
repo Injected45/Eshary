@@ -9,6 +9,7 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import 'archive_filters.dart';
 import 'diff_details_screen.dart';
 import 'employees_operations_screen.dart';
@@ -156,13 +157,15 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _EmployeesNavTile(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const EmployeesOperationsScreen(),
+        // Per-employee activity is an admin tool.
+        if (!ref.watch(isEmployeeProvider))
+          _EmployeesNavTile(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const EmployeesOperationsScreen(),
+              ),
             ),
           ),
-        ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(

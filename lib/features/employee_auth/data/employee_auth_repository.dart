@@ -12,7 +12,7 @@ class EmployeeIdentity {
     required this.subUserId,
     required this.parentAdminId,
     required this.employeeName,
-    required this.role,
+    required this.permissions,
     required this.branchId,
   });
 
@@ -21,8 +21,9 @@ class EmployeeIdentity {
   final String parentAdminId;
   final String employeeName;
 
-  /// Raw enum value from sub_users.role: 'entry' | 'exit' | 'both'.
-  final String role;
+  /// Permission keys granted by the admin (employee_permissions.dart).
+  /// Empty for a new employee: the app shows nothing until some are granted.
+  final List<String> permissions;
   final String? branchId;
 
   factory EmployeeIdentity.fromRow(Map<String, dynamic> row) =>
@@ -31,7 +32,9 @@ class EmployeeIdentity {
         subUserId: row['sub_user_id'] as String,
         parentAdminId: row['parent_admin_id'] as String,
         employeeName: row['employee_name'] as String,
-        role: row['role'] as String,
+        permissions: ((row['permissions'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
         branchId: row['branch_id'] as String?,
       );
 }
@@ -41,6 +44,53 @@ class QrPreview {
   const QrPreview({required this.employeeName, required this.phoneNumber});
   final String employeeName;
   final String phoneNumber;
+}
+
+/// What one employee did on one account (from employee_my_account()).
+/// No balances: only counts and totals of their own operations.
+class MyAccountRow {
+  const MyAccountRow({
+    required this.companyName,
+    required this.exchangeName,
+    required this.ourCode,
+    required this.outOpenCount,
+    required this.outOpenTotal,
+    required this.outClosedCount,
+    required this.outClosedTotal,
+    required this.inOpenCount,
+    required this.inOpenTotal,
+    required this.inClosedCount,
+    required this.inClosedTotal,
+  });
+
+  final String companyName;
+  final String exchangeName;
+  final String? ourCode;
+  final int outOpenCount;
+  final double outOpenTotal;
+  final int outClosedCount;
+  final double outClosedTotal;
+  final int inOpenCount;
+  final double inOpenTotal;
+  final int inClosedCount;
+  final double inClosedTotal;
+
+  static double _d(Object? v) => double.tryParse('$v') ?? 0;
+  static int _i(Object? v) => int.tryParse('$v') ?? 0;
+
+  factory MyAccountRow.fromJson(Map<String, dynamic> j) => MyAccountRow(
+        companyName: (j['company_name'] as String?) ?? '',
+        exchangeName: (j['exchange_name'] as String?) ?? '',
+        ourCode: j['our_code'] as String?,
+        outOpenCount: _i(j['out_open_count']),
+        outOpenTotal: _d(j['out_open_total']),
+        outClosedCount: _i(j['out_closed_count']),
+        outClosedTotal: _d(j['out_closed_total']),
+        inOpenCount: _i(j['in_open_count']),
+        inOpenTotal: _d(j['in_open_total']),
+        inClosedCount: _i(j['in_closed_count']),
+        inClosedTotal: _d(j['in_closed_total']),
+      );
 }
 
 /// The server refused an OTP step. [code] is machine-readable (the same words
@@ -95,9 +145,8 @@ class EmployeeAuthRepository {
           'p_device_id': deviceId,
         },
       );
-      if (res.isEmpty) {
-        throw StateError('employee_login returned no rows');
-      }
+      // No rows = wrong phone or code (the database counts the failure).
+      if (res.isEmpty) throw StateError('invalid_credentials');
       final row = res.first as Map<String, dynamic>;
       // current_employee_session has extra columns (role, branch_id) that
       // employee_login does not return — fetch the full identity now so
@@ -108,7 +157,7 @@ class EmployeeAuthRepository {
             subUserId: row['sub_user_id'] as String,
             parentAdminId: row['parent_admin_id'] as String,
             employeeName: row['employee_name'] as String,
-            role: 'both',
+            permissions: const <String>[],
             branchId: null,
           );
     } catch (e) {
@@ -173,7 +222,7 @@ class EmployeeAuthRepository {
             subUserId: row['sub_user_id'] as String,
             parentAdminId: row['parent_admin_id'] as String,
             employeeName: row['employee_name'] as String,
-            role: 'both',
+            permissions: const <String>[],
             branchId: null,
           );
     } catch (e) {
@@ -219,6 +268,15 @@ class EmployeeAuthRepository {
         await _client.auth.signOut();
       }
     } catch (_) {}
+  }
+
+  /// The signed-in employee's own work per account (permission accounts_own).
+  Future<List<MyAccountRow>> myAccount() async {
+    final res = await _client.rpc<List<dynamic>>('employee_my_account');
+    return res
+        .cast<Map<String, dynamic>>()
+        .map(MyAccountRow.fromJson)
+        .toList();
   }
 
   /// Returns the active session's identity, or null if no active session.

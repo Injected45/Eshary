@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_provider.dart';
 import '../features/companies/presentation/companies_providers.dart';
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
+import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
 import '../features/transfers/presentation/transfers_providers.dart';
 import 'logger.dart';
 
@@ -40,6 +41,12 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(pendingBuysProvider);
     ref.invalidate(archivedBuysProvider);
     ref.invalidate(allExchangesProvider);
+    // Notifications: admin alerts / sent messages, and the employee inbox.
+    // Unwatched providers are not re-read, so this costs nothing on screens
+    // that do not show them.
+    ref.invalidate(employeeAlertsProvider);
+    ref.invalidate(sentMessagesProvider);
+    ref.invalidate(employeeInboxProvider);
   }
 
   // Coalesce bursts (e.g. an INSERT echoing back to this client). 400ms is
@@ -92,6 +99,24 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         table: 'exchanges',
         callback: (payload) {
           AppLogger.info('[realtime] exchanges event: ${payload.eventType}');
+          scheduleInvalidate();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'admin_alerts',
+        callback: (payload) {
+          AppLogger.info('[realtime] admin_alerts insert');
+          scheduleInvalidate();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'employee_messages',
+        callback: (payload) {
+          AppLogger.info('[realtime] employee_messages insert');
           scheduleInvalidate();
         },
       )
