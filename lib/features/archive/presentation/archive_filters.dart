@@ -9,6 +9,12 @@ enum DateFilterMode { today, range }
 
 final DateFormat archiveFilterDateFmt = DateFormat('yyyy/MM/dd');
 
+/// Today at 00:00: the default of every "من / إلى" date in the reports.
+DateTime todayDate() {
+  final n = DateTime.now();
+  return DateTime(n.year, n.month, n.day);
+}
+
 bool inDateRange(DateTime? dt, DateTime start, DateTime end) =>
     dt != null && !dt.isBefore(start) && !dt.isAfter(end);
 

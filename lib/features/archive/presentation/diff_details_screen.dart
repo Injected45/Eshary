@@ -212,6 +212,10 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
               if (m == DateFilterMode.today) {
                 _from = null;
                 _to = null;
+              } else {
+                // "خلال فترة" starts as today → today; both stay editable.
+                _from ??= todayDate();
+                _to ??= todayDate();
               }
             }),
             onPickFrom: _pickFrom,

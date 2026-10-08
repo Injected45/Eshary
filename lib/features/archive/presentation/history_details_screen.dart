@@ -21,6 +21,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
+import 'archive_filters.dart' show todayDate;
 
 enum HistoryKind { income, outgoing }
 
@@ -57,7 +58,8 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
       context: context,
-      initialDateRange: _filterRange,
+      initialDateRange:
+          _filterRange ?? DateTimeRange(start: todayDate(), end: todayDate()),
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 1),
     );

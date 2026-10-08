@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/companies/domain/account_statement.dart';
 import 'package:eshary/features/companies/domain/company.dart';
@@ -20,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
 final _day = DateTime(2026, 10, 8);
 DateTime _at(int hour, [int minute = 0]) =>
@@ -63,6 +66,7 @@ Transfer _out(String id, double amount, DateTime at,
     );
 
 void main() {
+  _periodDefaultsTests();
   group('the statement (دخول / خروج / الرصيد)', () {
     // admin: +1000 (9:00) −350 (10:00); Sami: +200 (11:00) −50 (12:00);
     // Omar: −75 (13:00); another account e2: +40 (14:00) by Sami.
@@ -311,6 +315,19 @@ void main() {
       expect(find.text('-\$75.00'), findsNWidgets(2));
     });
 
+    testWidgets('"خلال فترة" starts with today in both من and إلى',
+        (tester) async {
+      await open(tester);
+      final today = DateFormat('yyyy/MM/dd').format(DateTime.now());
+      // the statement rows already show today's date; the two fields add two
+      final before = find.text(today).evaluate().length;
+      await tester.tap(find.text('خلال فترة'));
+      await tester.pumpAndSettle();
+      expect(find.text(today), findsNWidgets(before + 2));
+      // and the statement already covers today
+      expect(find.text('+\$1,200.00'), findsOneWidget);
+    });
+
     testWidgets('has a PDF button', (tester) async {
       await open(tester);
       expect(find.byTooltip('تصدير PDF'), findsOneWidget);
@@ -400,6 +417,30 @@ void main() {
         ),
       );
       expect(find.text('كشف حساب'), findsNothing);
+    });
+  });
+}
+
+/// Every report screen with a "من / إلى" period starts it at today (editable).
+void _periodDefaultsTests() {
+  group('the period defaults to today', () {
+    for (final f in [
+      'lib/features/archive/presentation/archive_screen.dart',
+      'lib/features/archive/presentation/diff_details_screen.dart',
+      'lib/features/archive/presentation/employees_operations_screen.dart',
+      'lib/features/companies/presentation/account_statement_screen.dart',
+    ]) {
+      test(f.split('/').last, () {
+        final src = File(f).readAsStringSync();
+        expect(src, contains('_from ??= todayDate()'));
+        expect(src, contains('_to ??= todayDate()'));
+      });
+    }
+
+    test('the movement-details picker opens on today when nothing is chosen', () {
+      final src = File('lib/features/archive/presentation/history_details_screen.dart')
+          .readAsStringSync();
+      expect(src, contains('_filterRange ?? DateTimeRange(start: todayDate()'));
     });
   });
 }
