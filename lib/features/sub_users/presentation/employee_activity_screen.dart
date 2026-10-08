@@ -22,7 +22,7 @@ class EmployeeActivityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(subUserActivityLogsProvider(subUser.id));
-    final dateFmt = DateFormat('yyyy-MM-dd  hh:mm a');
+    final dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
 
     return Scaffold(
       backgroundColor: Colors.transparent,

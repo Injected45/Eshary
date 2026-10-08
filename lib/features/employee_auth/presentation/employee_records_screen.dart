@@ -389,7 +389,7 @@ class _TransferList extends ConsumerWidget {
     final exchangeNameById = <String, String>{
       for (final e in exchanges) e.id: e.name,
     };
-    final fmt = DateFormat('yyyy-MM-dd  hh:mm a');
+    final fmt = DateFormat('yyyy-MM-dd  HH:mm');
     final companies = ref.watch(companiesListProvider).value ?? const <Company>[];
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
@@ -440,7 +440,7 @@ class _CurrencyBuyList extends ConsumerWidget {
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
     };
-    final fmt = DateFormat('yyyy-MM-dd  hh:mm a');
+    final fmt = DateFormat('yyyy-MM-dd  HH:mm');
     return Column(
       children: [
         for (final b in rows)

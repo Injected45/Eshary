@@ -10,7 +10,7 @@ import '../data/employee_alerts_repository.dart';
 import '../domain/employee_alert.dart';
 import 'employee_alerts_providers.dart';
 
-final _dateFmt = DateFormat('yyyy-MM-dd  hh:mm a');
+final _dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
 
 /// The employee's inbox: messages from the admin, newest first. Opening the
 /// screen marks them read (the unread ones stay highlighted for this visit).

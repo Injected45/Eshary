@@ -20,7 +20,7 @@ import 'ledger.dart';
 /// full or nearly empty) and at the foot of the single-page layouts.
 pw.Widget _exportFooter({required DateTime at, String? by}) {
   final name = (by ?? '').trim().isEmpty ? 'admin' : by!.trim();
-  final when = DateFormat('yyyy-MM-dd | hh:mm a').format(at);
+  final when = DateFormat('yyyy-MM-dd | HH:mm').format(at);
   return pw.Container(
     width: double.infinity,
     alignment: pw.Alignment.center,
@@ -193,7 +193,7 @@ class PdfExport {
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('hh:mm a');
+    final timeFmt = DateFormat('HH:mm');
     final exportedAtTime = DateTime.now();
 
     Uint8List? logoBytes;
@@ -401,8 +401,6 @@ class PdfExport {
                 _notificationBox(notificationText.trim()),
             ],
           ),
-          pw.SizedBox(height: 10),
-          summary(),
           pw.SizedBox(height: 10),
           if (rows.isEmpty)
             pw.Padding(
@@ -1198,7 +1196,7 @@ class PdfExport {
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('hh:mm a');
+    final timeFmt = DateFormat('HH:mm');
 
     String slash(String? a, String? b) {
       final x = (a ?? '').trim();
@@ -1394,8 +1392,8 @@ class PdfExport {
       'الرصيد',
     ];
 
-    // Per-column horizontal alignment: long Arabic text → right; rest → center.
-    const rightAlignedCols = <int>{4, 5}; // حساباتي, الجهة
+    // Every column, header and data, is centred (long text wraps centred).
+    const rightAlignedCols = <int>{};
 
     pw.Widget cell(
       String text, {
@@ -1568,41 +1566,8 @@ class PdfExport {
       ),
     );
 
-    // Summary rows (above and below the table) — RTL: first child is
-    // rightmost. Order: إجمالي الدخول | إجمالي الخروج | الرصيد.
-    // (عدد العمليات removed — the ت column already enumerates rows.)
-    final topSummaryRow = pw.Directionality(
-      textDirection: pw.TextDirection.rtl,
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-            child: summaryTile(
-              'إجمالي الدخول',
-              '+\$${formatMoney(incomeTotal)}',
-              PdfColors.green800,
-            ),
-          ),
-          pw.SizedBox(width: 8),
-          pw.Expanded(
-            child: summaryTile(
-              'إجمالي الخروج',
-              '-\$${formatMoney(outgoingTotal)}',
-              PdfColors.red800,
-            ),
-          ),
-          pw.SizedBox(width: 8),
-          pw.Expanded(
-            child: summaryTile(
-              'الرصيد',
-              '$movementSign\$${formatMoney(movementDiff.abs())}',
-              movementColor,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    // Bottom row: the same three figures.
+    // The totals sit under the table only (not repeated above it) — RTL: first
+    // child is rightmost. Order: إجمالي الدخول | إجمالي الخروج | الرصيد.
     final summaryRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Row(
@@ -1647,8 +1612,6 @@ class PdfExport {
             textDirection: pw.TextDirection.rtl,
             child: headerSection(),
           ),
-          topSummaryRow,
-          pw.SizedBox(height: 10),
           // Identity strip — top of the table, aligned to the right
           // (start of an RTL row). Employee name when generated from
           // the employee app; "ADMIN" otherwise.
@@ -1719,7 +1682,7 @@ class PdfExport {
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('hh:mm a');
+    final timeFmt = DateFormat('HH:mm');
     const reportTitle = 'حوالات الدخول إلى حساباتي';
 
     String slash(String? a, String? b) {
@@ -2069,7 +2032,7 @@ class PdfExport {
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('hh:mm a');
+    final timeFmt = DateFormat('HH:mm');
     const reportTitle = 'حوالات الخروج من حساباتي';
 
     String slash(String? a, String? b) {

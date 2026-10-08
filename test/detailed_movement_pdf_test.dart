@@ -112,12 +112,36 @@ void main() {
       expect(RegExp('FlexColumnWidth').allMatches(widths).length, titles.length);
     });
 
-    test('the summaries read إجمالي الدخول | إجمالي الخروج | الرصيد', () {
+    test('the summary reads إجمالي الدخول | إجمالي الخروج | الرصيد', () {
       expect(body, contains("'إجمالي الدخول'"));
       expect(body, contains("'إجمالي الخروج'"));
       expect(body, isNot(contains("'فرق الحركة'")));
       expect(body, isNot(contains("'الرصيد قبل'")));
       expect(body, isNot(contains("'الرصيد بعد'")));
+    });
+
+    test('every column and its data are centred', () {
+      final report = body.substring(0, body.indexOf('Future<Uint8List> build', 20));
+      expect(report, contains('const rightAlignedCols = <int>{};'));
+    });
+
+    test('the totals appear once, under the table (not repeated above it)', () {
+      final report = body.substring(0, body.indexOf('Future<Uint8List> build', 20));
+      expect(RegExp("'إجمالي الدخول'").allMatches(report).length, 1);
+      expect(report, isNot(contains('topSummaryRow')));
+      // the one summary row comes after the table in the page body
+      final table = report.lastIndexOf('tableWidget,');
+      final summary = report.lastIndexOf('summaryRow,');
+      expect(table, greaterThan(0));
+      expect(summary, greaterThan(table));
+    });
+
+    test('the account statement PDF shows its totals once, under the table', () {
+      final st = src.substring(src.indexOf('Future<Uint8List> buildAccountStatement'));
+      final stmt = st.substring(0, st.indexOf('Landscape "سجل الحوالات اليومية"'));
+      // calls only (the definition reads "Widget summary() =>")
+      expect(RegExp('(?<!Widget )summary\\(\\)').allMatches(stmt).length, 1);
+      expect(stmt.indexOf('pw.Table('), lessThan(stmt.lastIndexOf('summary()')));
     });
   });
 

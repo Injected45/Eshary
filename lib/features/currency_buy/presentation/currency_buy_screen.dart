@@ -1384,7 +1384,7 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
     final companyById = <String, String>{
       for (final c in (companies.value ?? const <Company>[])) c.id: c.name,
     };
-    final tf = DateFormat('hh:mm a');
+    final tf = DateFormat('HH:mm');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
     final visible = widget.rows
         .where((b) => creatorPasses(_filter, b.createdByEmployeeId))

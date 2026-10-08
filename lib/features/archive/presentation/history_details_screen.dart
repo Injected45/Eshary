@@ -715,7 +715,7 @@ class _RecordRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('yyyy-MM-dd');
-    final tf = DateFormat('hh:mm a');
+    final tf = DateFormat('HH:mm');
     return Material(
       color: Colors.transparent,
       child: InkWell(

@@ -13,7 +13,7 @@ import '../domain/employee_alert.dart';
 import 'employee_alerts_providers.dart';
 import 'send_employee_message_dialog.dart';
 
-final _dateFmt = DateFormat('yyyy-MM-dd  hh:mm a');
+final _dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
 
 /// The notification text for one operation, in the wording the admin asked for.
 String alertText(EmployeeAlert a) {

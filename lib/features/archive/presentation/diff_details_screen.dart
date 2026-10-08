@@ -993,7 +993,7 @@ class _OperationsTable extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = _buildRows(context, ref);
-    final tf = DateFormat('hh:mm a');
+    final tf = DateFormat('HH:mm');
     final df = DateFormat('yyyy/MM/dd');
     return GlassCard(
       padding: EdgeInsets.zero,

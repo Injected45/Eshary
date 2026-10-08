@@ -248,7 +248,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     final backups = ref.watch(backupsListProvider);
-    final df = DateFormat('yyyy/MM/dd  hh:mm a');
+    final df = DateFormat('yyyy/MM/dd  HH:mm');
 
     return Scaffold(
       backgroundColor: Colors.transparent,

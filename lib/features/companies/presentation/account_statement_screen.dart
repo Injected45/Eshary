@@ -42,7 +42,7 @@ class _AccountStatementScreenState
   bool _exporting = false;
 
   static final _dateFmt = DateFormat('yyyy/MM/dd');
-  static final _timeFmt = DateFormat('hh:mm a');
+  static final _timeFmt = DateFormat('HH:mm');
 
   bool get _rangeReady =>
       _from != null && _to != null && !_from!.isAfter(_to!);
