@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/supabase_provider.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../sub_users/domain/employee_permissions.dart';
 import '../data/transfers_repository.dart';

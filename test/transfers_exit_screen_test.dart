@@ -12,6 +12,7 @@ import 'package:eshary/features/transfers/presentation/transfers_providers.dart'
 import 'package:eshary/features/transfers/presentation/transfers_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -252,6 +253,42 @@ void main() {
     }
 
     final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
+
+    testWidgets('no icons inside the four boxes (the label says it all)',
+        (tester) async {
+      await _open(tester, one);
+      final fields = find.byType(TextField);
+      for (var i = 0; i < 3; i++) {
+        expect(
+          find.descendant(of: fields.at(i), matching: find.byType(FaIcon)),
+          findsNothing,
+          reason: 'text field #$i',
+        );
+      }
+      final balance = find
+          .ancestor(of: find.text('2,500.00'), matching: find.byType(SizedBox))
+          .first;
+      expect(
+        find.descendant(of: balance, matching: find.byType(FaIcon)),
+        findsNothing,
+        reason: 'balance box',
+      );
+    });
+
+    testWidgets('the text sits in the middle of each box', (tester) async {
+      await _open(tester, one);
+      final box = tester.getCenter(find
+          .ancestor(of: find.text('2,500.00'), matching: find.byType(SizedBox))
+          .first);
+      final text = tester.getCenter(find.text('2,500.00'));
+      expect((text.dx - box.dx).abs(), lessThan(1), reason: 'balance');
+      await tester.enterText(find.byType(TextField).at(2), '100');
+      await tester.pumpAndSettle();
+      final amountBox = tester.getCenter(find.byType(TextField).at(2));
+      final amountText = tester.getCenter(find.text('100'));
+      expect((amountText.dx - amountBox.dx).abs(), lessThan(2),
+          reason: 'amount');
+    });
 
     testWidgets('normal state', (tester) async {
       await _open(tester, one);

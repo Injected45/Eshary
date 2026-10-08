@@ -16,7 +16,6 @@ import '../../../shared/pending_dispatch.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
-import '../../sub_users/domain/employee_permissions.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../clients/data/clients_repository.dart';
@@ -638,25 +637,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                             border: Border.all(color: AppColors.glassBorder),
                           ),
                           child: Padding(
-                            padding: const EdgeInsetsDirectional.only(start: 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment:
-                                        AlignmentDirectional.centerStart,
-                                    child: Text(
-                                      formatMoney(_available),
-                                      style: _kFieldTextStyle,
-                                    ),
-                                  ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Center(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  formatMoney(_available),
+                                  style: _kFieldTextStyle,
                                 ),
-                                const _IconBox(
-                                  FontAwesomeIcons.dollarSign,
-                                  color: AppColors.positive,
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -675,13 +664,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                           minLines: null,
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.center,
+                          textAlign: TextAlign.center,
                           style: _kFieldTextStyle,
                           controller: TextEditingController(
                             text: _exchange?.ourCode ?? '',
                           ),
                           decoration: const InputDecoration(
                             hintText: 'يظهر تلقائياً',
-                            suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
                           ),
                         ),
                       ),
@@ -704,12 +693,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                           minLines: null,
                           maxLines: null,
                           textAlignVertical: TextAlignVertical.center,
+                          textAlign: TextAlign.center,
                           style: _kFieldTextStyle,
                           controller:
                               TextEditingController(text: _reference ?? ''),
                           decoration: const InputDecoration(
                             hintText: 'يظهر تلقائياً',
-                            suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
                           ),
                         ),
                       ),
@@ -729,15 +718,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                                 minLines: null,
                                 maxLines: null,
                                 textAlignVertical: TextAlignVertical.center,
+                                textAlign: TextAlign.center,
                                 style: _kFieldTextStyle.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: 'أدخل القيمة',
-                                  suffixIcon: const _IconBox(
-                                    FontAwesomeIcons.dollarSign,
-                                    color: AppColors.positive,
-                                  ),
                                   // Over the limit: red outline here, the
                                   // message goes below so the box keeps its
                                   // height.
@@ -763,15 +749,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                                       expands: true,
                                       minLines: null,
                                       maxLines: null,
-                                      textAlignVertical:
-                                          TextAlignVertical.center,
+                                      textAlignVertical: TextAlignVertical.center,
+                                      textAlign: TextAlign.center,
                                       style: _kFieldTextStyle,
                                       decoration: const InputDecoration(
                                         hintText: 'اختر الحساب أولاً',
-                                        suffixIcon: _IconBox(
-                                          FontAwesomeIcons.dollarSign,
-                                          color: AppColors.positive,
-                                        ),
                                       ),
                                     ),
                                   ),

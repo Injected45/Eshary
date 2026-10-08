@@ -13,6 +13,7 @@ import 'package:eshary/features/exchange_companies/domain/exchange_company.dart'
 import 'package:eshary/features/exchange_companies/presentation/exchange_companies_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -152,5 +153,41 @@ void main() {
     await _open(tester, one);
     expect(find.textContaining('الإقفال اليومي'), findsNothing);
     expect(find.textContaining('ترحيل'), findsNothing);
+  });
+
+  testWidgets('reference and value: one row, two identical centred boxes',
+      (tester) async {
+    await _open(tester, one);
+    final fields = find.byType(TextField);
+    final n = tester.widgetList(fields).length;
+    final reference = fields.at(n - 2);
+    final value = fields.at(n - 1);
+
+    final r = tester.getRect(reference);
+    final v = tester.getRect(value);
+    expect(r.top, v.top, reason: 'same row');
+    expect(r.height, v.height, reason: 'same height');
+    expect((r.width - v.width).abs(), lessThan(0.5), reason: 'same width');
+    expect(r.height, 48);
+    // right-to-left: the reference is the right one, the value the left one
+    expect(r.center.dx, greaterThan(v.center.dx));
+    // evenly placed: the two boxes are mirror images about the screen middle
+    final gapSides = ((r.left + r.right) / 2) + ((v.left + v.right) / 2);
+    expect((gapSides / 2 - 200).abs(), lessThan(1), reason: 'centred');
+    // the labels sit over their boxes on the same line
+    expect(tester.getCenter(find.text('الرقم الإشاري')).dy,
+        tester.getCenter(find.text(r'القيمة $')).dy);
+
+    // no icons squeezing either box
+    expect(find.descendant(of: reference, matching: find.byType(FaIcon)),
+        findsNothing);
+    expect(find.descendant(of: value, matching: find.byType(FaIcon)),
+        findsNothing);
+
+    // typed text is centred
+    await tester.enterText(value, '250');
+    await tester.pumpAndSettle();
+    expect(
+        (tester.getCenter(find.text('250')).dx - v.center.dx).abs(), lessThan(2));
   });
 }

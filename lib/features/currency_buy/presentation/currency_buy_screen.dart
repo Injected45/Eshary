@@ -26,7 +26,6 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
-import '../../sub_users/domain/employee_permissions.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
 import '../../notifications/presentation/notifications_providers.dart';
@@ -35,6 +34,14 @@ import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
 
 enum _PendingBuyKind { pending, execute }
+
+/// The reference and value boxes share this height and text style.
+const double _kFieldHeight = 48;
+const TextStyle _kFieldTextStyle = TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w600,
+  color: AppColors.textHigh,
+);
 
 class CurrencyBuyScreen extends ConsumerStatefulWidget {
   const CurrencyBuyScreen({super.key});
@@ -956,33 +963,56 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _LabeledField(
-                label: 'الرقم الإشاري',
-                child: TextField(
-                  controller: _reference,
-                  decoration: const InputDecoration(
-                    hintText: 'أدخل الرقم الإشاري',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.hashtag,
-                      color: AppColors.accent,
+              // Two identical boxes side by side: same width, same height,
+              // text centred. No icons: they only squeeze the value.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _LabeledField(
+                      label: 'الرقم الإشاري',
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: TextField(
+                          controller: _reference,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
+                          style: _kFieldTextStyle,
+                          decoration: const InputDecoration(
+                            hintText: 'أدخل الرقم الإشاري',
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'القيمة \$',
-                child: TextField(
-                  controller: _usd,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: 'القيمة بالدولار',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.dollarSign,
-                      color: AppColors.positive,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _LabeledField(
+                      label: 'القيمة \$',
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: TextField(
+                          controller: _usd,
+                          keyboardType: TextInputType.number,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
+                          style: _kFieldTextStyle.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'القيمة بالدولار',
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
