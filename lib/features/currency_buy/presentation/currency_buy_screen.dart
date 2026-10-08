@@ -171,7 +171,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       if (kind == _PendingBuyKind.pending) {
         ref.invalidate(pendingBuysProvider);
       } else {
-        ref.invalidate(dailyBuysProvider);
+        ref.invalidate(todayBuysProvider);
+        ref.invalidate(archivedBuysProvider);
         ref.invalidate(allExchangesProvider);
         ref.invalidate(exchangesByCompanyProvider(_myCompany!.id));
       }
@@ -416,43 +417,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     await _saveDailyAndOpenMessages();
   }
 
-  Future<void> _archiveAll() async {
-    final pendingCount =
-        (ref.read(pendingBuysProvider).value ?? const <CurrencyBuy>[])
-            .length;
-    if (pendingCount > 0) {
-      _snack('لا يمكن الترحيل: لديك $pendingCount عملية معلّقة.');
-      return;
-    }
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('تأكيد الترحيل'),
-        content:
-            const Text('إقفال وترحيل سجل الدخول إلى الإقفالات؟'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترحيل'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    try {
-      final n = await ref.read(archiveBuysActionProvider)();
-      playAlert();
-      _snack('تم ترحيل $n سجل');
-    } catch (e, st) {
-      AppLogger.error('currencyBuy.archiveAll', e, st);
-      _snack(friendlyError(e));
-    }
-  }
-
   void _snack(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -590,7 +554,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
     final allExchangesAsync = ref.watch(allExchangesProvider);
-    final dailyAsync = ref.watch(dailyBuysProvider);
+    final dailyAsync = ref.watch(todayBuysProvider);
 
     // Exactly one account in total: fill the company, account and code as
     // soon as the screen opens (and again after each save) and go straight
@@ -1076,19 +1040,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (ref.watch(canProvider(kPermArchiveBuys)))
-          FilledButton.icon(
-            onPressed: _archiveAll,
-            icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
-            label: const Text(
-              'الإقفال اليومي لحوالات الدخول',
-              textAlign: TextAlign.center,
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.positive,
-              foregroundColor: Colors.black,
-            ),
-          ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(

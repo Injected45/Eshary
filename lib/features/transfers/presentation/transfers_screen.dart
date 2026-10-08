@@ -34,6 +34,14 @@ import 'transfers_providers.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
 
+/// The four boxes of "خروج من حسابي" share this height and text style.
+const double _kFieldHeight = 48;
+const TextStyle _kFieldTextStyle = TextStyle(
+  fontSize: 16,
+  fontWeight: FontWeight.w600,
+  color: AppColors.textHigh,
+);
+
 class TransfersScreen extends ConsumerStatefulWidget {
   const TransfersScreen({super.key});
 
@@ -48,7 +56,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   String? _exchangeCompanyName;
   int? _activeSection;
   bool _logExpanded = false;
-  bool _autoArchiveChecked = false;
   bool _autoPicked = false;
 
   final _amount = TextEditingController();
@@ -63,31 +70,27 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void initState() {
     super.initState();
     _amount.addListener(_onAmountChanged);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _maybeAutoArchivePreviousDay(),
-    );
   }
 
   void _onAmountChanged() {
     if (mounted) setState(() {});
   }
 
-  /// What this account can still pay out: its balance minus the exits of the
-  /// day not yet closed (everyone's). Falls back to the plain balance until
-  /// the server figures arrive.
-  double get _available {
+  /// The selected account as it is now: the list is refreshed after every
+  /// save, and the balance moves at save, so read it from the live list.
+  Exchange? get _currentExchange {
     final ex = _exchange;
-    if (ex == null) return 0;
-    return ref.read(exchangeBalancesProvider).valueOrNull?[ex.id]?.available ??
-        ex.balance;
+    if (ex == null) return null;
+    final live = ref.read(allExchangesProvider).valueOrNull;
+    if (live == null) return ex;
+    for (final e in live) {
+      if (e.id == ex.id) return e;
+    }
+    return ex;
   }
 
-  /// Today's exits not yet closed on the selected account.
-  double get _openOut {
-    final ex = _exchange;
-    if (ex == null) return 0;
-    return ref.read(exchangeBalancesProvider).valueOrNull?[ex.id]?.openOut ?? 0;
-  }
+  /// What the account can pay out: its balance (exits are posted at save).
+  double get _available => _currentExchange?.balance ?? 0;
 
   bool get _overBalance {
     if (_exchange == null) return false;
@@ -238,7 +241,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final amount = parseMoney(_amount.text);
     final balance = _available;
     if (amount > balance) {
-      _snack('المبلغ يتجاوز الرصيد المتاح (${formatMoney(balance)} \$).');
+      _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
       return;
     }
     if (_beneficiaryName.text.trim().isEmpty) {
@@ -258,9 +261,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             reference: _reference!,
           );
       await _persistBeneficiaryCode();
-      ref.invalidate(dailyTransfersProvider);
+      ref.invalidate(todayTransfersProvider);
+      ref.invalidate(archivedTransfersProvider);
       ref.invalidate(allExchangesProvider);
-      ref.invalidate(exchangeBalancesProvider);
       ref.invalidate(exchangesByCompanyProvider(_company!.id));
 
       final messages = _composeMessages();
@@ -281,80 +284,10 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     } catch (e, st) {
       AppLogger.error('transfers.saveAndOpenMessages', e, st);
       // Someone else may have just used the balance: show the new figure.
-      ref.invalidate(exchangeBalancesProvider);
+      ref.invalidate(allExchangesProvider);
       if (mounted) _snack(friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _archiveAll() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('الإقفال اليومي للحوالات'),
-        content: const Text(
-          'هل تريد ترحيل سجلات الحوالات اليومية إلى الأرشيف العام؟',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('ترحيل'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    try {
-      final n = await ref.read(archiveTransfersActionProvider)();
-      if (mounted) {
-        setState(() {
-          _company = null;
-          _exchange = null;
-          _reference = null;
-          _amount.clear();
-          _beneficiaryName.clear();
-          _beneficiaryAccount.clear();
-          _beneficiaryCode.clear();
-          _pickedBeneficiary = null;
-        });
-      }
-      playAlert();
-      _snack('تم ترحيل $n سجل');
-    } catch (e, st) {
-      AppLogger.error('transfers.archiveAll', e, st);
-      _snack(friendlyError(e));
-    }
-  }
-
-  Future<void> _maybeAutoArchivePreviousDay() async {
-    if (_autoArchiveChecked) return;
-    _autoArchiveChecked = true;
-    // Employees close the day only if the admin granted it.
-    if (!ref.read(canProvider(kPermArchiveTransfers))) return;
-    try {
-      final rows = await ref.read(dailyTransfersProvider.future);
-      final now = DateTime.now();
-      bool isStale(Transfer r) {
-        final c = r.createdAt.toLocal();
-        if (c.year != now.year) return c.year < now.year;
-        if (c.month != now.month) return c.month < now.month;
-        return c.day < now.day;
-      }
-
-      if (rows.any(isStale)) {
-        await ref.read(archiveTransfersActionProvider)();
-        ref.invalidate(dailyTransfersProvider);
-        ref.invalidate(allExchangesProvider);
-        if (mounted) _snack('تم الإقفال التلقائي لحوالات اليوم السابق');
-      }
-    } catch (e, st) {
-      AppLogger.error('transfers.autoArchive', e, st);
-      if (mounted) _snack(friendlyError(e));
     }
   }
 
@@ -395,7 +328,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         content: Text(
           over
               ? 'عذراً لا يمكن فتح الجهة المستفيدة.\n'
-                  'المبلغ يتجاوز الرصيد المتاح '
+                  'المبلغ يتجاوز رصيد الحساب '
                   '(${formatMoney(_available)} \$).'
               : 'عذراً لا يمكن فتح الجهة المستفيدة.\n'
                   'عليك استكمال بيانات الحوالة أولاً.',
@@ -525,8 +458,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   @override
   Widget build(BuildContext context) {
     final exchangesAsync = ref.watch(allExchangesProvider);
-    ref.watch(exchangeBalancesProvider); // keeps the available balance fresh
-    final dailyAsync = ref.watch(dailyTransfersProvider);
+    final dailyAsync = ref.watch(todayTransfersProvider);
     final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
     final companiesAsync = ref.watch(companiesListProvider);
     final companyById = <String, Company>{
@@ -689,43 +621,44 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              // Two equal boxes per row keep the whole form on one screen:
+              // Four equal boxes (same width, same height) in two rows:
               // balance | account code, then reference | amount.
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: _LabeledField(
-                      label: 'الرصيد المتاح',
-                      child: Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.glassFill,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.glassBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  formatMoney(_available),
-                                  style: const TextStyle(
-                                    color: AppColors.textHigh,
-                                    fontWeight: FontWeight.w600,
+                      label: 'رصيد الحساب',
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.glassFill,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.glassBorder),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(start: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment:
+                                        AlignmentDirectional.centerStart,
+                                    child: Text(
+                                      formatMoney(_available),
+                                      style: _kFieldTextStyle,
+                                    ),
                                   ),
                                 ),
-                              ),
+                                const _IconBox(
+                                  FontAwesomeIcons.dollarSign,
+                                  color: AppColors.positive,
+                                ),
+                              ],
                             ),
-                            const _IconBox(
-                              FontAwesomeIcons.dollarSign,
-                              color: AppColors.positive,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -734,33 +667,28 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   Expanded(
                     child: _LabeledField(
                       label: 'كود الحساب',
-                      child: TextField(
-                        readOnly: true,
-                        controller: TextEditingController(
-                          text: _exchange?.ourCode ?? '',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'يظهر تلقائياً',
-                          suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: TextField(
+                          readOnly: true,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          textAlignVertical: TextAlignVertical.center,
+                          style: _kFieldTextStyle,
+                          controller: TextEditingController(
+                            text: _exchange?.ourCode ?? '',
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'يظهر تلقائياً',
+                            suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              // Why the available balance is lower than the account balance.
-              if (_exchange != null && _openOut > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'رصيد الحساب ${formatMoney(_exchange!.balance)} \$ − '
-                    'حوالات اليوم غير المقفلة ${formatMoney(_openOut)} \$',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textLow,
-                    ),
-                  ),
-                ),
               const SizedBox(height: 12),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -768,13 +696,21 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   Expanded(
                     child: _LabeledField(
                       label: 'الرقم الإشاري',
-                      child: TextField(
-                        readOnly: true,
-                        controller:
-                            TextEditingController(text: _reference ?? ''),
-                        decoration: const InputDecoration(
-                          hintText: 'يظهر تلقائياً',
-                          suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: TextField(
+                          readOnly: true,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          textAlignVertical: TextAlignVertical.center,
+                          style: _kFieldTextStyle,
+                          controller:
+                              TextEditingController(text: _reference ?? ''),
+                          decoration: const InputDecoration(
+                            hintText: 'يظهر تلقائياً',
+                            suffixIcon: _IconBox(FontAwesomeIcons.hashtag),
+                          ),
                         ),
                       ),
                     ),
@@ -783,55 +719,77 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   Expanded(
                     child: _LabeledField(
                       label: 'القيمة بالدولار (USD)',
-                      child: _outgoingFieldsEnabled
-                          ? TextField(
-                              controller: _amount,
-                              keyboardType: TextInputType.number,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textHigh,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'أدخل القيمة',
-                                suffixIcon: const _IconBox(
-                                  FontAwesomeIcons.dollarSign,
-                                  color: AppColors.positive,
+                      child: SizedBox(
+                        height: _kFieldHeight,
+                        child: _outgoingFieldsEnabled
+                            ? TextField(
+                                controller: _amount,
+                                keyboardType: TextInputType.number,
+                                expands: true,
+                                minLines: null,
+                                maxLines: null,
+                                textAlignVertical: TextAlignVertical.center,
+                                style: _kFieldTextStyle.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                errorText: _overBalance
-                                    ? 'يتجاوز الرصيد المتاح'
-                                    : null,
-                                errorMaxLines: 2,
-                              ),
-                            )
-                          : GestureDetector(
-                              onTap: _showOutgoingValidation,
-                              child: AbsorbPointer(
-                                child: Opacity(
-                                  opacity: 0.55,
-                                  child: TextField(
-                                    controller: _amount,
-                                    enabled: false,
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.textHigh,
-                                    ),
-                                    decoration: const InputDecoration(
-                                      hintText: 'اختر الحساب أولاً',
-                                      suffixIcon: _IconBox(
-                                        FontAwesomeIcons.dollarSign,
-                                        color: AppColors.positive,
+                                decoration: InputDecoration(
+                                  hintText: 'أدخل القيمة',
+                                  suffixIcon: const _IconBox(
+                                    FontAwesomeIcons.dollarSign,
+                                    color: AppColors.positive,
+                                  ),
+                                  // Over the limit: red outline here, the
+                                  // message goes below so the box keeps its
+                                  // height.
+                                  enabledBorder: _overBalance
+                                      ? OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: const BorderSide(
+                                            color: AppColors.negative,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                              )
+                            : GestureDetector(
+                                onTap: _showOutgoingValidation,
+                                child: AbsorbPointer(
+                                  child: Opacity(
+                                    opacity: 0.55,
+                                    child: TextField(
+                                      controller: _amount,
+                                      enabled: false,
+                                      expands: true,
+                                      minLines: null,
+                                      maxLines: null,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
+                                      style: _kFieldTextStyle,
+                                      decoration: const InputDecoration(
+                                        hintText: 'اختر الحساب أولاً',
+                                        suffixIcon: _IconBox(
+                                          FontAwesomeIcons.dollarSign,
+                                          color: AppColors.positive,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                      ),
                     ),
                   ),
                 ],
               ),
+              if (_outgoingFieldsEnabled && _overBalance)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'يتجاوز رصيد الحساب',
+                    style: TextStyle(fontSize: 12, color: AppColors.negative),
+                  ),
+                ),
             ],
           ),
         ),
@@ -973,19 +931,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        if (ref.watch(canProvider(kPermArchiveTransfers)))
-          FilledButton.icon(
-            onPressed: _archiveAll,
-            icon: const FaIcon(FontAwesomeIcons.lock, size: 16),
-            label: const Text(
-              'الإقفال اليومي لحوالات الخروج',
-              textAlign: TextAlign.center,
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.negative,
-              foregroundColor: Colors.white,
-            ),
-          ),
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(

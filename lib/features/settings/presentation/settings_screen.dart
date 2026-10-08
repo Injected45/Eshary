@@ -287,6 +287,8 @@ Future<void> _confirmAndWipeEntries(
 
   ref.invalidate(allExchangesProvider);
   ref.invalidate(dailyTransfersProvider);
+  ref.invalidate(todayTransfersProvider);
+  ref.invalidate(todayBuysProvider);
   ref.invalidate(archivedTransfersProvider);
   ref.invalidate(dailyBuysProvider);
   ref.invalidate(pendingBuysProvider);

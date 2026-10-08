@@ -64,11 +64,11 @@ Apply with the Supabase CLI: `supabase db reset` (local) or `supabase db push` (
 
 ## Behavior added beyond source
 
-- **Pending buys block archive** — `archive_daily_buys` raises if any `currency_buys.status = 'pending'` rows still exist for the caller. The source UI showed pending rows but never blocked archival.
+- **Operations are posted when saved** (migration 0047) — there is no manual daily close any more. An exit/entry is stored as closed (`archived`) and the account balance moves in the same transaction; the old "pending buys block the close" rule is therefore moot.
 - **Atomic balance mutations** — every insert + balance update happens in one Postgres transaction (`record_*` RPCs).
 - **Per-user RLS isolation** — each user only sees their own rows.
 - **Offline read cache** — recent list responses are cached in `SharedPreferences` and served when the live call fails.
-- **Exits are limited to the available balance** (migration 0046) — available = `exchanges.balance` minus the day's open (unarchived) exits on that account; a trigger on `transfers` refuses an exit above it (`insufficient_balance`), for the admin, employees and direct API inserts alike. Entries only count once closed, like the balance. Restoring a backup skips the check.
+- **Exits are limited to the account balance** (migrations 0046/0047) — a trigger on `transfers` refuses an exit above `exchanges.balance` (`insufficient_balance`), for the admin, employees and direct API inserts alike, and locks the account row so two exits cannot both pass. Restoring a backup skips the check.
 - **Employee permissions, notifications, per-type visibility** (migrations 0039–0045) — see the migration headers.
 
 ## Phases

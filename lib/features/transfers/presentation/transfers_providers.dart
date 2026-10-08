@@ -6,19 +6,25 @@ import '../../sub_users/domain/employee_permissions.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 
-/// Available balance per account id (balance minus today's open exits). An
-/// employee allowed to execute exits gets the same figures as the admin.
-final exchangeBalancesProvider =
-    FutureProvider<Map<String, ExchangeBalance>>((ref) {
-  return ref.watch(transfersRepositoryProvider).exchangeBalances();
-});
-
 final dailyTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.daily,
         // An employee sees everyone's rows only with view_all;
         // otherwise only their own (the database enforces the same).
+        createdByEmployeeId:
+            (employee != null && !employee.permissions.contains(kPermViewAll))
+                ? employee.subUserId
+                : null,
+      );
+});
+
+/// Exits executed today (posted at save), newest first. Emptied by the date
+/// itself when a new day begins. An employee sees only their own unless they
+/// may view everything.
+final todayTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
+  final employee = ref.watch(currentEmployeeProvider).value;
+  return ref.watch(transfersRepositoryProvider).listToday(
         createdByEmployeeId:
             (employee != null && !employee.permissions.contains(kPermViewAll))
                 ? employee.subUserId
@@ -37,22 +43,4 @@ final archivedTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
                 ? employee.subUserId
                 : null,
       );
-});
-
-/// Action: archive all daily transfers for the current user.
-/// Returns the number of rows archived. Throws if not signed in.
-final archiveTransfersActionProvider = Provider<Future<int> Function()>((ref) {
-  return () async {
-    // An employee closes the day for the admin who owns the data.
-    final ownerId = ref.read(currentEmployeeProvider).value?.parentAdminId ??
-        ref.read(currentUserIdProvider);
-    if (ownerId == null) {
-      throw StateError('not signed in');
-    }
-    final count =
-        await ref.read(transfersRepositoryProvider).archiveDaily(ownerId);
-    ref.invalidate(dailyTransfersProvider);
-    ref.invalidate(archivedTransfersProvider);
-    return count;
-  };
 });

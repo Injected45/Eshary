@@ -7,7 +7,6 @@ void main() {
   test('exit permission shows exits only (Rafe)', () {
     final t = visibleTypesFor([
       'accounts_own',
-      'archive_transfers',
       'closings_own',
       'transfers_create',
       'view_own',
@@ -17,7 +16,7 @@ void main() {
   });
 
   test('entry permission shows entries only', () {
-    final t = visibleTypesFor(['buys_create', 'archive_buys', 'view_own']);
+    final t = visibleTypesFor(['buys_create', 'view_own']);
     expect(t.exits, isFalse);
     expect(t.entries, isTrue);
   });
@@ -25,11 +24,6 @@ void main() {
   test('exit and entry permissions show both', () {
     final t = visibleTypesFor(['transfers_create', 'buys_create', 'view_own']);
     expect(t.exits && t.entries, isTrue);
-  });
-
-  test('closing permission alone also decides the type', () {
-    expect(visibleTypesFor(['archive_transfers']).entries, isFalse);
-    expect(visibleTypesFor(['archive_buys']).exits, isFalse);
   });
 
   test('"all" permissions widen whose rows, not the type', () {

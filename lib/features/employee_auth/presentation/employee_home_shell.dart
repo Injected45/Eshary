@@ -175,6 +175,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
                         // Also re-reads the permissions the admin may have changed.
                         ref.invalidate(currentEmployeeProvider);
                         ref.invalidate(dailyTransfersProvider);
+                        ref.invalidate(todayTransfersProvider);
+                        ref.invalidate(todayBuysProvider);
                         ref.invalidate(archivedTransfersProvider);
                         ref.invalidate(dailyBuysProvider);
                         ref.invalidate(pendingBuysProvider);

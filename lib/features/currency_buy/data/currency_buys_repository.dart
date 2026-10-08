@@ -43,6 +43,36 @@ class CurrencyBuysRepository {
     }
   }
 
+  /// Today's executed entries (posted at save), by the phone's local date.
+  Future<List<CurrencyBuy>> listToday({String? createdByEmployeeId}) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).toUtc();
+    final key =
+        '${_cacheKey(CurrencyBuyStatus.archived, createdByEmployeeId)}:today';
+    try {
+      var filter = _client
+          .from('currency_buys')
+          .select()
+          .eq('status', currencyBuyStatusToDb(CurrencyBuyStatus.archived))
+          .gte('created_at', start.toIso8601String());
+      if (createdByEmployeeId != null) {
+        filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+      }
+      final rows = await filter.order('created_at', ascending: false);
+      final list = (rows as List).cast<Map<String, dynamic>>();
+      await _cache.writeList(key, list);
+      return list.map(CurrencyBuy.fromJson).toList();
+    } catch (e) {
+      final cached = _cache.readList(key);
+      if (cached == null) rethrow;
+      final today = start.toLocal();
+      return cached
+          .map(CurrencyBuy.fromJson)
+          .where((b) => !b.createdAt.toLocal().isBefore(today))
+          .toList();
+    }
+  }
+
   Future<CurrencyBuy> createDaily({
     required String myCompanyId,
     required String exchangeId,
@@ -95,13 +125,6 @@ class CurrencyBuysRepository {
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);
   }
 
-  Future<int> archiveDaily(String ownerId) async {
-    final res = await _client.rpc(
-      'archive_daily_buys',
-      params: {'p_owner': ownerId},
-    );
-    return (res as num).toInt();
-  }
 }
 
 final currencyBuysRepositoryProvider = Provider<CurrencyBuysRepository>((ref) {

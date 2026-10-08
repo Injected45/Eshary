@@ -16,7 +16,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies migrations 0001–0017 in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0047) in order.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0017    # schema, RLS, RPC functions, auth trigger, beneficiaries, exchange-companies, countries, deferred-balance
+supabase/migrations/0001..0047    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -41,11 +41,13 @@ Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`
 - `JsonCache` (`lib/shared/cache.dart`) is a thin `SharedPreferences` JSON store. Keys are scoped per signed-in user (`cache:<table>:<uid>:<status>`). The `sharedPreferencesProvider` is overridden in `main.dart` after `SharedPreferences.getInstance()`.
 - Routing: `go_router` in `core/router.dart`. Auth gate redirects unauthed users to `/sign-in`. `_StreamRefresh` bridges `SupabaseClient.auth.onAuthStateChange` into GoRouter's `refreshListenable` so session changes re-evaluate redirects.
 
-### Deferred balance mutations (critical)
+### Balance moves at save (critical — changed by migration 0047)
 
-Balance updates are **deferred to archival**. Per-row insert RPCs (`record_transfer`, `record_currency_buy`, `record_pending_buy` — defined in `0004_record_functions.sql`, redefined by `0017_defer_balance_update.sql`) write the row only and do **not** touch `exchanges.balance`. The two `archive_*` functions in `0017_defer_balance_update.sql` aggregate the daily rows per exchange, apply the summed delta to `exchanges.balance`, and flip status — all inside one Postgres transaction. Repositories call all five RPCs via `client.rpc(...)`; never write a two-step `insert` + `update balance` from Dart, and never bypass these RPCs. They are `security invoker` and verify `auth.uid()` ownership.
+There is **no manual daily close**. `record_transfer` and `record_currency_buy` store the row as `status='archived'` (with `archived_at`) and move `exchanges.balance` in the same transaction: an exit subtracts, an entry adds. So `exchanges.balance` is always the real balance and an employee and the admin see the same figure. (Before 0047 the balance was deferred to `archive_daily_*`; `0017_defer_balance_update.sql` and the `archive_daily_*` functions are kept only for older app builds and now do nothing.)
 
-This means: during the day, `exchanges.balance` does not move when transfers/buys are entered. The balance jumps once when the user runs the close-and-archive action.
+An exit above the balance is refused by a trigger on `transfers` (`_check_transfer_balance`, 0046/0047): it locks the account row and raises `insufficient_balance`. `admin_restore_backup` sets `eshary.skip_balance_check` so a restore never moves or checks balances. Never write a two-step `insert` + `update balance` from Dart; always go through the RPCs. `record_pending_buy` (legacy) still creates a `pending` row that does not touch the balance.
+
+The exit/entry screens show **today's** executed rows (`todayTransfersProvider` / `todayBuysProvider`: archived rows created today by the phone's local date), so the lists start empty every new day. The "الإقفالات" tab is the permanent record. The permissions `archive_transfers` / `archive_buys` / `archive_all` are retired.
 
 ### Database
 
@@ -53,7 +55,7 @@ All currency columns are `numeric(14,2)`; `rate` is `numeric(10,4)`. Per-row RLS
 
 Server-side functions:
 - `next_reference(company_id)` — generates the transfer reference. Format updated by `0006_next_reference_format.sql`: parses user-typed `start_ref` as `(prefix)(digits)` and increments. **Counts every transfer the user owns across all companies**, matching `project_web.html:711` bug-for-bug. See `docs/migration-mapping.md` §2 — do not change to per-company counting without explicit confirmation.
-- `archive_daily_transfers(p_owner)` / `archive_daily_buys(p_owner)` — flip `status='daily'` rows to `'archived'` and stamp `archived_at`. `archive_daily_buys` **raises** if any `status='pending'` rows exist for the caller (enforcement added beyond the source).
+- `archive_daily_transfers(p_owner)` / `archive_daily_buys(p_owner)` — legacy; since 0047 nothing is left in `status='daily'`, so they do nothing.
 
 ### UI conventions
 

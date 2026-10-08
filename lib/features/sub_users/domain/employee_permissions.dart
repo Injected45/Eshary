@@ -1,7 +1,8 @@
 /// Permissions an admin can grant to an employee (sub_users.permissions).
 ///
-/// The keys are enforced by the database (record_* / archive_* functions and
-/// row-level security, migration 0041). A new employee has none: they see an
+/// The keys are enforced by the database (record_* functions and
+/// row-level security, migrations 0041-0047). There is no daily-close
+/// permission any more: an operation is posted when it is saved (0047). A new employee has none: they see an
 /// empty app until the admin grants some. This list must match
 /// `_employee_permission_keys()` in the database.
 class EmployeePermission {
@@ -22,9 +23,6 @@ const String kPermTransfersCreate = 'transfers_create';
 const String kPermBuysCreate = 'buys_create';
 const String kPermViewOwn = 'view_own';
 const String kPermViewAll = 'view_all';
-const String kPermArchiveTransfers = 'archive_transfers';
-const String kPermArchiveBuys = 'archive_buys';
-const String kPermArchiveAll = 'archive_all';
 const String kPermClosingsOwn = 'closings_own';
 const String kPermClosingsAll = 'closings_all';
 const String kPermAccountsOwn = 'accounts_own';
@@ -54,24 +52,6 @@ const List<EmployeePermission> kEmployeePermissions = [
     label: 'عرض جميع العمليات',
     description: 'يرى عمليات كل الموظفين والمدير، اليومية والمقفلة، من النوع المسموح له (خروج أو دخول). بدونها لا يرى إلا عملياته.',
     group: 'العرض',
-  ),
-  EmployeePermission(
-    key: kPermArchiveTransfers,
-    label: 'الإقفال اليومي للخروج',
-    description: 'يقفل حوالات الخروج التي نفّذها هو فقط (يخصم من الأرصدة).',
-    group: 'الإقفال',
-  ),
-  EmployeePermission(
-    key: kPermArchiveBuys,
-    label: 'الإقفال اليومي للدخول',
-    description: 'يقفل حوالات الدخول التي نفّذها هو فقط (يضيف إلى الأرصدة).',
-    group: 'الإقفال',
-  ),
-  EmployeePermission(
-    key: kPermArchiveAll,
-    label: 'الإقفال لعمليات الجميع',
-    description: 'مع صلاحية الإقفال أعلاه، يقفل عمليات كل الموظفين والمدير بدل عملياته فقط.',
-    group: 'الإقفال',
   ),
   EmployeePermission(
     key: kPermClosingsOwn,

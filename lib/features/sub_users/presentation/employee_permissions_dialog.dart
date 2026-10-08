@@ -26,11 +26,19 @@ class EmployeePermissionsDialog extends ConsumerStatefulWidget {
 
 class _EmployeePermissionsDialogState
     extends ConsumerState<EmployeePermissionsDialog> {
-  late final Set<String> _selected = {...widget.user.permissions};
+  // Keys that were retired (the old daily-close permissions) may still be
+  // stored for this employee; they are neither shown nor sent back.
+  late final Set<String> _selected = {
+    for (final p in widget.user.permissions)
+      if (kEmployeePermissions.any((d) => d.key == p)) p,
+  };
   bool _busy = false;
 
   bool get _changed {
-    final original = widget.user.permissions.toSet();
+    final original = {
+      for (final p in widget.user.permissions)
+        if (kEmployeePermissions.any((d) => d.key == p)) p,
+    };
     return original.length != _selected.length ||
         !original.containsAll(_selected);
   }

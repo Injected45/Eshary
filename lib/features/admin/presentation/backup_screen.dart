@@ -139,6 +139,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     ref.invalidate(clientsListProvider);
     ref.invalidate(beneficiariesListProvider);
     ref.invalidate(dailyTransfersProvider);
+    ref.invalidate(todayTransfersProvider);
+    ref.invalidate(todayBuysProvider);
     ref.invalidate(archivedTransfersProvider);
     ref.invalidate(dailyBuysProvider);
     ref.invalidate(pendingBuysProvider);

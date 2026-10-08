@@ -51,7 +51,6 @@ void main() {
         tester,
         _employee([
           'accounts_own',
-          'archive_transfers',
           'closings_own',
           'transfers_create',
           'view_own',

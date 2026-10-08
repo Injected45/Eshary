@@ -183,34 +183,20 @@ class _AccountCard extends StatelessWidget {
             ],
           ),
           const Divider(color: AppColors.glassBorder, height: 20),
-          if (showOutgoing) ...[
+          if (showOutgoing)
             _Line(
-              label: 'خروج لم يُقفل',
-              count: row.outOpenCount,
-              total: row.outOpenTotal,
+              label: 'خروج',
+              count: row.outOpenCount + row.outClosedCount,
+              total: row.outOpenTotal + row.outClosedTotal,
               color: AppColors.negative,
             ),
+          if (showIncoming)
             _Line(
-              label: 'خروج مقفل',
-              count: row.outClosedCount,
-              total: row.outClosedTotal,
-              color: AppColors.negative,
-            ),
-          ],
-          if (showIncoming) ...[
-            _Line(
-              label: 'دخول لم يُقفل',
-              count: row.inOpenCount,
-              total: row.inOpenTotal,
+              label: 'دخول',
+              count: row.inOpenCount + row.inClosedCount,
+              total: row.inOpenTotal + row.inClosedTotal,
               color: AppColors.positive,
             ),
-            _Line(
-              label: 'دخول مقفل',
-              count: row.inClosedCount,
-              total: row.inClosedTotal,
-              color: AppColors.positive,
-            ),
-          ],
         ],
       ),
     );

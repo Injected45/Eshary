@@ -7,7 +7,6 @@ import 'package:eshary/features/exchange_companies/domain/exchange_company.dart'
 import 'package:eshary/features/exchange_companies/presentation/exchange_companies_providers.dart';
 import 'package:eshary/features/employee_auth/data/employee_auth_repository.dart';
 import 'package:eshary/features/employee_auth/presentation/employee_auth_providers.dart';
-import 'package:eshary/features/transfers/data/transfers_repository.dart';
 import 'package:eshary/features/transfers/domain/transfer.dart';
 import 'package:eshary/features/transfers/presentation/transfers_providers.dart';
 import 'package:eshary/features/transfers/presentation/transfers_screen.dart';
@@ -73,20 +72,23 @@ Future<void> _loadFonts() async {
   ]);
 }
 
+var _liveExchanges = <Exchange>[];
+
 Future<void> _open(
   WidgetTester tester,
   List<Exchange> exchanges, {
   double width = 400,
   EmployeeIdentity? identity,
-  Map<String, ExchangeBalance> balances = const {},
+  List<Transfer> today = const <Transfer>[],
 }) async {
   await _loadFonts();
+  _liveExchanges = exchanges;
   await tester.binding.setSurfaceSize(Size(width, 1600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        allExchangesProvider.overrideWith((ref) async => exchanges),
+        allExchangesProvider.overrideWith((ref) async => _liveExchanges),
         companiesListProvider.overrideWith(
           (ref) async => [for (final e in exchanges) _company(e.companyId)],
         ),
@@ -94,7 +96,7 @@ Future<void> _open(
           (ref) async => [for (final e in exchanges) _ec(e.name)],
         ),
         currentEmployeeProvider.overrideWith((ref) async => identity),
-        exchangeBalancesProvider.overrideWith((ref) async => balances),
+        todayTransfersProvider.overrideWith((ref) async => today),
         dailyTransfersProvider.overrideWith((ref) async => const <Transfer>[]),
         companiesRepositoryProvider.overrideWithValue(_FakeCompaniesRepo()),
       ],
@@ -136,11 +138,11 @@ void main() {
     double dy(String label) => tester.getCenter(find.text(label)).dy;
     double dx(String label) => tester.getCenter(find.text(label)).dx;
 
-    expect(dy('الرصيد المتاح'), dy('كود الحساب'));
+    expect(dy('رصيد الحساب'), dy('كود الحساب'));
     expect(dy('الرقم الإشاري'), dy('القيمة بالدولار (USD)'));
-    expect(dy('الرقم الإشاري'), greaterThan(dy('الرصيد المتاح')));
+    expect(dy('الرقم الإشاري'), greaterThan(dy('رصيد الحساب')));
     // Right-to-left: the first field sits on the right.
-    expect(dx('الرصيد المتاح'), greaterThan(dx('كود الحساب')));
+    expect(dx('رصيد الحساب'), greaterThan(dx('كود الحساب')));
     expect(dx('الرقم الإشاري'), greaterThan(dx('القيمة بالدولار (USD)')));
   });
 
@@ -153,7 +155,7 @@ void main() {
     );
     await tester.enterText(find.widgetWithText(TextField, ''), '99999');
     await tester.pumpAndSettle();
-    expect(find.text('يتجاوز الرصيد المتاح'), findsOneWidget);
+    expect(find.text('يتجاوز رصيد الحساب'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -191,7 +193,7 @@ void main() {
       await tester.tap(find.text('الجهة المستفيدة'));
       await tester.pumpAndSettle();
       expect(find.textContaining(blocked), findsOneWidget);
-      expect(find.textContaining('يتجاوز الرصيد المتاح'), findsWidgets);
+      expect(find.textContaining('يتجاوز رصيد الحساب'), findsWidgets);
       expect(find.text('الجهات المحفوظة'), findsNothing);
     });
 
@@ -227,48 +229,129 @@ void main() {
     },
   );
 
-  group('available balance = account balance minus the open exits of the day', () {
-    final one = [_exchange('1', 'شركة الصرافة', 'X-100', 1000)];
-    // Rafe already sent 900 today: balance 1000, open 900, available 100.
-    const open = {
-      '1': ExchangeBalance(balance: 1000, openOut: 900, available: 100),
-    };
+  group('the four boxes of "خروج من حسابي" are identical in size', () {
+    /// Sizes of: balance box, account code, reference, amount.
+    List<Size> boxes(WidgetTester tester) {
+      final fields = find.byType(TextField); // code, reference, amount
+      expect(fields, findsNWidgets(3));
+      final balance = find
+          .ancestor(of: find.text('2,500.00'), matching: find.byType(SizedBox))
+          .first;
+      return [
+        tester.getSize(balance),
+        for (var i = 0; i < 3; i++) tester.getSize(fields.at(i)),
+      ];
+    }
 
-    testWidgets('shows the available figure and explains the difference',
-        (tester) async {
-      await _open(tester, one, balances: open);
-      expect(find.text('100.00'), findsOneWidget, reason: 'available');
-      expect(find.text('1,000.00'), findsNothing, reason: 'not the raw balance');
-      expect(find.textContaining('حوالات اليوم غير المقفلة'), findsOneWidget);
+    void expectEqual(List<Size> sizes) {
+      for (final s in sizes) {
+        expect(s.height, sizes.first.height, reason: '$sizes');
+        expect((s.width - sizes.first.width).abs(), lessThan(0.5),
+            reason: '$sizes');
+      }
+    }
+
+    final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
+
+    testWidgets('normal state', (tester) async {
+      await _open(tester, one);
+      expectEqual(boxes(tester));
     });
 
-    testWidgets('an amount above the available (but under the balance) is locked',
-        (tester) async {
-      await _open(tester, one, balances: open);
-      await tester.enterText(find.widgetWithText(TextField, ''), '500');
+    testWidgets('with a typed amount, even a huge one', (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.widgetWithText(TextField, ''), '123456789');
       await tester.pumpAndSettle();
-      expect(find.text('يتجاوز الرصيد المتاح'), findsOneWidget);
-      await tester.tap(find.text('الجهة المستفيدة'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('المبلغ يتجاوز الرصيد المتاح'), findsWidgets);
-      expect(find.text('الجهات المحفوظة'), findsNothing);
+      expectEqual(boxes(tester));
     });
 
-    testWidgets('an amount within the available opens the beneficiary section',
-        (tester) async {
-      await _open(tester, one, balances: open);
-      await tester.enterText(find.widgetWithText(TextField, ''), '100');
+    testWidgets('amount over the limit keeps the same height', (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.widgetWithText(TextField, ''), '99999');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('الجهة المستفيدة'));
-      await tester.pumpAndSettle();
-      expect(find.text('الجهات المحفوظة'), findsOneWidget);
+      expect(find.text('يتجاوز رصيد الحساب'), findsOneWidget);
+      expectEqual(boxes(tester));
     });
 
-    testWidgets('without server figures it falls back to the plain balance',
+    testWidgets('on a narrow 320 phone', (tester) async {
+      await _open(tester, one, width: 320);
+      expectEqual(boxes(tester));
+    });
+  });
+
+  group('exits are posted at save: no daily close', () {
+    final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
+
+    Transfer row(String id, double amount) => Transfer(
+          id: id,
+          ownerId: 'o',
+          companyId: 'c1',
+          exchangeId: '1',
+          beneficiaryName: 'مستفيد',
+          beneficiaryAccountCompany: null,
+          beneficiaryCode: null,
+          amount: amount,
+          reference: 'R-$id',
+          status: TransferStatus.archived,
+          createdAt: DateTime.now(),
+          archivedAt: DateTime.now(),
+          createdByEmployeeId: null,
+        );
+
+    testWidgets('there is no daily-close button, for the admin', (tester) async {
+      await _open(tester, one);
+      expect(find.textContaining('الإقفال اليومي'), findsNothing);
+      expect(find.textContaining('ترحيل'), findsNothing);
+    });
+
+    testWidgets('…nor for an employee, whatever was stored for them',
+        (tester) async {
+      await _open(
+        tester,
+        one,
+        identity: const EmployeeIdentity(
+          sessionId: 's',
+          subUserId: 'u',
+          parentAdminId: 'a',
+          employeeName: 'رافع',
+          // old stored keys must not bring the button back
+          permissions: ['transfers_create', 'archive_transfers'],
+          branchId: null,
+        ),
+      );
+      expect(find.textContaining('الإقفال اليومي'), findsNothing);
+    });
+
+    testWidgets("the day's list shows today's executed exits", (tester) async {
+      await _open(tester, one, today: [row('1', 100), row('2', 250)]);
+      expect(find.text('خروج منفذ'), findsOneWidget);
+      expect(find.text('(2)'), findsOneWidget, reason: 'count badge');
+    });
+
+    testWidgets('with nothing today the list is empty (a new day starts clean)',
         (tester) async {
       await _open(tester, one);
-      expect(find.text('1,000.00'), findsOneWidget);
-      expect(find.textContaining('حوالات اليوم غير المقفلة'), findsNothing);
+      expect(find.text('(0)'), findsOneWidget, reason: 'count badge');
+    });
+
+    testWidgets('the balance shown follows the account after a save',
+        (tester) async {
+      await _open(tester, one);
+      expect(find.text('2,500.00'), findsOneWidget);
+      // a save moved the balance on the server; the list is refreshed
+      _liveExchanges = [_exchange('1', 'شركة الصرافة', 'X-100', 2200)];
+      ProviderScope.containerOf(tester.element(find.byType(TransfersScreen)))
+          .invalidate(allExchangesProvider);
+      await tester.pumpAndSettle();
+      expect(find.text('2,200.00'), findsOneWidget);
+      expect(find.text('2,500.00'), findsNothing);
+      // …and an exit above the NEW balance is refused
+      await tester.enterText(find.widgetWithText(TextField, ''), '2300');
+      await tester.pumpAndSettle();
+      expect(find.text('يتجاوز رصيد الحساب'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).at(2), '2200');
+      await tester.pumpAndSettle();
+      expect(find.text('يتجاوز رصيد الحساب'), findsNothing);
     });
   });
 }

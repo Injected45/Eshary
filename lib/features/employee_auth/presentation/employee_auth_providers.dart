@@ -34,23 +34,20 @@ final canProvider = Provider.family<bool, String>((ref, key) {
 
 /// Which operation types an employee's screens show: (exits, entries).
 ///
-/// The type follows what the employee is allowed to DO: executing or closing
-/// exits shows exits, executing or closing entries shows entries, both shows
-/// both. The "own / all" permissions (view, closings, account) only widen WHOSE
+/// The type follows what the employee is allowed to DO: executing exits
+/// shows exits, executing entries shows entries, both shows both. The "own / all" permissions (view, closings, account) only widen WHOSE
 /// operations are shown, never which type. An employee holding only an "all"
-/// permission and no execute / close permission (a pure viewer) sees both.
+/// permission and no execute permission (a pure viewer) sees both.
 /// Admins see both. Display only: the database decides what can be read.
 ({bool exits, bool entries}) visibleTypesFor(Iterable<String>? permissions) {
   if (permissions == null) return (exits: true, entries: true); // admin
   final p = permissions.toSet();
-  var exits = p.contains(kPermTransfersCreate) ||
-      p.contains(kPermArchiveTransfers);
-  var entries = p.contains(kPermBuysCreate) || p.contains(kPermArchiveBuys);
+  var exits = p.contains(kPermTransfersCreate);
+  var entries = p.contains(kPermBuysCreate);
   if (!exits && !entries) {
     final viewer = p.contains(kPermViewAll) ||
         p.contains(kPermClosingsAll) ||
-        p.contains(kPermAccountsAll) ||
-        p.contains(kPermArchiveAll);
+        p.contains(kPermAccountsAll);
     if (viewer) {
       exits = true;
       entries = true;

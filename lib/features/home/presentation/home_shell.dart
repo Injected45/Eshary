@@ -181,6 +181,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   icon: const FaIcon(FontAwesomeIcons.arrowsRotate, size: 16),
                   onPressed: () {
                     ref.invalidate(dailyTransfersProvider);
+                    ref.invalidate(todayTransfersProvider);
+                    ref.invalidate(todayBuysProvider);
                     ref.invalidate(archivedTransfersProvider);
                     ref.invalidate(dailyBuysProvider);
                     ref.invalidate(pendingBuysProvider);

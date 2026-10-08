@@ -17,6 +17,18 @@ final dailyBuysProvider = FutureProvider<List<CurrencyBuy>>((ref) async {
       );
 });
 
+/// Entries executed today (posted at save), newest first; see
+/// [todayTransfersProvider].
+final todayBuysProvider = FutureProvider<List<CurrencyBuy>>((ref) async {
+  final employee = ref.watch(currentEmployeeProvider).value;
+  return ref.watch(currencyBuysRepositoryProvider).listToday(
+        createdByEmployeeId:
+            (employee != null && !employee.permissions.contains(kPermViewAll))
+                ? employee.subUserId
+                : null,
+      );
+});
+
 final pendingBuysProvider = FutureProvider<List<CurrencyBuy>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(currencyBuysRepositoryProvider).listByStatus(
@@ -39,21 +51,4 @@ final archivedBuysProvider = FutureProvider<List<CurrencyBuy>>((ref) async {
                 ? employee.subUserId
                 : null,
       );
-});
-
-/// Action: archive all daily currency buys. Server raises if any are pending.
-final archiveBuysActionProvider = Provider<Future<int> Function()>((ref) {
-  return () async {
-    final ownerId = ref.read(currentEmployeeProvider).value?.parentAdminId ??
-        ref.read(currentUserIdProvider);
-    if (ownerId == null) {
-      throw StateError('not signed in');
-    }
-    final count =
-        await ref.read(currencyBuysRepositoryProvider).archiveDaily(ownerId);
-    ref.invalidate(dailyBuysProvider);
-    ref.invalidate(archivedBuysProvider);
-    ref.invalidate(pendingBuysProvider);
-    return count;
-  };
 });

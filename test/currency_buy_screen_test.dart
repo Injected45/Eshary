@@ -84,6 +84,7 @@ Future<void> _open(
         clientsListProvider.overrideWith((ref) async => const <Client>[]),
         dailyBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
         pendingBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
+        todayBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
       ],
       child: MaterialApp(
         theme: buildAppTheme(),
@@ -145,5 +146,11 @@ void main() {
     await tester.tap(find.text('دخول لحسابي'));
     await tester.pumpAndSettle();
     expect(find.text('X-100'), findsOneWidget);
+  });
+
+  testWidgets('no daily-close button on the entry screen', (tester) async {
+    await _open(tester, one);
+    expect(find.textContaining('الإقفال اليومي'), findsNothing);
+    expect(find.textContaining('ترحيل'), findsNothing);
   });
 }
