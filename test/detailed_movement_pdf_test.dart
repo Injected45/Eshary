@@ -8,14 +8,34 @@ import 'package:eshary/features/currency_buy/domain/currency_buy.dart';
 import 'package:eshary/features/transfers/domain/transfer.dart';
 import 'package:eshary/shared/ledger.dart';
 import 'package:eshary/shared/pdf_export.dart';
+import 'package:eshary/shared/period_label.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// "تفاصيل حركة الدخول والخروج للحوالات" is an accountant-style statement:
-/// دخول | خروج | الرصيد, where the balance rises with entries and falls with
-/// exits. Entries are green, exits red. The "إشاري/كود" column holds the
-/// account code for an entry and the reference for an exit.
+/// The period reports (تفاصيل حركة الدخول والخروج, حوالات الدخول, حوالات
+/// الخروج) and the account statement share one look and one way of being built
+/// (lib/shared/pdf_export_period.dart): centred columns, totals once under the
+/// table, "إشاري/كود" where the column holds a code for an entry and a
+/// reference for an exit.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  final src = File('lib/shared/pdf_export_period.dart').readAsStringSync();
+  String between(String from, String to) {
+    final a = src.indexOf(from);
+    if (a < 0) throw StateError('not found: $from');
+    final b = src.indexOf(to, a + from.length);
+    return src.substring(a, b < 0 ? src.length : b);
+  }
+
+  List<String> titlesOf(String code) {
+    final headers = RegExp(r'(?:const )?headers = <String>\[([\s\S]*?)\];')
+        .firstMatch(code)!
+        .group(1)!;
+    return RegExp(r"'([^']+)'")
+        .allMatches(headers)
+        .map((m) => m.group(1)!)
+        .toList();
+  }
 
   group('running balance (دخول / خروج / الرصيد)', () {
     test('the accountant example: دخول 1000, خروج 350 → الرصيد 650', () {
@@ -64,21 +84,11 @@ void main() {
     });
   });
 
-  group('the table', () {
-    final src = File('lib/shared/pdf_export.dart').readAsStringSync();
-    final from = src.indexOf('buildDetailedTransfersReport');
-    final body = src.substring(from);
-
-    final headers = RegExp(r"const headers = <String>\[([\s\S]*?)\];")
-        .firstMatch(body)!
-        .group(1)!;
-    final titles = RegExp(r"'([^']+)'")
-        .allMatches(headers)
-        .map((m) => m.group(1)!)
-        .toList();
+  group('تفاصيل حركة الدخول والخروج', () {
+    final code = between('Future<Uint8List> buildDetailedTransfersReport', 'Future<Uint8List> buildAccountStatement');
 
     test('columns, in order', () {
-      expect(titles, [
+      expect(titlesOf(code), [
         'ت',
         'الوقت',
         'التاريخ',
@@ -101,51 +111,110 @@ void main() {
         'قيمة العملية',
         'الإشاري',
       ]) {
-        expect(titles, isNot(contains(gone)), reason: gone);
+        expect(titlesOf(code), isNot(contains(gone)), reason: gone);
       }
     });
 
-    test('there is one width for every column', () {
-      final widths = RegExp(
-        r"columnWidths: const \{([\s\S]*?)\},\s*children: tableChildren",
-      ).firstMatch(body.substring(body.indexOf('Reversed indices: 0 = leftmost (الرصيد)')))!.group(1)!;
-      expect(RegExp('FlexColumnWidth').allMatches(widths).length, titles.length);
+    test('one width for every column', () {
+      final widths = RegExp(r'const widths = <double>\[([^\]]*)\]')
+          .firstMatch(code)!
+          .group(1)!
+          .split(',')
+          .where((w) => w.trim().isNotEmpty);
+      expect(widths.length, titlesOf(code).length);
     });
 
-    test('the summary reads إجمالي الدخول | إجمالي الخروج | الرصيد', () {
-      expect(body, contains("'إجمالي الدخول'"));
-      expect(body, contains("'إجمالي الخروج'"));
-      expect(body, isNot(contains("'فرق الحركة'")));
-      expect(body, isNot(contains("'الرصيد قبل'")));
-      expect(body, isNot(contains("'الرصيد بعد'")));
-    });
-
-    test('every column and its data are centred', () {
-      final report = body.substring(0, body.indexOf('Future<Uint8List> build', 20));
-      expect(report, contains('const rightAlignedCols = <int>{};'));
-    });
-
-    test('the totals appear once, under the table (not repeated above it)', () {
-      final report = body.substring(0, body.indexOf('Future<Uint8List> build', 20));
-      expect(RegExp("'إجمالي الدخول'").allMatches(report).length, 1);
-      expect(report, isNot(contains('topSummaryRow')));
-      // the one summary row comes after the table in the page body
-      final table = report.lastIndexOf('tableWidget,');
-      final summary = report.lastIndexOf('summaryRow,');
-      expect(table, greaterThan(0));
-      expect(summary, greaterThan(table));
-    });
-
-    test('the account statement PDF shows its totals once, under the table', () {
-      final st = src.substring(src.indexOf('Future<Uint8List> buildAccountStatement'));
-      final stmt = st.substring(0, st.indexOf('Landscape "سجل الحوالات اليومية"'));
-      // calls only (the definition reads "Widget summary() =>")
-      expect(RegExp('(?<!Widget )summary\\(\\)').allMatches(stmt).length, 1);
-      expect(stmt.indexOf('pw.Table('), lessThan(stmt.lastIndexOf('summary()')));
+    test('the totals appear once, under the table', () {
+      expect(RegExp("'إجمالي الدخول'").allMatches(code).length, 1);
+      expect(RegExp("'إجمالي الخروج'").allMatches(code).length, 1);
+      expect(code, isNot(contains("'فرق الحركة'")));
+      expect(code.indexOf('_reportTable('), lessThan(code.indexOf('_statRow(')));
+      expect(RegExp('_statRow\\(').allMatches(code).length, 1);
     });
   });
 
-  group('the report builds', () {
+  group('حوالات الدخول إلى حساباتي / حوالات الخروج من حساباتي', () {
+    // _buildKindReport is the last method of the extension
+    final kind = src.substring(src.indexOf('Future<Uint8List> _buildKindReport'));
+
+    test('كود الحساب comes before حساباتي, and إشاري after it', () {
+      final t = titlesOf(kind);
+      expect(t, [
+        'ت',
+        'الوقت',
+        'التاريخ',
+        'كود الحساب',
+        'حساباتي',
+        'إشاري',
+        'الجهة',
+        'القيمة',
+      ]);
+      expect(t.indexOf('كود الحساب'), lessThan(t.indexOf('إشاري')));
+    });
+
+    test('same mechanism as the movement report', () {
+      for (final piece in [
+        '_periodHeader(',
+        '_identityStrip(',
+        '_reportTable(',
+        '_statRow(',
+        '_addReportPages(',
+      ]) {
+        expect(kind, contains(piece), reason: piece);
+      }
+    });
+
+    test('both reports go through it and take the employee name', () {
+      final income = between('Future<Uint8List> buildIncomeDetailsReport', 'Future<Uint8List> buildOutgoingDetailsReport');
+      final outgoing = between('Future<Uint8List> buildOutgoingDetailsReport', 'Future<Uint8List> _buildKindReport');
+      for (final c in [income, outgoing]) {
+        expect(c, contains('_buildKindReport('));
+        expect(c, contains('String? employeeName'));
+      }
+    });
+  });
+
+  group('shared look', () {
+    test('every column and its data are centred (no right-aligned cells)', () {
+      expect(src, isNot(contains('rightAlign')));
+      expect(src, contains('alignment: pw.Alignment.center'));
+    });
+
+    test('a cell is never clipped (a clipped cell lost its last letter)', () {
+      final cell = between('pw.Widget _reportCell(', 'pw.Widget _reportTable(');
+      expect(cell, isNot(contains('TextOverflow.clip')));
+      expect(cell, isNot(contains('maxLines')));
+    });
+
+    test('the period reads "من … إلى …", never an arrow', () {
+      expect(periodLabel(DateTime(2026, 10, 8), DateTime(2026, 10, 8)), '2026/10/08');
+      expect(periodLabel(DateTime(2026, 10, 8), DateTime(2026, 10, 10)),
+          'من 2026/10/08 إلى 2026/10/10');
+      for (final f in ['lib/shared/pdf_export.dart', 'lib/shared/pdf_export_period.dart', 'lib/shared/period_label.dart']) {
+        expect(File(f).readAsStringSync(), isNot(contains('→ \${')), reason: f);
+      }
+    });
+  });
+
+  group('the PDF sources have no raw template text', () {
+    // `\${` inside a Dart string prints the code itself ("${formatMoney(x)}")
+    // instead of the number.
+    for (final f in [
+      'lib/shared/pdf_export.dart',
+      'lib/shared/pdf_export_period.dart',
+    ]) {
+      test(f, () {
+        final lines = File(f).readAsLinesSync();
+        final bad = <String>[];
+        for (var i = 0; i < lines.length; i++) {
+          if (lines[i].contains(r'\${')) bad.add('${i + 1}: ${lines[i].trim()}');
+        }
+        expect(bad, isEmpty, reason: bad.join('\n'));
+      });
+    }
+  });
+
+  group('the reports build', () {
     final t0 = DateTime(2026, 10, 8, 12);
     final company = Company(
       id: 'c1',
@@ -166,7 +235,7 @@ void main() {
     final client = Client(
       id: 'k1',
       ownerId: 'o',
-      name: 'عميل',
+      name: 'رافع المهدي',
       company: 'شركة العميل',
       code: 'K-7',
       createdAt: t0,
@@ -213,6 +282,7 @@ void main() {
         clientById: {'k1': client},
         start: DateTime(2026, 10, 8),
         end: DateTime(2026, 10, 8, 23, 59),
+        employeeName: 'رافع المهدي',
       );
       expect(bytes.length, greaterThan(2000));
       expect(String.fromCharCodes(bytes.take(5)), '%PDF-');

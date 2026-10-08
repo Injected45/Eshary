@@ -9,6 +9,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/period_label.dart';
 import '../../archive/presentation/archive_filters.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../sub_users/domain/sub_user.dart';
@@ -69,12 +70,6 @@ class _AccountStatementScreenState
     if (picked != null) setState(() => _to = picked);
   }
 
-  String _rangeLabel(({DateTime start, DateTime end}) r) {
-    final a = _dateFmt.format(r.start);
-    final b = _dateFmt.format(r.end);
-    return a == b ? a : '$a → $b';
-  }
-
   String _scopeLabel(Map<String, SubUser> employees) {
     switch (_scope) {
       case StatementScope.all:
@@ -126,7 +121,7 @@ class _AccountStatementScreenState
         outgoingTotal: statement.totalOutgoing,
         scopeLabel: _scopeLabel(employees),
         accountLabel: accountLabel,
-        rangeLabel: _rangeLabel(range),
+        rangeLabel: periodLabel(range.start, range.end),
         showWho: _scope == StatementScope.all,
         exportedBy: exportedBy,
         notificationText: notif,

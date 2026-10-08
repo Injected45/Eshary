@@ -16,6 +16,7 @@ import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
@@ -306,6 +307,8 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           title: _title,
           exportedBy: exportedBy,
           notificationText: notif,
+          employeeName:
+              ref.read(currentEmployeeProvider).value?.employeeName,
         );
         await PdfExport.sharePdf(bytes, 'income_details.pdf');
         return;
@@ -352,6 +355,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         end: end,
         exportedBy: exportedBy,
         notificationText: notif,
+        employeeName: ref.read(currentEmployeeProvider).value?.employeeName,
       );
       await PdfExport.sharePdf(bytes, 'outgoing_details.pdf');
     } catch (e, st) {
