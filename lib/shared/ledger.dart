@@ -4,8 +4,12 @@ typedef LedgerLine = ({double? income, double? outgoing, double balance});
 /// Turns the operations, oldest first, into statement lines: an entry fills
 /// the دخول column, an exit the خروج column, and الرصيد is the running total
 /// (entries add, exits subtract), e.g. دخول 1000, خروج 350 → الرصيد 650.
-List<LedgerLine> ledgerOf(List<({bool isIncome, double amount})> ops) {
-  var balance = 0.0;
+/// [opening] is the balance before the first line (رصيد افتتاحي, default 0).
+List<LedgerLine> ledgerOf(
+  List<({bool isIncome, double amount})> ops, {
+  double opening = 0,
+}) {
+  var balance = opening;
   final lines = <LedgerLine>[];
   for (final op in ops) {
     balance += op.isIncome ? op.amount : -op.amount;

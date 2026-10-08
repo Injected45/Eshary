@@ -119,6 +119,7 @@ class _AccountStatementScreenState
         ],
         incomeTotal: statement.totalIncome,
         outgoingTotal: statement.totalOutgoing,
+        openingBalance: statement.openingBalance,
         scopeLabel: _scopeLabel(employees),
         accountLabel: accountLabel,
         rangeLabel: periodLabel(range.start, range.end),
@@ -167,6 +168,23 @@ class _AccountStatementScreenState
     AccountStatement? statement;
     final data = dataAsync.valueOrNull;
     if (data != null) {
+      // رصيد افتتاحي: what the account(s) held when the period began, so the
+      // closing balance matches the real balance. Only for the whole treasury
+      // (الكل): a person's operations have no opening balance of their own.
+      var opening = 0.0;
+      if (_scope == StatementScope.all && exchanges.isNotEmpty) {
+        final current = exchanges
+            .where((e) => _exchangeId == null || e.id == _exchangeId)
+            .fold<double>(0, (sum, e) => sum + e.balance);
+        opening = openingBalanceAt(
+          currentBalance: current,
+          buys: data.buys,
+          transfers: data.transfers,
+          start: r.start,
+          exchangeId: _exchangeId,
+        );
+        if (opening.abs() < 0.005) opening = 0;
+      }
       statement = buildAccountStatement(
         buys: data.buys,
         transfers: data.transfers,
@@ -175,6 +193,7 @@ class _AccountStatementScreenState
         scope: _scope,
         employeeId: _employeeId,
         exchangeId: _exchangeId,
+        openingBalance: opening,
       );
     }
 
@@ -364,8 +383,20 @@ class _Totals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final balance = statement.balance;
+    final opening = statement.openingBalance;
     return Row(
       children: [
+        if (opening != 0) ...[
+          Expanded(
+            child: _Tile(
+              label: 'رصيد افتتاحي',
+              value:
+                  '${opening >= 0 ? '' : '-'}\$${formatMoney(opening.abs())}',
+              color: AppColors.textMid,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         Expanded(
           child: _Tile(
             label: 'إجمالي الدخول',
@@ -507,6 +538,36 @@ class _StatementTable extends StatelessWidget {
             ],
           ),
           const Divider(color: AppColors.glassBorder, height: 14),
+          if (statement.openingBalance != 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Expanded(
+                    flex: 2,
+                    child: Text(
+                      'رصيد افتتاحي',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textMid,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  money(null, AppColors.positive),
+                  money(null, AppColors.negative),
+                  money(
+                    statement.openingBalance,
+                    AppColors.textMid,
+                    bold: true,
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: AppColors.glassBorder, height: 1),
+          ],
           for (final e in statement.entries) ...[
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),

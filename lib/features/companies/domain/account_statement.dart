@@ -49,14 +49,20 @@ class AccountStatement {
     required this.entries,
     required this.totalIncome,
     required this.totalOutgoing,
+    this.openingBalance = 0,
   });
 
   final List<StatementEntry> entries;
   final double totalIncome;
   final double totalOutgoing;
 
-  /// الرصيد: total entries minus total exits.
-  double get balance => totalIncome - totalOutgoing;
+  /// رصيد افتتاحي: what the account held when the period began. The running
+  /// balance of the lines starts from it.
+  final double openingBalance;
+
+  /// الرصيد: the opening balance plus the entries minus the exits. For the
+  /// whole treasury up to now this is the accounts' real balance.
+  double get balance => openingBalance + totalIncome - totalOutgoing;
 
   bool get isEmpty => entries.isEmpty;
 }
@@ -66,7 +72,8 @@ class AccountStatement {
 /// [start]..[end] bound the period (by the posting time). [scope] picks whose
 /// operations to count; with [StatementScope.employee], [employeeId] names the
 /// employee. [exchangeId] limits it to one account (null = all accounts).
-/// The balance starts at zero at the beginning of the period.
+/// The balance starts at [openingBalance] (default 0) at the beginning of the
+/// period; see [openingBalanceAt] to compute it.
 AccountStatement buildAccountStatement({
   required List<CurrencyBuy> buys,
   required List<Transfer> transfers,
@@ -75,6 +82,7 @@ AccountStatement buildAccountStatement({
   StatementScope scope = StatementScope.all,
   String? employeeId,
   String? exchangeId,
+  double openingBalance = 0,
 }) {
   bool wanted(String? by, String exchange, DateTime at) {
     if (at.isBefore(start) || at.isAfter(end)) return false;
@@ -124,7 +132,7 @@ AccountStatement buildAccountStatement({
 
   final lines = ledgerOf([
     for (final o in ops) (isIncome: o.isIncome, amount: o.amount),
-  ]);
+  ], opening: openingBalance);
 
   var income = 0.0;
   var outgoing = 0.0;
@@ -150,5 +158,34 @@ AccountStatement buildAccountStatement({
     ],
     totalIncome: income,
     totalOutgoing: outgoing,
+    openingBalance: openingBalance,
   );
+}
+
+/// The balance the account(s) held at [start]: the real balance now
+/// ([currentBalance], the sum of the accounts' balances) minus everything
+/// posted since [start], whoever did it. Pass the operations from [start] up to
+/// now, not only those inside the period. [exchangeId] limits both the
+/// operations to one account (pass that account's balance as [currentBalance]).
+double openingBalanceAt({
+  required double currentBalance,
+  required List<CurrencyBuy> buys,
+  required List<Transfer> transfers,
+  required DateTime start,
+  String? exchangeId,
+}) {
+  var net = 0.0;
+  for (final b in buys) {
+    final at = b.archivedAt ?? b.createdAt;
+    if (at.isBefore(start)) continue;
+    if (exchangeId != null && b.exchangeId != exchangeId) continue;
+    net += b.usdAmount;
+  }
+  for (final t in transfers) {
+    final at = t.archivedAt ?? t.createdAt;
+    if (at.isBefore(start)) continue;
+    if (exchangeId != null && t.exchangeId != exchangeId) continue;
+    net -= t.amount;
+  }
+  return currentBalance - net;
 }

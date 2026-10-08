@@ -553,6 +553,7 @@ extension PeriodReports on PdfExport {
         rows,
     required double incomeTotal,
     required double outgoingTotal,
+    double openingBalance = 0,
     required String scopeLabel,
     required String accountLabel,
     required String rangeLabel,
@@ -603,7 +604,9 @@ extension PeriodReports on PdfExport {
     final outgoingColumn = headers.indexOf('خروج');
     final balanceColumn = headers.indexOf('الرصيد');
 
-    final balance = incomeTotal - outgoingTotal;
+    // رصيد افتتاحي: a first row and a first tile, when there is one.
+    final showOpening = openingBalance != 0;
+    final balance = openingBalance + incomeTotal - outgoingTotal;
 
     _addReportPages(
       doc,
@@ -619,6 +622,16 @@ extension PeriodReports on PdfExport {
           headers: headers,
           widths: widths,
           rows: [
+            if (showOpening)
+              [
+                '',
+                '',
+                '',
+                if (showWho) 'رصيد افتتاحي',
+                '',
+                '',
+                formatMoney(openingBalance),
+              ],
             for (var i = 0; i < rows.length; i++)
               [
                 '${i + 1}',
@@ -631,18 +644,26 @@ extension PeriodReports on PdfExport {
               ],
           ],
           colorOf: (row, column) {
+            if (showOpening && row == 0) {
+              return column == balanceColumn ? PdfColors.grey800 : null;
+            }
+            final line = rows[showOpening ? row - 1 : row];
             if (column == incomeColumn) return PdfColors.green800;
             if (column == outgoingColumn) return PdfColors.red800;
             if (column == balanceColumn) {
-              return rows[row].balance >= 0
-                  ? PdfColors.green800
-                  : PdfColors.red800;
+              return line.balance >= 0 ? PdfColors.green800 : PdfColors.red800;
             }
             return null;
           },
         ),
         pw.SizedBox(height: 12),
         _statRow([
+          if (showOpening)
+            _statTile(
+              'رصيد افتتاحي',
+              '${openingBalance >= 0 ? '' : '-'}\$${formatMoney(openingBalance.abs())}',
+              PdfColors.grey800,
+            ),
           _statTile(
             'إجمالي الدخول',
             '+\$${formatMoney(incomeTotal)}',

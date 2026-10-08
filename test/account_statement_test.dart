@@ -190,6 +190,103 @@ void main() {
     });
   });
 
+  group('رصيد افتتاحي (the opening balance)', () {
+    // the account holds 1000 now; since the period began: +200, then −50
+    final buys = [
+      _buy('o0', 999, _at(8)), // before the period: already in the balance
+      _buy('o1', 200, _at(10)),
+    ];
+    final transfers = [_out('o2', 50, _at(11))];
+    final start = _at(9);
+
+    test('= the real balance now − everything posted since the start', () {
+      final opening = openingBalanceAt(
+        currentBalance: 1000,
+        buys: buys,
+        transfers: transfers,
+        start: start,
+      );
+      expect(opening, 1000 - 200 + 50); // 850
+    });
+
+    test('the lines start from it and the closing balance matches the account', () {
+      final opening = openingBalanceAt(
+        currentBalance: 1000,
+        buys: buys,
+        transfers: transfers,
+        start: start,
+      );
+      final s = buildAccountStatement(
+        buys: buys,
+        transfers: transfers,
+        start: start,
+        end: DateTime(2026, 10, 8, 23, 59),
+        openingBalance: opening,
+      );
+      expect(s.openingBalance, 850);
+      expect(s.entries.map((e) => e.balance), [1050, 1000]);
+      expect(s.balance, 1000, reason: 'الرصيد = رصيد الحساب');
+    });
+
+    test('the case reported: an opening balance of 3 closes the gap of 3', () {
+      // operations: +1000, −350 → 650; the account really holds 653
+      final b = [_buy('a', 1000, _at(9))];
+      final t = [_out('b', 350, _at(10))];
+      final without = buildAccountStatement(
+        buys: b,
+        transfers: t,
+        start: _day,
+        end: DateTime(2026, 10, 8, 23, 59),
+      );
+      expect(without.balance, 650); // 3 short of the account
+      final opening = openingBalanceAt(
+        currentBalance: 653,
+        buys: b,
+        transfers: t,
+        start: _day,
+      );
+      expect(opening, 3);
+      final withOpening = buildAccountStatement(
+        buys: b,
+        transfers: t,
+        start: _day,
+        end: DateTime(2026, 10, 8, 23, 59),
+        openingBalance: opening,
+      );
+      expect(withOpening.balance, 653);
+    });
+
+    test('operations AFTER the period end are still rolled back', () {
+      // period = 9:00–10:30; a later exit of 50 (11:00) is already in the balance
+      final opening = openingBalanceAt(
+        currentBalance: 1000,
+        buys: buys,
+        transfers: transfers,
+        start: start,
+      );
+      final s = buildAccountStatement(
+        buys: buys,
+        transfers: transfers,
+        start: start,
+        end: _at(10, 30),
+        openingBalance: opening,
+      );
+      expect(s.entries.length, 1); // only the +200 is inside
+      expect(s.balance, 1050); // the balance at 10:30
+    });
+
+    test('one account only', () {
+      final opening = openingBalanceAt(
+        currentBalance: 400, // that account's balance
+        buys: [_buy('x', 100, _at(10), exchange: 'e2'), _buy('y', 500, _at(10))],
+        transfers: const [],
+        start: start,
+        exchangeId: 'e2',
+      );
+      expect(opening, 300);
+    });
+  });
+
   // ------------------------------------------------------------- the screen
   group('the screen', () {
     final t0 = DateTime(2026, 1, 1);
@@ -200,11 +297,13 @@ void main() {
       startRef: 'A1',
       createdAt: t0,
     );
-    Exchange exchange(String id, String name) => Exchange(
+    // the accounts hold 700 + 78 = 778 while the day's operations net 775:
+    // an opening balance of 3
+    Exchange exchange(String id, String name, double balance) => Exchange(
           id: id,
           companyId: 'c1',
           name: name,
-          balance: 100,
+          balance: balance,
           ourCode: 'X',
           country: null,
           createdAt: t0,
@@ -262,7 +361,10 @@ void main() {
               (ref) async => [employee('sami', 'سامي'), employee('omar', 'عمر')],
             ),
             allExchangesProvider.overrideWith(
-              (ref) async => [exchange('e1', 'صرافة أ'), exchange('e2', 'صرافة ب')],
+              (ref) async => [
+                exchange('e1', 'صرافة أ', 700),
+                exchange('e2', 'صرافة ب', 78),
+              ],
             ),
             companiesListProvider.overrideWith((ref) async => [company]),
           ],
@@ -287,7 +389,18 @@ void main() {
       expect(find.text('الرصيد'), findsWidgets);
       expect(find.text('+\$1,200.00'), findsOneWidget, reason: 'إجمالي الدخول');
       expect(find.text('-\$425.00'), findsOneWidget, reason: 'إجمالي الخروج');
-      expect(find.text('\$775.00'), findsOneWidget, reason: 'الرصيد');
+      expect(find.text('\$778.00'), findsOneWidget, reason: 'الرصيد = رصيد الحسابات');
+      expect(find.text('\$3.00'), findsOneWidget, reason: 'رصيد افتتاحي: tile');
+      expect(find.text('3.00'), findsOneWidget, reason: 'رصيد افتتاحي: first row');
+      expect(find.text('رصيد افتتاحي'), findsNWidgets(2));
+    });
+
+    testWidgets('a person\'s statement has no opening balance of its own',
+        (tester) async {
+      await open(tester);
+      await tester.tap(find.text('أنا'));
+      await tester.pumpAndSettle();
+      expect(find.text('رصيد افتتاحي'), findsNothing);
     });
 
     testWidgets('أنا: only the admin\'s operations', (tester) async {

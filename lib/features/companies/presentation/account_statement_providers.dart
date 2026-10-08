@@ -9,15 +9,19 @@ import '../../transfers/domain/transfer.dart';
 /// Everything posted in a period, for the account statement.
 typedef StatementData = ({List<Transfer> transfers, List<CurrencyBuy> buys});
 
-/// Posted exits and entries in [range], oldest first. The statement screen
-/// filters them further (whose, which account) without asking the server again.
+/// Posted exits and entries from the start of [range] up to now (or to the
+/// end of the range, if later), oldest first. The screen shows the part inside
+/// the range and uses the rest to work out the opening balance; it filters by
+/// person and account without asking the server again.
 final statementDataProvider = FutureProvider.autoDispose
     .family<StatementData, DateTimeRange>((ref, range) async {
+  final now = DateTime.now();
+  final until = range.end.isAfter(now) ? range.end : now;
   final transfers = await ref
       .watch(transfersRepositoryProvider)
-      .listArchivedBetween(range.start, range.end);
+      .listArchivedBetween(range.start, until);
   final buys = await ref
       .watch(currencyBuysRepositoryProvider)
-      .listArchivedBetween(range.start, range.end);
+      .listArchivedBetween(range.start, until);
   return (transfers: transfers, buys: buys);
 });

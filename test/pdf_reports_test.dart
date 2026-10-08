@@ -188,6 +188,7 @@ void main() {
         ],
         incomeTotal: 1000,
         outgoingTotal: 350,
+        openingBalance: 3,
         scopeLabel: 'الكل',
         accountLabel: 'كل الحسابات',
         rangeLabel: '2026/10/08',
