@@ -6,6 +6,7 @@ import 'package:eshary/features/companies/domain/company.dart';
 import 'package:eshary/features/companies/domain/exchange.dart';
 import 'package:eshary/features/currency_buy/domain/currency_buy.dart';
 import 'package:eshary/features/transfers/domain/transfer.dart';
+import 'package:eshary/shared/ledger.dart';
 import 'package:eshary/shared/pdf_export.dart';
 import 'package:flutter_test/flutter_test.dart';
 

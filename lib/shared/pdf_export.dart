@@ -12,31 +12,12 @@ import '../features/companies/domain/exchange.dart';
 import '../features/currency_buy/domain/currency_buy.dart';
 import '../features/transfers/domain/transfer.dart';
 import 'formatters.dart';
+import 'ledger.dart';
 
 /// The LAST line of every printed page: when the report was exported and by
 /// whom. Used as the `MultiPage` footer (the pdf package paints it on the
 /// page's bottom margin, so it sits at the very bottom whether the page is
 /// full or nearly empty) and at the foot of the single-page layouts.
-/// One line of the accountant-style statement.
-typedef LedgerLine = ({double? income, double? outgoing, double balance});
-
-/// Turns the operations, oldest first, into statement lines: an entry fills
-/// the دخول column, an exit the خروج column, and الرصيد is the running total
-/// (entries add, exits subtract), e.g. دخول 1000, خروج 350 → الرصيد 650.
-List<LedgerLine> ledgerOf(List<({bool isIncome, double amount})> ops) {
-  var balance = 0.0;
-  final lines = <LedgerLine>[];
-  for (final op in ops) {
-    balance += op.isIncome ? op.amount : -op.amount;
-    lines.add((
-      income: op.isIncome ? op.amount : null,
-      outgoing: op.isIncome ? null : op.amount,
-      balance: balance,
-    ));
-  }
-  return lines;
-}
-
 pw.Widget _exportFooter({required DateTime at, String? by}) {
   final name = (by ?? '').trim().isEmpty ? 'admin' : by!.trim();
   final when = DateFormat('yyyy-MM-dd | hh:mm a').format(at);
@@ -181,6 +162,272 @@ class PdfExport {
               cellAlignment: pw.Alignment.centerRight,
               cellPadding: const pw.EdgeInsets.all(4),
             ),
+        ],
+      ),
+    );
+
+    return doc.save();
+  }
+
+  /// "كشف حساب" — the short statement: دخول | خروج | الرصيد (running).
+  /// Portrait A4. [rows] are oldest first; [showWho] adds a column naming who
+  /// did each operation (useful when the statement covers everyone).
+  Future<Uint8List> buildAccountStatement({
+    required List<
+            ({
+              DateTime at,
+              String who,
+              double? income,
+              double? outgoing,
+              double balance,
+            })>
+        rows,
+    required double incomeTotal,
+    required double outgoingTotal,
+    required String scopeLabel,
+    required String accountLabel,
+    required String rangeLabel,
+    required bool showWho,
+    String? exportedBy,
+    String? notificationText,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final dayFmt = DateFormat('yyyy/MM/dd');
+    final timeFmt = DateFormat('hh:mm a');
+    final exportedAtTime = DateTime.now();
+
+    Uint8List? logoBytes;
+    try {
+      final data = await rootBundle.load('assets/images/app_icon.png');
+      logoBytes = data.buffer.asUint8List();
+    } catch (_) {
+      logoBytes = null;
+    }
+    final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+
+    // Logical order (right→left as the user reads).
+    final headers = <String>[
+      'ت',
+      'التاريخ',
+      'الوقت',
+      if (showWho) 'المنفِّذ',
+      'دخول',
+      'خروج',
+      'الرصيد',
+    ];
+    final widths = <double>[
+      0.5,
+      1.3,
+      1.1,
+      if (showWho) 1.6,
+      1.4,
+      1.4,
+      1.5,
+    ];
+
+    pw.Widget cell(String text, {required bool header, PdfColor? color}) =>
+        pw.Container(
+          padding: pw.EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: header ? 6 : 4,
+          ),
+          alignment: pw.Alignment.center,
+          child: pw.Text(
+            text,
+            style: pw.TextStyle(
+              fontSize: header ? 10 : 9,
+              fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: color,
+            ),
+            textDirection: pw.TextDirection.rtl,
+            textAlign: pw.TextAlign.center,
+            maxLines: 2,
+            overflow: pw.TextOverflow.clip,
+          ),
+        );
+
+    final incomeIndex = headers.indexOf('دخول');
+    final outgoingIndex = headers.indexOf('خروج');
+    final balanceIndex = headers.indexOf('الرصيد');
+
+    final tableRows = <pw.TableRow>[
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF1F2F4)),
+        children: [
+          for (final h in headers.reversed) cell(h, header: true),
+        ],
+      ),
+      for (var i = 0; i < rows.length; i++)
+        pw.TableRow(
+          decoration: i.isOdd
+              ? const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFAFAFB))
+              : null,
+          children: () {
+            final r = rows[i];
+            final cells = <String>[
+              '${i + 1}',
+              dayFmt.format(r.at),
+              timeFmt.format(r.at),
+              if (showWho) r.who,
+              r.income == null ? '' : formatMoney(r.income!),
+              r.outgoing == null ? '' : formatMoney(r.outgoing!),
+              formatMoney(r.balance),
+            ];
+            PdfColor? colorOf(int index) {
+              if (index == incomeIndex) return PdfColors.green800;
+              if (index == outgoingIndex) return PdfColors.red800;
+              if (index == balanceIndex) {
+                return r.balance >= 0 ? PdfColors.green800 : PdfColors.red800;
+              }
+              return null;
+            }
+
+            return [
+              for (var j = cells.length - 1; j >= 0; j--)
+                cell(cells[j], header: false, color: colorOf(j)),
+            ];
+          }(),
+        ),
+    ];
+
+    final balance = incomeTotal - outgoingTotal;
+    final balanceColor = balance >= 0 ? PdfColors.green800 : PdfColors.red800;
+
+    pw.Widget tile(String label, String value, PdfColor color) => pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFFF7F8FA),
+            borderRadius: pw.BorderRadius.circular(4),
+            border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+          ),
+          child: pw.Column(
+            children: [
+              pw.Text(
+                label,
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                textDirection: pw.TextDirection.rtl,
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                value,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: color,
+                ),
+                textDirection: pw.TextDirection.rtl,
+              ),
+            ],
+          ),
+        );
+
+    // RTL: the first tile is the rightmost.
+    pw.Widget summary() => pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: tile(
+              'إجمالي الدخول',
+              '+\${formatMoney(incomeTotal)}',
+              PdfColors.green800,
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: tile(
+              'إجمالي الخروج',
+              '-\${formatMoney(outgoingTotal)}',
+              PdfColors.red800,
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            child: tile(
+              'الرصيد',
+              '${balance >= 0 ? '' : '-'}\${formatMoney(balance.abs())}',
+              balanceColor,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    pw.Widget infoLine(String text) => pw.Text(
+          text,
+          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+          textDirection: pw.TextDirection.rtl,
+        );
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        theme: _theme,
+        textDirection: pw.TextDirection.rtl,
+        header: (_) => pw.SizedBox(height: 0),
+        footer: (ctx) => _exportFooter(at: exportedAtTime, by: exportedBy),
+        build: (context) => [
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (logoImage != null)
+                pw.Container(
+                  height: 44,
+                  width: 44,
+                  margin: const pw.EdgeInsets.only(left: 8),
+                  child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                ),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    pw.Text(
+                      'كشف حساب',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                    pw.SizedBox(height: 6),
+                    infoLine('الفترة: $rangeLabel'),
+                    infoLine('الكشف: $scopeLabel    |    الحساب: $accountLabel'),
+                  ],
+                ),
+              ),
+              if (notificationText != null &&
+                  notificationText.trim().isNotEmpty)
+                _notificationBox(notificationText.trim()),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          summary(),
+          pw.SizedBox(height: 10),
+          if (rows.isEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 40),
+              child: pw.Center(
+                child: pw.Text(
+                  'لا توجد عمليات في هذه الفترة',
+                  style: const pw.TextStyle(
+                    fontSize: 13,
+                    color: PdfColors.grey600,
+                  ),
+                  textDirection: pw.TextDirection.rtl,
+                ),
+              ),
+            )
+          else
+            pw.Table(
+              border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.4),
+              columnWidths: {
+                for (var j = 0; j < widths.length; j++)
+                  j: pw.FlexColumnWidth(widths.reversed.toList()[j]),
+              },
+              children: tableRows,
+            ),
+          if (rows.isNotEmpty) ...[pw.SizedBox(height: 10), summary()],
         ],
       ),
     );

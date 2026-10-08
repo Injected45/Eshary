@@ -75,6 +75,32 @@ class TransfersRepository {
     }
   }
 
+  /// Every posted exit in [start]..[end] (by posting time), oldest first, for
+  /// a statement. Fetched page by page: one request returns at most 1000 rows,
+  /// and a statement must not be cut short silently.
+  Future<List<Transfer>> listArchivedBetween(
+    DateTime start,
+    DateTime end,
+  ) async {
+    const page = 1000;
+    final out = <Transfer>[];
+    for (var from = 0;; from += page) {
+      final rows = await _client
+          .from('transfers')
+          .select()
+          .eq('status', transferStatusToDb(TransferStatus.archived))
+          .gte('archived_at', start.toUtc().toIso8601String())
+          .lte('archived_at', end.toUtc().toIso8601String())
+          .order('archived_at', ascending: true)
+          .order('id')
+          .range(from, from + page - 1);
+      final list = (rows as List).cast<Map<String, dynamic>>();
+      out.addAll(list.map(Transfer.fromJson));
+      if (list.length < page) break;
+    }
+    return out;
+  }
+
   Future<Transfer> create({
     required String companyId,
     required String exchangeId,

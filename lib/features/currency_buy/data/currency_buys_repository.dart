@@ -73,6 +73,31 @@ class CurrencyBuysRepository {
     }
   }
 
+  /// Every posted entry in [start]..[end] (by posting time), oldest first,
+  /// for a statement; fetched page by page (see the exits repository).
+  Future<List<CurrencyBuy>> listArchivedBetween(
+    DateTime start,
+    DateTime end,
+  ) async {
+    const page = 1000;
+    final out = <CurrencyBuy>[];
+    for (var from = 0;; from += page) {
+      final rows = await _client
+          .from('currency_buys')
+          .select()
+          .eq('status', currencyBuyStatusToDb(CurrencyBuyStatus.archived))
+          .gte('archived_at', start.toUtc().toIso8601String())
+          .lte('archived_at', end.toUtc().toIso8601String())
+          .order('archived_at', ascending: true)
+          .order('id')
+          .range(from, from + page - 1);
+      final list = (rows as List).cast<Map<String, dynamic>>();
+      out.addAll(list.map(CurrencyBuy.fromJson));
+      if (list.length < page) break;
+    }
+    return out;
+  }
+
   Future<CurrencyBuy> createDaily({
     required String myCompanyId,
     required String exchangeId,

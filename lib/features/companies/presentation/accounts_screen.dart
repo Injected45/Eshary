@@ -12,6 +12,7 @@ import '../../transfers/presentation/transfers_providers.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import 'account_statement_screen.dart';
 import 'companies_providers.dart';
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -121,21 +122,38 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: OutlinedButton.icon(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('قريبًا')),
+        Row(
+          children: [
+            // The statement shows every employee's operations: admin only.
+            if (!ref.watch(isEmployeeProvider))
+              FilledButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AccountStatementScreen(),
+                  ),
+                ),
+                icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
+                label: const Text('كشف حساب'),
+                style: FilledButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+              ),
+            const Spacer(),
+            OutlinedButton.icon(
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('قريبًا')),
+              ),
+              icon: const FaIcon(FontAwesomeIcons.filter, size: 12),
+              label: const Text('تصفية'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textHigh,
+                side: BorderSide(color: AppColors.glassBorder),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
             ),
-            icon: const FaIcon(FontAwesomeIcons.filter, size: 12),
-            label: const Text('تصفية'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textHigh,
-              side: BorderSide(color: AppColors.glassBorder),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
+          ],
         ),
         const SizedBox(height: 12),
         _TotalBalanceCard(

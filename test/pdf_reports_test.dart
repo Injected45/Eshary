@@ -175,6 +175,25 @@ void main() {
         end: end,
         exportedBy: 'المدير',
       ),
+      'account statement': await pdf.buildAccountStatement(
+        rows: [
+          for (var i = 0; i < n; i++)
+            (
+              at: t0.add(Duration(minutes: i)),
+              who: i.isEven ? 'المدير' : 'سامي',
+              income: i.isEven ? 100.0 + i : null,
+              outgoing: i.isEven ? null : 40.0 + i,
+              balance: 100.0 + i,
+            ),
+        ],
+        incomeTotal: 1000,
+        outgoingTotal: 350,
+        scopeLabel: 'الكل',
+        accountLabel: 'كل الحسابات',
+        rangeLabel: '2026/10/08',
+        showWho: true,
+        exportedBy: 'المدير',
+      ),
     };
   }
 
