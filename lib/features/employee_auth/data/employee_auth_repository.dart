@@ -36,8 +36,31 @@ class EmployeeIdentity {
       );
 }
 
+/// Who a scanned QR belongs to, shown to the employee before confirming.
+class QrPreview {
+  const QrPreview({required this.employeeName, required this.phoneNumber});
+  final String employeeName;
+  final String phoneNumber;
+}
+
+/// The server refused an OTP step. [code] is machine-readable (the same words
+/// riendlyError maps to Arabic); [wait] is the seconds before a resend.
+class OtpRefused implements Exception {
+  const OtpRefused(this.code, {this.wait, this.left});
+  final String code;
+  final int? wait;
+  final int? left;
+
+  @override
+  String toString() => code;
+}
+
 class EmployeeAuthRepository {
   EmployeeAuthRepository(this._client, this._deviceIdService);
+
+  /// Same value as AuthRepository._googleWebClientId.
+  static const _googleWebClientId =
+      '711418304779-tt2dh9equsbqu6ckrnlgv8m95s6ca0q6.apps.googleusercontent.com';
 
   final SupabaseClient _client;
   final DeviceIdService _deviceIdService;
@@ -96,6 +119,106 @@ class EmployeeAuthRepository {
       } catch (_) {}
       rethrow;
     }
+  }
+
+  /// Makes sure there is an anonymous session to call the QR RPCs with.
+  /// An existing anonymous session is reused so preview → login share one.
+  Future<void> _ensureAnonymous() async {
+    if (_client.auth.currentUser?.isAnonymous == true) return;
+    await _client.auth.signInAnonymously();
+  }
+
+  /// Looks up who a scanned QR belongs to (name + phone) without consuming
+  /// it. Throws `invalid_qr` for unknown, used or expired QRs.
+  Future<QrPreview> previewQr(String token) async {
+    await _ensureAnonymous();
+    try {
+      final res = await _client.rpc<List<dynamic>>(
+        'employee_qr_preview',
+        params: {'p_token': token},
+      );
+      if (res.isEmpty) {
+        throw StateError('employee_qr_preview returned no rows');
+      }
+      final row = res.first as Map<String, dynamic>;
+      return QrPreview(
+        employeeName: row['employee_name'] as String,
+        phoneNumber: row['phone_number'] as String,
+      );
+    } catch (e) {
+      await cancelPending();
+      rethrow;
+    }
+  }
+
+  /// Signs in with a scanned QR token (single use, 10 minutes). Binds the
+  /// device exactly like the phone + code login. [googleEmail] is attached
+  /// to the employee record as an informational label for the admin.
+  Future<EmployeeIdentity> signInWithQr({
+    required String token,
+    String? googleEmail,
+  }) async {
+    final deviceId = await _deviceIdService.get();
+    await _ensureAnonymous();
+    try {
+      final res = await _client.rpc<List<dynamic>>(
+        'employee_login_qr',
+        params: {'p_token': token, 'p_device_id': deviceId},
+      );
+      if (res.isEmpty) throw StateError('employee_login_qr returned no rows');
+      final row = res.first as Map<String, dynamic>;
+      return await currentIdentity() ??
+          EmployeeIdentity(
+            sessionId: row['session_id'] as String,
+            subUserId: row['sub_user_id'] as String,
+            parentAdminId: row['parent_admin_id'] as String,
+            employeeName: row['employee_name'] as String,
+            role: 'both',
+            branchId: null,
+          );
+    } catch (e) {
+      await cancelPending();
+      rethrow;
+    }
+  }
+
+  /// Sends a 6-digit code by WhatsApp to the phone number the admin registered
+  /// for the employee behind [token]. Returns the masked number it went to.
+  /// Throws [OtpRefused] (wrong e-mail, too soon, too many sends, ...).
+  Future<String> requestOtp(String token) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'employee_request_otp',
+      params: {'p_token': token},
+    );
+    if (res['ok'] == true) return (res['phone'] as String?) ?? '';
+    throw OtpRefused(
+      (res['code'] as String?) ?? 'send_failed',
+      wait: (res['wait'] as num?)?.toInt(),
+    );
+  }
+
+  /// Checks the code the employee typed. Throws [OtpRefused] when it is wrong,
+  /// expired, or the attempts ran out (which also burns the QR).
+  Future<void> verifyOtp(String token, String otp) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'employee_verify_otp',
+      params: {'p_token': token, 'p_otp': otp},
+    );
+    if (res['ok'] == true) return;
+    throw OtpRefused(
+      (res['code'] as String?) ?? 'invalid_otp',
+      left: (res['left'] as num?)?.toInt(),
+    );
+  }
+
+  /// Drops a lingering anonymous session that never became an employee
+  /// session (failed or abandoned QR sign-in).
+  Future<void> cancelPending() async {
+    try {
+      if (_client.auth.currentUser?.isAnonymous == true) {
+        await _client.auth.signOut();
+      }
+    } catch (_) {}
   }
 
   /// Returns the active session's identity, or null if no active session.

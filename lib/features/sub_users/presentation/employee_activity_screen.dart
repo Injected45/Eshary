@@ -172,7 +172,10 @@ class _LogTile extends StatelessWidget {
       case ActivityEventType.currencyBuyCreated:
         return AppColors.positive;
       case ActivityEventType.pendingBuyCreated:
+      case ActivityEventType.deviceReset:
         return AppColors.warning;
+      case ActivityEventType.qrIssued:
+        return AppColors.accent;
       case ActivityEventType.unknown:
         return AppColors.textLow;
     }
@@ -190,6 +193,10 @@ class _LogTile extends StatelessWidget {
         return FontAwesomeIcons.moneyBillTransfer;
       case ActivityEventType.pendingBuyCreated:
         return FontAwesomeIcons.clock;
+      case ActivityEventType.deviceReset:
+        return FontAwesomeIcons.mobileScreen;
+      case ActivityEventType.qrIssued:
+        return FontAwesomeIcons.qrcode;
       case ActivityEventType.unknown:
         return FontAwesomeIcons.circleQuestion;
     }

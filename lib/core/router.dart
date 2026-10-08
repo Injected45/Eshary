@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/presentation/member_auth_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
+import '../features/auth/presentation/welcome_screen.dart';
 import '../features/employee_auth/presentation/employee_home_shell.dart';
 import '../features/employee_auth/presentation/employee_login_screen.dart';
 import '../features/home/presentation/home_shell.dart';
@@ -37,7 +39,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Splash and onboarding manage their own navigation.
       if (loc == '/splash' || loc == '/onboarding') return null;
 
-      final atAdminAuth = loc == '/sign-in' || loc == '/sign-up';
+      final atAdminAuth = loc == '/sign-in' ||
+          loc == '/sign-up' ||
+          loc == '/admin-sign-in' ||
+          loc == '/member-auth';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -90,7 +95,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const OnboardingScreen(),
       ),
       GoRoute(path: '/', builder: (_, __) => const HomeShell()),
-      GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
+      // First screen for signed-out users: create account / employee sign-in.
+      GoRoute(path: '/sign-in', builder: (_, __) => const WelcomeScreen()),
+      // Platform administrator: e-mail + password or Google.
+      GoRoute(
+        path: '/admin-sign-in',
+        builder: (_, __) => const SignInScreen(),
+      ),
+      GoRoute(
+        path: '/member-auth',
+        builder: (_, __) => const MemberAuthScreen(),
+      ),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
       GoRoute(
         path: '/employee-sign-in',

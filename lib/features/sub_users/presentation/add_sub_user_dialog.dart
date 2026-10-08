@@ -193,12 +193,13 @@ class _AddSubUserDialogState extends ConsumerState<AddSubUserDialog> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const _Label('رقم الهاتف'),
+                const _Label('رقم الهاتف (واتساب)'),
                 TextField(
                   controller: _phone,
                   keyboardType: TextInputType.phone,
                   decoration: InputDecoration(
                     hintText: '09XXXXXXXX',
+                    helperText: 'يصله رمز التحقق عبر واتساب عند الدخول بالـ QR',
                     errorText: _phoneError,
                   ),
                 ),

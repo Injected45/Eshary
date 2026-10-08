@@ -11,6 +11,7 @@ import '../domain/sub_user.dart';
 import 'add_sub_user_dialog.dart';
 import 'code_display_dialog.dart';
 import 'employee_activity_screen.dart';
+import 'qr_display_dialog.dart';
 import 'sub_users_providers.dart';
 
 class SubUsersScreen extends ConsumerWidget {
@@ -156,6 +157,19 @@ class _SubUserCard extends ConsumerWidget {
                           fontFamily: 'monospace',
                         ),
                       ),
+                      if (user.googleEmail != null &&
+                          user.googleEmail!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            user.googleEmail!,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textMid,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
                       if (user.branchId != null && user.branchId!.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.only(top: 2),
@@ -189,6 +203,18 @@ class _SubUserCard extends ConsumerWidget {
                     color: AppColors.textMid,
                   ),
                   tooltip: 'سجل النشاط',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  onPressed: user.status == SubUserStatus.active
+                      ? () => _issueQr(context, ref)
+                      : null,
+                  icon: const FaIcon(
+                    FontAwesomeIcons.qrcode,
+                    size: 14,
+                    color: AppColors.positive,
+                  ),
+                  tooltip: 'إصدار QR للدخول',
                   visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
@@ -320,6 +346,68 @@ class _SubUserCard extends ConsumerWidget {
         builder: (_) => EmployeeActivityScreen(subUser: user),
       ),
     );
+  }
+
+  Future<void> _issueQr(BuildContext context, WidgetRef ref) async {
+    var resetDevice = false;
+    final bound = user.deviceId != null && user.deviceId!.isNotEmpty;
+    if (bound) {
+      // A bound employee can only sign in from the same phone. Let the admin
+      // choose to move them to a new one in the same step.
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('إصدار QR'),
+          content: Text(
+            '${user.employeeName} مرتبط بجهاز حالياً. الـ QR يعمل من نفس '
+            'الجهاز فقط، إلا إذا فككت الربط ليدخل من جهاز جديد '
+            '(تُغلق جلسته الحالية).',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, 'keep'),
+              child: const Text('نفس الجهاز'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.warning,
+                foregroundColor: Colors.black,
+              ),
+              onPressed: () => Navigator.pop(context, 'reset'),
+              child: const Text('جهاز جديد'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || !context.mounted) return;
+      resetDevice = choice == 'reset';
+    }
+    try {
+      final qr = await ref
+          .read(subUsersRepositoryProvider)
+          .createQr(user.id, resetDevice: resetDevice);
+      if (!context.mounted) return;
+      ref.invalidate(subUsersListProvider);
+      await showGlassDialog<void>(
+        context: context,
+        builder: (_) => QrDisplayDialog(
+          employeeName: user.employeeName,
+          phoneNumber: user.phoneNumber,
+          qr: qr,
+        ),
+      );
+    } catch (e, st) {
+      AppLogger.error('subUsers.issueQr', e, st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e))),
+        );
+      }
+    }
   }
 
   Future<void> _regenerateCode(BuildContext context, WidgetRef ref) async {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -32,8 +33,39 @@ class EmployeeHomeShell extends ConsumerStatefulWidget {
   ConsumerState<EmployeeHomeShell> createState() => _EmployeeHomeShellState();
 }
 
-class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell> {
+class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
+    with WidgetsBindingObserver {
   int _index = 0;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    // An admin releasing the device, disabling the account or regenerating
+    // the code changes the database, not this phone. Without a re-read the
+    // employee would keep seeing the app until a restart, so re-check the
+    // session on resume and every 45 seconds. A refresh keeps the current
+    // screen (and any half-typed form) in place until the answer arrives.
+    WidgetsBinding.instance.addObserver(this);
+    _poll = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => ref.invalidate(currentEmployeeProvider),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(currentEmployeeProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

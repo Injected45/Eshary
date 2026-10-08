@@ -4,6 +4,8 @@ enum ActivityEventType {
   transferCreated,
   currencyBuyCreated,
   pendingBuyCreated,
+  deviceReset,
+  qrIssued,
   unknown,
 }
 
@@ -19,6 +21,10 @@ ActivityEventType _parseEventType(String raw) {
       return ActivityEventType.currencyBuyCreated;
     case 'pending_buy_created':
       return ActivityEventType.pendingBuyCreated;
+    case 'device_reset':
+      return ActivityEventType.deviceReset;
+    case 'qr_issued':
+      return ActivityEventType.qrIssued;
     default:
       return ActivityEventType.unknown;
   }
@@ -36,6 +42,10 @@ String activityEventLabel(ActivityEventType t) {
       return 'إنشاء حوالة دخول';
     case ActivityEventType.pendingBuyCreated:
       return 'دخول قيد التنفيذ';
+    case ActivityEventType.deviceReset:
+      return 'فك ربط الجهاز (بواسطة المدير)';
+    case ActivityEventType.qrIssued:
+      return 'إصدار QR دخول (بواسطة المدير)';
     case ActivityEventType.unknown:
       return 'حدث غير معروف';
   }

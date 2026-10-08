@@ -231,7 +231,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton(
-                      onPressed: _busy ? null : () => context.go('/sign-in'),
+                      onPressed: _busy ? null : () => context.go('/admin-sign-in'),
                       child: const Text('لدي حساب بالفعل'),
                     ),
                   ],

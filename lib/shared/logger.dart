@@ -162,6 +162,67 @@ String friendlyError(Object e) {
   if (s.contains('device_mismatch')) {
     return 'هذا الحساب مرتبط بجهاز آخر. يرجى التواصل مع المدير لإعادة تفعيل الجهاز.';
   }
+  if (s.contains('invalid_qr')) {
+    return 'رمز QR غير صالح أو منتهي أو مستخدم. اطلب من المدير إصدار رمز جديد.';
+  }
+  if (s.contains('invalid_email_code')) {
+    return 'رمز البريد الإلكتروني غير صحيح أو منتهي.';
+  }
+  if (s.contains('email_send_failed')) {
+    return 'تعذّر إرسال رمز البريد الإلكتروني. تأكد من البريد وأعد المحاولة.';
+  }
+  if (s.contains('invalid_phone')) {
+    return 'رقم الهاتف بالصيغة 09XXXXXXXX (10 أرقام).';
+  }
+  if (s.contains('identity_mismatch')) {
+    return 'هذا البريد مسجَّل برقم هاتف مختلف. أدخل رقم الهاتف الذي سجّلت به.';
+  }
+  if (s.contains('phone_taken')) {
+    return 'رقم الهاتف هذا مسجَّل لحساب آخر.';
+  }
+  if (s.contains('busy')) {
+    return 'الخدمة مشغولة حالياً. حاول بعد قليل.';
+  }
+  if (s.contains('create_failed') || s.contains('link_failed') ||
+      s.contains('server_error')) {
+    return 'تعذّر إكمال الدخول الآن. حاول مرة أخرى بعد قليل.';
+  }
+  if (s.contains('invalid_otp')) {
+    return 'رمز التحقق غير صحيح.';
+  }
+  if (s.contains('otp_expired')) {
+    return 'انتهت صلاحية رمز التحقق. اطلب رمزاً جديداً.';
+  }
+  if (s.contains('too_many_attempts')) {
+    return 'تجاوزت عدد المحاولات. اطلب من المدير إصدار QR جديد.';
+  }
+  if (s.contains('too_many_sends')) {
+    return 'تم إرسال عدد كبير من الرموز. اطلب من المدير إصدار QR جديد أو حاول لاحقاً.';
+  }
+  if (s.contains('too_soon')) {
+    return 'انتظر قليلاً قبل طلب رمز جديد.';
+  }
+  if (s.contains('send_failed')) {
+    return 'تعذّر إرسال الرمز عبر واتساب. أعد المحاولة بعد قليل.';
+  }
+  if (s.contains('sms_not_configured')) {
+    return 'خدمة إرسال الرموز غير مُعدّة بعد. تواصل مع المدير.';
+  }
+  if (s.contains('otp_required')) {
+    return 'يجب تأكيد رمز التحقق أولاً.';
+  }
+  if (s.contains('email_mismatch')) {
+    return 'هذا الإيميل لا يطابق الإيميل المسجَّل لدى المدير لهذا الموظف. استخدم الحساب الذي سجّله المدير.';
+  }
+  if (s.contains('email_required')) {
+    return 'سجّل إيميل الموظف أولاً من بطاقته ثم أصدر الـ QR.';
+  }
+  if (s.contains('invalid_email')) {
+    return 'صيغة البريد الإلكتروني غير صحيحة.';
+  }
+  if (s.contains('sub_user_disabled')) {
+    return 'هذا الموظف معطّل. فعّله أولاً لإصدار QR.';
+  }
   if (s.contains('device_id_required')) {
     return 'تعذّر التعرف على الجهاز.';
   }

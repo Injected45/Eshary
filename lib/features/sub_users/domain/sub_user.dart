@@ -54,6 +54,7 @@ class SubUser {
     required this.branchId,
     required this.lastLoginAt,
     required this.createdAt,
+    this.googleEmail,
   });
 
   final String id;
@@ -67,6 +68,10 @@ class SubUser {
   final String? branchId;
   final DateTime? lastLoginAt;
   final DateTime createdAt;
+
+  /// Google e-mail the employee picked on their device. Informational: it is
+  /// reported by the device, not verified by the server.
+  final String? googleEmail;
 
   factory SubUser.fromJson(Map<String, dynamic> json) => SubUser(
         id: json['id'] as String,
@@ -82,5 +87,6 @@ class SubUser {
             ? null
             : DateTime.parse(json['last_login_at'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),
+        googleEmail: json['google_email'] as String?,
       );
 }

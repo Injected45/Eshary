@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
+import '../../employee_auth/domain/qr_payload.dart';
 import '../domain/sub_user.dart';
 
 /// Pair returned by [SubUsersRepository.create]: the new row id plus the
@@ -11,6 +12,17 @@ class SubUserCreateResult {
   const SubUserCreateResult({required this.id, required this.plainCode});
   final String id;
   final String plainCode;
+}
+
+/// One-time sign-in QR issued by the admin. The token is shown once and is
+/// never stored in plain form on the server.
+class SubUserQr {
+  const SubUserQr({required this.token, required this.expiresAt});
+  final String token;
+  final DateTime expiresAt;
+
+  /// Payload encoded in the QR image.
+  String get payload => employeeQrPayload(token);
 }
 
 class SubUsersRepository {
@@ -61,6 +73,24 @@ class SubUsersRepository {
       params: {'p_id': id},
     );
     return res;
+  }
+
+  /// Issues a one-time sign-in QR token for [id], valid for 10 minutes.
+  /// [resetDevice] also unbinds the employee's current device so the QR can
+  /// be used on a new phone.
+  Future<SubUserQr> createQr(String id, {bool resetDevice = false}) async {
+    final res = await _client.rpc<List<dynamic>>(
+      'admin_create_employee_qr',
+      params: {'p_sub_user_id': id, 'p_reset_device': resetDevice},
+    );
+    if (res.isEmpty) {
+      throw StateError('admin_create_employee_qr returned no rows');
+    }
+    final row = res.first as Map<String, dynamic>;
+    return SubUserQr(
+      token: row['token'] as String,
+      expiresAt: DateTime.parse(row['expires_at'] as String),
+    );
   }
 
   /// Unbinds the employee from their current device without rotating the
