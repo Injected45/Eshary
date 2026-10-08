@@ -448,11 +448,21 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         return;
       }
 
+      final exporter = ref.read(supabaseClientProvider).auth.currentUser;
+      final exporterMeta = exporter?.userMetadata ?? const <String, dynamic>{};
+      final exportedBy =
+          (exporterMeta['full_name'] as String?)?.trim().isNotEmpty == true
+              ? exporterMeta['full_name'] as String
+              : (exporterMeta['name'] as String?)?.trim().isNotEmpty == true
+                  ? exporterMeta['name'] as String
+                  : (exporter?.email ?? 'admin');
+
       final bytes = await pdf.buildTable(
         title: title,
         headers: const ['الحقل', 'القيمة'],
         rows: rowsData,
         notificationText: notif,
+        exportedBy: exportedBy,
       );
       await PdfExport.sharePdf(bytes, filename);
     } catch (e, st) {

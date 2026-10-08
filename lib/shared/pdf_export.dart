@@ -13,6 +13,51 @@ import '../features/currency_buy/domain/currency_buy.dart';
 import '../features/transfers/domain/transfer.dart';
 import 'formatters.dart';
 
+/// The LAST line of every printed page: when the report was exported and by
+/// whom. Used as the `MultiPage` footer (the pdf package paints it on the
+/// page's bottom margin, so it sits at the very bottom whether the page is
+/// full or nearly empty) and at the foot of the single-page layouts.
+/// One line of the accountant-style statement.
+typedef LedgerLine = ({double? income, double? outgoing, double balance});
+
+/// Turns the operations, oldest first, into statement lines: an entry fills
+/// the دخول column, an exit the خروج column, and الرصيد is the running total
+/// (entries add, exits subtract), e.g. دخول 1000, خروج 350 → الرصيد 650.
+List<LedgerLine> ledgerOf(List<({bool isIncome, double amount})> ops) {
+  var balance = 0.0;
+  final lines = <LedgerLine>[];
+  for (final op in ops) {
+    balance += op.isIncome ? op.amount : -op.amount;
+    lines.add((
+      income: op.isIncome ? op.amount : null,
+      outgoing: op.isIncome ? null : op.amount,
+      balance: balance,
+    ));
+  }
+  return lines;
+}
+
+pw.Widget _exportFooter({required DateTime at, String? by}) {
+  final name = (by ?? '').trim().isEmpty ? 'admin' : by!.trim();
+  final when = DateFormat('yyyy-MM-dd | hh:mm a').format(at);
+  return pw.Container(
+    width: double.infinity,
+    alignment: pw.Alignment.center,
+    padding: const pw.EdgeInsets.only(top: 5),
+    decoration: const pw.BoxDecoration(
+      border: pw.Border(
+        top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
+      ),
+    ),
+    child: pw.Text(
+      'تاريخ التصدير: $when      |      تم التصدير بواسطة: $name',
+      style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+      textDirection: pw.TextDirection.rtl,
+      textAlign: pw.TextAlign.center,
+    ),
+  );
+}
+
 class PdfExport {
   PdfExport._(this._regular, this._bold, this._fallback, this._fallbackBold);
   final pw.Font _regular;
@@ -57,8 +102,10 @@ class PdfExport {
     String? totalLabel,
     String? totalValue,
     String? notificationText,
+    String? exportedBy,
   }) async {
     final doc = pw.Document(theme: _theme);
+    final exportedAtTime = DateTime.now();
     final dataRows = <List<String>>[
       ...rows,
       if (totalLabel != null && totalValue != null)
@@ -80,13 +127,14 @@ class PdfExport {
         logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     doc.addPage(
-      pw.Page(
+      // MultiPage: the export line is its footer, painted on the bottom margin
+      // of every page, and a long table continues on the next page.
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: [
+        footer: (ctx) => _exportFooter(at: exportedAtTime, by: exportedBy),
+        build: (context) => [
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -109,12 +157,6 @@ class PdfExport {
                         ),
                         textDirection: pw.TextDirection.rtl,
                       ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        'تاريخ التصدير: ${dateTime.format(DateTime.now())}',
-                        style: const pw.TextStyle(fontSize: 10),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
                     ],
                   ),
                 ),
@@ -126,23 +168,20 @@ class PdfExport {
               ],
             ),
             pw.Divider(),
-            pw.Expanded(
-              child: pw.TableHelper.fromTextArray(
-                headers: headers,
-                data: dataRows,
-                headerStyle: pw.TextStyle(
-                  fontWeight: pw.FontWeight.bold,
-                  fontSize: 11,
-                ),
-                headerDecoration:
-                    const pw.BoxDecoration(color: PdfColors.grey200),
-                cellStyle: const pw.TextStyle(fontSize: 10),
-                cellAlignment: pw.Alignment.centerRight,
-                cellPadding: const pw.EdgeInsets.all(4),
+            pw.TableHelper.fromTextArray(
+              headers: headers,
+              data: dataRows,
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 11,
               ),
+              headerDecoration:
+                  const pw.BoxDecoration(color: PdfColors.grey200),
+              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellAlignment: pw.Alignment.centerRight,
+              cellPadding: const pw.EdgeInsets.all(4),
             ),
-          ],
-        ),
+        ],
       ),
     );
 
@@ -163,7 +202,6 @@ class PdfExport {
     final now = DateTime.now();
     final dayName = _arabicDayName(now);
     final dateStr = dateOnly.format(now);
-    final timeStr = DateFormat('HH:mm').format(now);
 
     Uint8List? logoBytes;
     try {
@@ -212,7 +250,7 @@ class PdfExport {
               children: [
                 pw.Spacer(),
                 pw.Text(
-                  'اليوم: $dayName    التاريخ: $dateStr    الوقت: $timeStr',
+                  'اليوم: $dayName    التاريخ: $dateStr',
                   style: pw.TextStyle(
                     fontSize: 11,
                     color: PdfColors.grey700,
@@ -285,18 +323,7 @@ class PdfExport {
                     ),
                   ),
                 ),
-                pw.Container(
-                  alignment: pw.Alignment.centerLeft,
-                  padding: const pw.EdgeInsets.only(top: 6),
-                  child: pw.Text(
-                    'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-                    style: const pw.TextStyle(
-                      fontSize: 9,
-                      color: PdfColors.grey600,
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
+                _exportFooter(at: now, by: exportedBy),
               ],
             ),
           ),
@@ -386,157 +413,140 @@ class PdfExport {
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
         header: (_) => pw.SizedBox(height: 0),
-        footer: (ctx) => pw.Container(
-          alignment: pw.Alignment.centerLeft,
-          padding: const pw.EdgeInsets.only(top: 6),
-          child: pw.Text(
-            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-            style: const pw.TextStyle(
-              fontSize: 9,
-              color: PdfColors.grey600,
-            ),
-            textDirection: pw.TextDirection.rtl,
-          ),
-        ),
+        footer: (ctx) => _exportFooter(at: now, by: exportedBy),
+        // Separate list items (not one big Column) so MultiPage can break
+        // the table across pages instead of throwing TooManyPagesException.
         build: (context) => [
-          pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                headerSection(),
-                pw.Table(
-                  border: pw.TableBorder(
-                    top: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    bottom: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    left: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    right: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    horizontalInside: const pw.BorderSide(
-                      color: PdfColors.grey400,
-                      width: 0.5,
-                    ),
-                    verticalInside: const pw.BorderSide(
-                      color: PdfColors.grey400,
-                      width: 0.5,
-                    ),
-                  ),
-                  // Reversed indices: 0 = leftmost (كود رقم) … 7 = rightmost (ت).
-                  columnWidths: const {
-                    0: pw.FlexColumnWidth(1.2), // كود رقم
-                    1: pw.FlexColumnWidth(2.0), // الى المستفيد
-                    2: pw.FlexColumnWidth(1.8), // في شركة (المستفيد)
-                    3: pw.FlexColumnWidth(1.2), // المبلغ
-                    4: pw.FlexColumnWidth(1.8), // في شركة (المنفِّذة)
-                    5: pw.FlexColumnWidth(2.0), // من حسابي
-                    6: pw.FlexColumnWidth(1.5), // الإشاري
-                    7: pw.FlexColumnWidth(0.6), // ت
-                  },
-                  children: tableChildren,
-                ),
-                pw.SizedBox(height: 16),
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(top: 4),
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    gradient: const pw.LinearGradient(
-                      colors: [
-                        PdfColor.fromInt(0xFFFFF5F5),
-                        PdfColor.fromInt(0xFFFFFFFF),
-                      ],
-                      begin: pw.Alignment.centerRight,
-                      end: pw.Alignment.centerLeft,
-                    ),
-                    borderRadius: pw.BorderRadius.all(
-                      pw.Radius.circular(12),
-                    ),
-                    border: pw.Border.all(
-                      color: const PdfColor.fromInt(0xFFEAC8C8),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: pw.Directionality(
-                    textDirection: pw.TextDirection.rtl,
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.Row(
-                          mainAxisSize: pw.MainAxisSize.min,
-                          crossAxisAlignment: pw.CrossAxisAlignment.center,
-                          children: [
-                            pw.Container(
-                              padding: const pw.EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: pw.BoxDecoration(
-                                color: PdfColors.red800,
-                                borderRadius: pw.BorderRadius.all(
-                                  pw.Radius.circular(6),
-                                ),
-                              ),
-                              child: pw.Text(
-                                'الإجمالي',
-                                style: pw.TextStyle(
-                                  fontWeight: pw.FontWeight.bold,
-                                  fontSize: 11,
-                                  color: PdfColors.white,
-                                ),
-                                textDirection: pw.TextDirection.rtl,
-                              ),
-                            ),
-                            pw.SizedBox(width: 12),
-                            pw.Text(
-                              totalText,
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 17,
-                                color: PdfColors.red800,
-                              ),
-                              textDirection: pw.TextDirection.rtl,
-                            ),
-                          ],
+          headerSection(),
+          pw.Table(
+            border: pw.TableBorder(
+              top: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              bottom: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              left: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              right: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              horizontalInside: const pw.BorderSide(
+                color: PdfColors.grey400,
+                width: 0.5,
+              ),
+              verticalInside: const pw.BorderSide(
+                color: PdfColors.grey400,
+                width: 0.5,
+              ),
+            ),
+            // Reversed indices: 0 = leftmost (كود رقم) … 7 = rightmost (ت).
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1.2), // كود رقم
+              1: pw.FlexColumnWidth(2.0), // الى المستفيد
+              2: pw.FlexColumnWidth(1.8), // في شركة (المستفيد)
+              3: pw.FlexColumnWidth(1.2), // المبلغ
+              4: pw.FlexColumnWidth(1.8), // في شركة (المنفِّذة)
+              5: pw.FlexColumnWidth(2.0), // من حسابي
+              6: pw.FlexColumnWidth(1.5), // الإشاري
+              7: pw.FlexColumnWidth(0.6), // ت
+            },
+            children: tableChildren,
+          ),
+          pw.SizedBox(height: 16),
+          pw.Container(
+            margin: const pw.EdgeInsets.only(top: 4),
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 14,
+            ),
+            decoration: pw.BoxDecoration(
+              gradient: const pw.LinearGradient(
+                colors: [
+                  PdfColor.fromInt(0xFFFFF5F5),
+                  PdfColor.fromInt(0xFFFFFFFF),
+                ],
+                begin: pw.Alignment.centerRight,
+                end: pw.Alignment.centerLeft,
+              ),
+              borderRadius: pw.BorderRadius.all(
+                pw.Radius.circular(12),
+              ),
+              border: pw.Border.all(
+                color: const PdfColor.fromInt(0xFFEAC8C8),
+                width: 1.0,
+              ),
+            ),
+            child: pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
                         ),
-                        pw.Container(
-                          width: 0.8,
-                          height: 28,
-                          margin: const pw.EdgeInsets.symmetric(
-                            horizontal: 14,
-                          ),
-                          color: const PdfColor.fromInt(0xFFEAC8C8),
-                        ),
-                        pw.Expanded(
-                          child: pw.Text(
-                            'فقط $wordsText دولار أمريكي لا غير',
-                            style: pw.TextStyle(
-                              fontSize: 11,
-                              color: PdfColors.grey800,
-                            ),
-                            textDirection: pw.TextDirection.rtl,
-                            textAlign: pw.TextAlign.left,
-                            maxLines: 2,
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.red800,
+                          borderRadius: pw.BorderRadius.all(
+                            pw.Radius.circular(6),
                           ),
                         ),
-                      ],
+                        child: pw.Text(
+                          'الإجمالي',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 11,
+                            color: PdfColors.white,
+                          ),
+                          textDirection: pw.TextDirection.rtl,
+                        ),
+                      ),
+                      pw.SizedBox(width: 12),
+                      pw.Text(
+                        totalText,
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 17,
+                          color: PdfColors.red800,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ),
+                  pw.Container(
+                    width: 0.8,
+                    height: 28,
+                    margin: const pw.EdgeInsets.symmetric(
+                      horizontal: 14,
+                    ),
+                    color: const PdfColor.fromInt(0xFFEAC8C8),
+                  ),
+                  pw.Expanded(
+                    child: pw.Text(
+                      'فقط $wordsText دولار أمريكي لا غير',
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        color: PdfColors.grey800,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                      textAlign: pw.TextAlign.left,
+                      maxLines: 2,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -563,7 +573,6 @@ class PdfExport {
     final now = DateTime.now();
     final dayName = _arabicDayName(now);
     final dateStr = dateOnly.format(now);
-    final timeStr = DateFormat('HH:mm').format(now);
 
     Uint8List? logoBytes;
     try {
@@ -612,7 +621,7 @@ class PdfExport {
               children: [
                 pw.Spacer(),
                 pw.Text(
-                  'اليوم: $dayName    التاريخ: $dateStr    الوقت: $timeStr',
+                  'اليوم: $dayName    التاريخ: $dateStr',
                   style: pw.TextStyle(
                     fontSize: 11,
                     color: PdfColors.grey700,
@@ -685,18 +694,7 @@ class PdfExport {
                     ),
                   ),
                 ),
-                pw.Container(
-                  alignment: pw.Alignment.centerLeft,
-                  padding: const pw.EdgeInsets.only(top: 6),
-                  child: pw.Text(
-                    'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-                    style: const pw.TextStyle(
-                      fontSize: 9,
-                      color: PdfColors.grey600,
-                    ),
-                    textDirection: pw.TextDirection.rtl,
-                  ),
-                ),
+                _exportFooter(at: now, by: exportedBy),
               ],
             ),
           ),
@@ -792,157 +790,140 @@ class PdfExport {
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
         header: (_) => pw.SizedBox(height: 0),
-        footer: (ctx) => pw.Container(
-          alignment: pw.Alignment.centerLeft,
-          padding: const pw.EdgeInsets.only(top: 6),
-          child: pw.Text(
-            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-            style: const pw.TextStyle(
-              fontSize: 9,
-              color: PdfColors.grey600,
-            ),
-            textDirection: pw.TextDirection.rtl,
-          ),
-        ),
+        footer: (ctx) => _exportFooter(at: now, by: exportedBy),
+        // Separate list items (not one big Column) so MultiPage can break
+        // the table across pages instead of throwing TooManyPagesException.
         build: (context) => [
-          pw.Directionality(
-            textDirection: pw.TextDirection.rtl,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                headerSection(),
-                pw.Table(
-                  border: pw.TableBorder(
-                    top: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    bottom: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    left: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    right: const pw.BorderSide(
-                      color: PdfColors.grey700,
-                      width: 1.0,
-                    ),
-                    horizontalInside: const pw.BorderSide(
-                      color: PdfColors.grey400,
-                      width: 0.5,
-                    ),
-                    verticalInside: const pw.BorderSide(
-                      color: PdfColors.grey400,
-                      width: 0.5,
-                    ),
-                  ),
-                  // Reversed indices: 0 = leftmost (كود) … 7 = rightmost (ت).
-                  columnWidths: const {
-                    0: pw.FlexColumnWidth(0.9), // كود
-                    1: pw.FlexColumnWidth(1.6), // حسابي
-                    2: pw.FlexColumnWidth(1.8), // لشركة
-                    3: pw.FlexColumnWidth(1.2), // القيمة
-                    4: pw.FlexColumnWidth(1.5), // الإشاري
-                    5: pw.FlexColumnWidth(1.6), // حساب
-                    6: pw.FlexColumnWidth(2.0), // دخول من شركة
-                    7: pw.FlexColumnWidth(0.6), // ت
-                  },
-                  children: tableChildren,
-                ),
-                pw.SizedBox(height: 16),
-                pw.Container(
-                  margin: const pw.EdgeInsets.only(top: 4),
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    gradient: const pw.LinearGradient(
-                      colors: [
-                        PdfColor.fromInt(0xFFF0FBF1),
-                        PdfColor.fromInt(0xFFFFFFFF),
-                      ],
-                      begin: pw.Alignment.centerRight,
-                      end: pw.Alignment.centerLeft,
-                    ),
-                    borderRadius: pw.BorderRadius.all(
-                      pw.Radius.circular(12),
-                    ),
-                    border: pw.Border.all(
-                      color: const PdfColor.fromInt(0xFFCBE7D0),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: pw.Directionality(
-                    textDirection: pw.TextDirection.rtl,
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.Row(
-                          mainAxisSize: pw.MainAxisSize.min,
-                          crossAxisAlignment: pw.CrossAxisAlignment.center,
-                          children: [
-                            pw.Container(
-                              padding: const pw.EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: pw.BoxDecoration(
-                                color: PdfColors.green800,
-                                borderRadius: pw.BorderRadius.all(
-                                  pw.Radius.circular(6),
-                                ),
-                              ),
-                              child: pw.Text(
-                                'الإجمالي',
-                                style: pw.TextStyle(
-                                  fontWeight: pw.FontWeight.bold,
-                                  fontSize: 11,
-                                  color: PdfColors.white,
-                                ),
-                                textDirection: pw.TextDirection.rtl,
-                              ),
-                            ),
-                            pw.SizedBox(width: 12),
-                            pw.Text(
-                              totalText,
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 17,
-                                color: PdfColors.green800,
-                              ),
-                              textDirection: pw.TextDirection.rtl,
-                            ),
-                          ],
+          headerSection(),
+          pw.Table(
+            border: pw.TableBorder(
+              top: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              bottom: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              left: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              right: const pw.BorderSide(
+                color: PdfColors.grey700,
+                width: 1.0,
+              ),
+              horizontalInside: const pw.BorderSide(
+                color: PdfColors.grey400,
+                width: 0.5,
+              ),
+              verticalInside: const pw.BorderSide(
+                color: PdfColors.grey400,
+                width: 0.5,
+              ),
+            ),
+            // Reversed indices: 0 = leftmost (كود) … 7 = rightmost (ت).
+            columnWidths: const {
+              0: pw.FlexColumnWidth(0.9), // كود
+              1: pw.FlexColumnWidth(1.6), // حسابي
+              2: pw.FlexColumnWidth(1.8), // لشركة
+              3: pw.FlexColumnWidth(1.2), // القيمة
+              4: pw.FlexColumnWidth(1.5), // الإشاري
+              5: pw.FlexColumnWidth(1.6), // حساب
+              6: pw.FlexColumnWidth(2.0), // دخول من شركة
+              7: pw.FlexColumnWidth(0.6), // ت
+            },
+            children: tableChildren,
+          ),
+          pw.SizedBox(height: 16),
+          pw.Container(
+            margin: const pw.EdgeInsets.only(top: 4),
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 14,
+            ),
+            decoration: pw.BoxDecoration(
+              gradient: const pw.LinearGradient(
+                colors: [
+                  PdfColor.fromInt(0xFFF0FBF1),
+                  PdfColor.fromInt(0xFFFFFFFF),
+                ],
+                begin: pw.Alignment.centerRight,
+                end: pw.Alignment.centerLeft,
+              ),
+              borderRadius: pw.BorderRadius.all(
+                pw.Radius.circular(12),
+              ),
+              border: pw.Border.all(
+                color: const PdfColor.fromInt(0xFFCBE7D0),
+                width: 1.0,
+              ),
+            ),
+            child: pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
                         ),
-                        pw.Container(
-                          width: 0.8,
-                          height: 28,
-                          margin: const pw.EdgeInsets.symmetric(
-                            horizontal: 14,
-                          ),
-                          color: const PdfColor.fromInt(0xFFCBE7D0),
-                        ),
-                        pw.Expanded(
-                          child: pw.Text(
-                            'فقط $wordsText دولار أمريكي لا غير',
-                            style: pw.TextStyle(
-                              fontSize: 11,
-                              color: PdfColors.grey800,
-                            ),
-                            textDirection: pw.TextDirection.rtl,
-                            textAlign: pw.TextAlign.left,
-                            maxLines: 2,
+                        decoration: pw.BoxDecoration(
+                          color: PdfColors.green800,
+                          borderRadius: pw.BorderRadius.all(
+                            pw.Radius.circular(6),
                           ),
                         ),
-                      ],
+                        child: pw.Text(
+                          'الإجمالي',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 11,
+                            color: PdfColors.white,
+                          ),
+                          textDirection: pw.TextDirection.rtl,
+                        ),
+                      ),
+                      pw.SizedBox(width: 12),
+                      pw.Text(
+                        totalText,
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 17,
+                          color: PdfColors.green800,
+                        ),
+                        textDirection: pw.TextDirection.rtl,
+                      ),
+                    ],
+                  ),
+                  pw.Container(
+                    width: 0.8,
+                    height: 28,
+                    margin: const pw.EdgeInsets.symmetric(
+                      horizontal: 14,
+                    ),
+                    color: const PdfColor.fromInt(0xFFCBE7D0),
+                  ),
+                  pw.Expanded(
+                    child: pw.Text(
+                      'فقط $wordsText دولار أمريكي لا غير',
+                      style: pw.TextStyle(
+                        fontSize: 11,
+                        color: PdfColors.grey800,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                      textAlign: pw.TextAlign.left,
+                      maxLines: 2,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -971,7 +952,6 @@ class PdfExport {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
     final timeFmt = DateFormat('hh:mm a');
-    final exportFmt = DateFormat('yyyy-MM-dd | hh:mm a');
 
     String slash(String? a, String? b) {
       final x = (a ?? '').trim();
@@ -1030,7 +1010,7 @@ class PdfExport {
     ops.sort((a, b) => a.t.compareTo(b.t));
 
     final rangeLabel = '${dayFmt.format(start)} → ${dayFmt.format(end)}';
-    final exportedAt = exportFmt.format(DateTime.now());
+    final exportedAtTime = DateTime.now();
 
     Uint8List? logoBytes;
     try {
@@ -1092,7 +1072,7 @@ class PdfExport {
                       ),
                       pw.SizedBox(height: 6),
                       pw.Text(
-                        'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
+                        'الفترة: $rangeLabel',
                         style: const pw.TextStyle(
                           fontSize: 10,
                           color: PdfColors.grey700,
@@ -1112,18 +1092,8 @@ class PdfExport {
           ],
         );
 
-    pw.Widget footerSection(pw.Context ctx) => pw.Container(
-          alignment: pw.Alignment.centerLeft,
-          padding: const pw.EdgeInsets.only(top: 6),
-          child: pw.Text(
-            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-            style: const pw.TextStyle(
-              fontSize: 8,
-              color: PdfColors.grey600,
-            ),
-            textDirection: pw.TextDirection.rtl,
-          ),
-        );
+    pw.Widget footerSection(pw.Context ctx) =>
+        _exportFooter(at: exportedAtTime, by: exportedBy);
 
     if (ops.isEmpty) {
       doc.addPage(
@@ -1159,25 +1129,26 @@ class PdfExport {
     }
 
     // Logical order (right→left as user reads):
-    // ت | الوقت | التاريخ | قيمة العملية | الإشاري | حساباتي | الجهة |
-    // إشاري المرسل | الرصيد قبل | الرصيد بعد | فرق تراكمي | النوع
+    // ت | الوقت | التاريخ | إشاري/كود | حساباتي | الجهة | إشاري المرسل |
+    // دخول | خروج | الرصيد
+    // (إشاري/كود: الرقم الإشاري للخروج، وكود حسابي للدخول)
+    // Accountant style: an entry fills دخول (green), an exit fills خروج (red),
+    // and الرصيد is the running total.
     const headers = <String>[
       'ت',
       'الوقت',
       'التاريخ',
-      'قيمة العملية',
-      'الإشاري',
+      'إشاري/كود',
       'حساباتي',
       'الجهة',
       'إشاري المرسل',
-      'الرصيد قبل',
-      'الرصيد بعد',
-      'فرق تراكمي',
-      'النوع',
+      'دخول',
+      'خروج',
+      'الرصيد',
     ];
 
     // Per-column horizontal alignment: long Arabic text → right; rest → center.
-    const rightAlignedCols = <int>{5, 6}; // حساباتي, الجهة
+    const rightAlignedCols = <int>{4, 5}; // حساباتي, الجهة
 
     pw.Widget cell(
       String text, {
@@ -1210,7 +1181,9 @@ class PdfExport {
 
     final reversedHeaders = headers.reversed.toList();
 
-    double running = 0;
+    final ledger = ledgerOf([
+      for (final o in ops) (isIncome: o.isIncome, amount: o.amount),
+    ]);
     final tableChildren = <pw.TableRow>[
       pw.TableRow(
         decoration: const pw.BoxDecoration(
@@ -1235,35 +1208,26 @@ class PdfExport {
               : null,
           children: () {
             final op = ops[i];
-            final delta = op.isIncome ? op.amount : -op.amount;
-            final balanceBefore = running;
-            final balanceAfter = running + delta;
-            running = balanceAfter;
+            final line = ledger[i];
             // Order matches `headers` above.
             final cells = <String>[
               '${i + 1}',
               timeFmt.format(op.t),
               dayFmt.format(op.t),
-              '${op.isIncome ? '+' : '-'}${formatMoney(op.amount)}',
               op.reference,
               op.myAccount,
               op.party,
               op.senderReference,
-              formatMoney(balanceBefore),
-              formatMoney(balanceAfter),
-              '${balanceAfter >= 0 ? '+' : '-'}${formatMoney(balanceAfter.abs())}',
-              op.kind,
+              line.income == null ? '' : formatMoney(line.income!),
+              line.outgoing == null ? '' : formatMoney(line.outgoing!),
+              formatMoney(line.balance),
             ];
             final colorByOriginalIndex = <int, PdfColor>{
-              3: op.isIncome
+              7: PdfColors.green800, // دخول
+              8: PdfColors.red800, // خروج
+              9: line.balance >= 0
                   ? PdfColors.green800
-                  : PdfColors.red800, // قيمة العملية
-              10: balanceAfter >= 0
-                  ? PdfColors.green800
-                  : PdfColors.red800, // فرق تراكمي
-              11: op.isIncome
-                  ? PdfColors.green800
-                  : PdfColors.red800, // النوع
+                  : PdfColors.red800, // الرصيد
             };
             final reversed = cells.reversed.toList();
             final result = <pw.Widget>[];
@@ -1324,12 +1288,8 @@ class PdfExport {
           ),
         );
 
-    final closingBalance = running;
     final movementSign = movementDiff >= 0 ? '+' : '-';
     final movementColor = movementDiff >= 0
-        ? PdfColors.green800
-        : PdfColors.red800;
-    final closingColor = closingBalance >= 0
         ? PdfColors.green800
         : PdfColors.red800;
 
@@ -1344,27 +1304,25 @@ class PdfExport {
           color: PdfColors.grey400,
           width: 0.4,
         ),
-        // Reversed indices: 0 = leftmost (النوع) … 11 = rightmost (ت).
+        // Reversed indices: 0 = leftmost (الرصيد) … 9 = rightmost (ت).
         columnWidths: const {
-          0: pw.FlexColumnWidth(0.9), // النوع
-          1: pw.FlexColumnWidth(1.3), // فرق تراكمي
-          2: pw.FlexColumnWidth(1.3), // الرصيد بعد
-          3: pw.FlexColumnWidth(1.3), // الرصيد قبل
-          4: pw.FlexColumnWidth(1.2), // إشاري المرسل
-          5: pw.FlexColumnWidth(2.2), // الجهة
-          6: pw.FlexColumnWidth(2.0), // حساباتي
-          7: pw.FlexColumnWidth(1.2), // إشاري
-          8: pw.FlexColumnWidth(1.3), // قيمة العملية
-          9: pw.FlexColumnWidth(1.0), // التاريخ
-          10: pw.FlexColumnWidth(0.9), // الوقت
-          11: pw.FlexColumnWidth(0.5), // ت
+          0: pw.FlexColumnWidth(1.5), // الرصيد
+          1: pw.FlexColumnWidth(1.4), // خروج
+          2: pw.FlexColumnWidth(1.4), // دخول
+          3: pw.FlexColumnWidth(1.3), // إشاري المرسل
+          4: pw.FlexColumnWidth(2.4), // الجهة
+          5: pw.FlexColumnWidth(2.2), // حساباتي
+          6: pw.FlexColumnWidth(1.4), // إشاري/كود
+          7: pw.FlexColumnWidth(1.1), // التاريخ
+          8: pw.FlexColumnWidth(1.0), // الوقت
+          9: pw.FlexColumnWidth(0.5), // ت
         },
         children: tableChildren,
       ),
     );
 
-    // Top summary row above the table — RTL: first child is rightmost.
-    // Order: إجمالي الدخول | إجمالي الخروج | فرق الحركة.
+    // Summary rows (above and below the table) — RTL: first child is
+    // rightmost. Order: إجمالي الدخول | إجمالي الخروج | الرصيد.
     // (عدد العمليات removed — the ت column already enumerates rows.)
     final topSummaryRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
@@ -1388,7 +1346,7 @@ class PdfExport {
           pw.SizedBox(width: 8),
           pw.Expanded(
             child: summaryTile(
-              'فرق الحركة',
+              'الرصيد',
               '$movementSign\$${formatMoney(movementDiff.abs())}',
               movementColor,
             ),
@@ -1397,30 +1355,30 @@ class PdfExport {
       ),
     );
 
-    // Bottom row: الرصيد قبل | الرصيد بعد | فرق الحركة.
+    // Bottom row: the same three figures.
     final summaryRow = pw.Directionality(
       textDirection: pw.TextDirection.rtl,
       child: pw.Row(
         children: [
           pw.Expanded(
             child: summaryTile(
-              'الرصيد قبل',
-              '\$${formatMoney(0)}',
-              PdfColors.grey800,
+              'إجمالي الدخول',
+              '+\$${formatMoney(incomeTotal)}',
+              PdfColors.green800,
             ),
           ),
           pw.SizedBox(width: 8),
           pw.Expanded(
             child: summaryTile(
-              'الرصيد بعد',
-              '${closingBalance >= 0 ? '' : '-'}\$${formatMoney(closingBalance.abs())}',
-              closingColor,
+              'إجمالي الخروج',
+              '-\$${formatMoney(outgoingTotal)}',
+              PdfColors.red800,
             ),
           ),
           pw.SizedBox(width: 8),
           pw.Expanded(
             child: summaryTile(
-              'فرق الحركة',
+              'الرصيد',
               '$movementSign\$${formatMoney(movementDiff.abs())}',
               movementColor,
             ),
@@ -1515,7 +1473,6 @@ class PdfExport {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
     final timeFmt = DateFormat('hh:mm a');
-    final exportFmt = DateFormat('yyyy-MM-dd | hh:mm a');
     const reportTitle = 'حوالات الدخول إلى حساباتي';
 
     String slash(String? a, String? b) {
@@ -1533,7 +1490,7 @@ class PdfExport {
       );
 
     final rangeLabel = '${dayFmt.format(start)} → ${dayFmt.format(end)}';
-    final exportedAt = exportFmt.format(DateTime.now());
+    final exportedAtTime = DateTime.now();
 
     Uint8List? logoBytes;
     try {
@@ -1595,7 +1552,7 @@ class PdfExport {
                       ),
                       pw.SizedBox(height: 6),
                       pw.Text(
-                        'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
+                        'الفترة: $rangeLabel',
                         style: const pw.TextStyle(
                           fontSize: 10,
                           color: PdfColors.grey700,
@@ -1615,18 +1572,8 @@ class PdfExport {
           ],
         );
 
-    pw.Widget footerSection(pw.Context ctx) => pw.Container(
-          alignment: pw.Alignment.centerLeft,
-          padding: const pw.EdgeInsets.only(top: 6),
-          child: pw.Text(
-            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-            style: const pw.TextStyle(
-              fontSize: 8,
-              color: PdfColors.grey600,
-            ),
-            textDirection: pw.TextDirection.rtl,
-          ),
-        );
+    pw.Widget footerSection(pw.Context ctx) =>
+        _exportFooter(at: exportedAtTime, by: exportedBy);
 
     if (sorted.isEmpty) {
       doc.addPage(
@@ -1876,7 +1823,6 @@ class PdfExport {
     final doc = pw.Document(theme: _theme);
     final dayFmt = DateFormat('yyyy/MM/dd');
     final timeFmt = DateFormat('hh:mm a');
-    final exportFmt = DateFormat('yyyy-MM-dd | hh:mm a');
     const reportTitle = 'حوالات الخروج من حساباتي';
 
     String slash(String? a, String? b) {
@@ -1894,7 +1840,7 @@ class PdfExport {
       );
 
     final rangeLabel = '${dayFmt.format(start)} → ${dayFmt.format(end)}';
-    final exportedAt = exportFmt.format(DateTime.now());
+    final exportedAtTime = DateTime.now();
 
     Uint8List? logoBytes;
     try {
@@ -1956,7 +1902,7 @@ class PdfExport {
                       ),
                       pw.SizedBox(height: 6),
                       pw.Text(
-                        'الفترة: $rangeLabel    تاريخ التصدير: $exportedAt',
+                        'الفترة: $rangeLabel',
                         style: const pw.TextStyle(
                           fontSize: 10,
                           color: PdfColors.grey700,
@@ -1976,18 +1922,8 @@ class PdfExport {
           ],
         );
 
-    pw.Widget footerSection(pw.Context ctx) => pw.Container(
-          alignment: pw.Alignment.centerLeft,
-          padding: const pw.EdgeInsets.only(top: 6),
-          child: pw.Text(
-            'تم التصدير بواسطة: ${(exportedBy ?? '').trim().isEmpty ? 'admin' : exportedBy!.trim()}',
-            style: const pw.TextStyle(
-              fontSize: 8,
-              color: PdfColors.grey600,
-            ),
-            textDirection: pw.TextDirection.rtl,
-          ),
-        );
+    pw.Widget footerSection(pw.Context ctx) =>
+        _exportFooter(at: exportedAtTime, by: exportedBy);
 
     if (sorted.isEmpty) {
       doc.addPage(
