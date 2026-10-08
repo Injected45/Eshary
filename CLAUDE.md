@@ -47,7 +47,7 @@ There is **no manual daily close**. `record_transfer` and `record_currency_buy` 
 
 An exit above the balance is refused by a trigger on `transfers` (`_check_transfer_balance`, 0046/0047): it locks the account row and raises `insufficient_balance`. `admin_restore_backup` sets `eshary.skip_balance_check` so a restore never moves or checks balances. Never write a two-step `insert` + `update balance` from Dart; always go through the RPCs. `record_pending_buy` (legacy) still creates a `pending` row that does not touch the balance.
 
-The exit/entry screens show **today's** executed rows (`todayTransfersProvider` / `todayBuysProvider`: archived rows created today by the phone's local date), so the lists start empty every new day. The "الإقفالات" tab is the permanent record. The permissions `archive_transfers` / `archive_buys` / `archive_all` are retired.
+The exit/entry screens show **today's** executed rows (`todayTransfersProvider` / `todayBuysProvider`: archived rows created today by the phone's local date), so the lists start empty every new day. The "العمليات" tab (formerly "الإقفالات") is the permanent record. The permissions `archive_transfers` / `archive_buys` / `archive_all` are retired.
 
 ### Database
 

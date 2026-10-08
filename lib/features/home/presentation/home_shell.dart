@@ -36,7 +36,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static const _titles = [
     'الحوالات',
-    'الإقفالات',
+    'العمليات',
     'حساباتي',
     'الإعدادات',
   ];
@@ -333,7 +333,7 @@ class _GlassBottomNav extends StatelessWidget {
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.boxArchive, size: 18),
-                    label: 'الإقفالات',
+                    label: 'العمليات',
                   ),
                   NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.wallet, size: 18),

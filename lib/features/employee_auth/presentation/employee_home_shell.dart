@@ -272,8 +272,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
       // data scope (own / all) is enforced by the database.
       if (p.contains(kPermClosingsOwn) || p.contains(kPermClosingsAll))
         const _EmployeeTab(
-          title: 'الإقفالات',
-          label: 'الإقفالات',
+          title: 'العمليات',
+          label: 'العمليات',
           icon: FontAwesomeIcons.boxArchive,
           screen: ArchiveScreen(),
         ),

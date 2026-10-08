@@ -118,7 +118,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: FontAwesomeIcons.eraser,
             title: 'حذف المدخلات',
             subtitle:
-                'يحذف الإقفالات والسجلات اليومية فقط — لا يحذف الشركات وشركات الصرافة والعملاء',
+                'يحذف العمليات المسجلة (الحوالات والمشتريات) فقط — لا يحذف الشركات وشركات الصرافة والعملاء',
             onTap: () => _confirmAndWipeEntries(context, ref),
           ),
           const Padding(
@@ -235,7 +235,7 @@ Future<void> _confirmAndWipeEntries(
     context,
     title: 'حذف المدخلات؟',
     body:
-        'ستُحذف الإقفالات والسجلات اليومية: الحوالات والمشتريات. تبقى الشركات وشركات الصرافة والعملاء كما هي.',
+        'ستُحذف العمليات المسجلة: الحوالات والمشتريات. تبقى الشركات وشركات الصرافة والعملاء كما هي.',
   );
   if (confirmed != true) return;
 
