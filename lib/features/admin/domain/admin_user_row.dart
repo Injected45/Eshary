@@ -8,6 +8,7 @@ class AdminUserRow {
     required this.trialEndsAt,
     required this.isAdmin,
     required this.createdAt,
+    this.phone,
   });
 
   final String userId;
@@ -17,6 +18,10 @@ class AdminUserRow {
   final DateTime? trialEndsAt;
   final bool isAdmin;
   final DateTime createdAt;
+
+  /// The phone the person confirmed with a WhatsApp code (new accounts), or
+  /// null for accounts created another way.
+  final String? phone;
 
   /// Mirrors the is_valid logic from current_license_status() so the admin
   /// list renders the same colour as the user's own pending screen.
@@ -37,6 +42,7 @@ class AdminUserRow {
           : DateTime.parse(j['trial_ends_at'] as String),
       isAdmin: j['is_admin'] as bool? ?? false,
       createdAt: DateTime.parse(j['created_at'] as String),
+      phone: j['phone'] as String?,
     );
   }
 }

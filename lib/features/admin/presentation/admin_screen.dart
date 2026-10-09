@@ -143,7 +143,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               child: TextField(
                 controller: _search,
                 decoration: const InputDecoration(
-                  hintText: 'بحث بالبريد الإلكتروني',
+                  hintText: 'بحث بالبريد الإلكتروني أو رقم الهاتف',
                   prefixIcon: Icon(Icons.search, color: AppColors.textLow),
                 ),
               ),
@@ -195,7 +195,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                         ? all
                         : all
                             .where(
-                              (r) => r.email.toLowerCase().contains(query),
+                              (r) =>
+                                  r.email.toLowerCase().contains(query) ||
+                                  (r.phone ?? '').contains(query),
                             )
                             .toList();
                     if (rows.isEmpty) {
@@ -406,6 +408,28 @@ class _UserCard extends StatelessWidget {
               ),
             ],
           ),
+          if ((row.phone ?? '').isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.whatsapp,
+                  size: 13,
+                  color: AppColors.positive,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  row.phone!,
+                  key: const ValueKey('user-phone'),
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                    color: AppColors.textMid,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
