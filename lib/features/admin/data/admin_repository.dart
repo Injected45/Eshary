@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../domain/admin_user_row.dart';
+import '../domain/deleted_account.dart';
 export '../domain/admin_user_row.dart';
 
 class AdminRepository {
@@ -61,6 +62,15 @@ class AdminRepository {
     );
   }
 
+  /// The log of deleted accounts, newest first.
+  Future<List<DeletedAccount>> listDeleted() async {
+    final res = await _client.rpc<List<dynamic>>('admin_list_deleted_accounts');
+    return res
+        .cast<Map<String, dynamic>>()
+        .map(DeletedAccount.fromJson)
+        .toList();
+  }
+
   Future<void> revokeAdmin(String email) async {
     await _client.rpc<dynamic>(
       'admin_revoke_admin',
@@ -78,4 +88,9 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
 final adminUsersListProvider =
     FutureProvider.autoDispose<List<AdminUserRow>>((ref) async {
   return ref.watch(adminRepositoryProvider).listUsers();
+});
+
+final deletedAccountsProvider =
+    FutureProvider.autoDispose<List<DeletedAccount>>((ref) async {
+  return ref.watch(adminRepositoryProvider).listDeleted();
 });

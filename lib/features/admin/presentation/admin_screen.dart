@@ -8,6 +8,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
+import 'deleted_accounts_screen.dart';
 
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
@@ -134,7 +135,21 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
-      appBar: const GlassAppBar(title: Text('إدارة الحسابات')),
+      appBar: GlassAppBar(
+        title: const Text('إدارة الحسابات'),
+        actions: [
+          IconButton(
+            key: const ValueKey('deleted-accounts-log'),
+            tooltip: 'سجل الحسابات المحذوفة',
+            icon: const FaIcon(FontAwesomeIcons.trashCanArrowUp, size: 15),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const DeletedAccountsScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
