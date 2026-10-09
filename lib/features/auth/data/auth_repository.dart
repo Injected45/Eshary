@@ -48,6 +48,13 @@ class AuthRepository {
     }
 
     final googleSignIn = GoogleSignIn(serverClientId: _googleWebClientId);
+    // Forget the last account so the chooser always lists the phone's Google
+    // accounts and the person picks the one they mean.
+    try {
+      await googleSignIn.signOut();
+    } catch (_) {
+      // nothing was signed in
+    }
     final googleUser = await googleSignIn.signIn();
     if (googleUser == null) return false; // user cancelled the picker
 

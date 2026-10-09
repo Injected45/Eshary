@@ -12,10 +12,10 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/member_auth_repository.dart';
 
-/// "إنشاء حساب جديد": e-mail + phone (no password). A 6-digit code is sent by
-/// WhatsApp to that phone; entering it creates the account (which then waits
-/// for the administrator's approval) or, for an existing account, signs in.
-/// Later sign-ins use the same two steps.
+/// "لدي حساب": a RETURNING member signs in with e-mail + phone (no password).
+/// A 4-digit code is sent by WhatsApp to that phone; entering it signs in.
+/// New accounts are not created here any more: they start with Google on the
+/// welcome screen (which proves the e-mail) and then confirm the phone.
 class MemberAuthScreen extends ConsumerStatefulWidget {
   const MemberAuthScreen({super.key});
 
@@ -230,7 +230,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'إنشاء حساب جديد',
+                            'تسجيل الدخول',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 22,
@@ -241,7 +241,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
                           const SizedBox(height: 6),
                           Text(
                             !_sent
-                                ? 'اختر بريدك من الهاتف وأدخل رقم هاتفك، وسيصلك رمز التحقق على واتساب.'
+                                ? 'اختر بريدك المسجَّل وأدخل رقم هاتفك، وسيصلك رمز التحقق على واتساب.'
                                 : (_needsEmail
                                     ? 'أدخل رمز البريد ورمز واتساب '
                                         '(${_maskedPhone ?? ''}). تحتاجهما هذه المرة فقط.'

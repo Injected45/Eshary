@@ -194,6 +194,15 @@ String friendlyError(Object e) {
   if (s.contains('insufficient_balance')) {
     return 'الرصيد المتاح في الحساب لا يكفي لهذه الحوالة. تحقق من الرصيد المتاح.';
   }
+  if (s.contains('use_google')) {
+    return 'هذا البريد غير مسجَّل. أنشئ حساباً جديداً بالتسجيل باستخدام Google.';
+  }
+  if (s.contains('already_linked')) {
+    return 'رقم هاتف هذا الحساب مؤكَّد مسبقاً.';
+  }
+  if (s.contains('email_not_confirmed')) {
+    return 'بريد هذا الحساب غير مؤكَّد. استخدم حساب Google.';
+  }
   if (s.contains('empty_message')) {
     return 'اكتب نص الرسالة أولاً.';
   }

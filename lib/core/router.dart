@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/data/phone_link_repository.dart';
+import '../features/auth/presentation/link_phone_screen.dart';
 import '../features/auth/presentation/member_auth_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
@@ -26,6 +28,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Re-evaluate redirects whenever the license result transitions
   // (loading → data, or data → data with a different is_valid).
   ref.listen(licenseStatusProvider, (_, __) => refresh.bump());
+  // A new account (Google) must link its phone before anything else.
+  ref.listen(needsPhoneProvider, (_, __) => refresh.bump());
 
   return GoRouter(
     initialLocation: '/splash',
@@ -72,6 +76,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // without signing out first).
       if (atAuth || loc == '/employee-home') return '/';
 
+      // A new account has chosen its Google account; its phone (WhatsApp code)
+      // is the last thing to prove. Only a definite answer moves the user, so a
+      // slow or failed check never traps anyone.
+      final needsPhone = ref.read(needsPhoneProvider).valueOrNull;
+      if (needsPhone == true && loc != '/link-phone') return '/link-phone';
+      if (needsPhone == false && loc == '/link-phone') return '/';
+
       // License gate — admin only.
       final license = ref.read(licenseStatusProvider);
       final status = license.maybeWhen(
@@ -105,6 +116,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/member-auth',
         builder: (_, __) => const MemberAuthScreen(),
+      ),
+      GoRoute(
+        path: '/link-phone',
+        builder: (_, __) => const LinkPhoneScreen(),
       ),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
       GoRoute(
