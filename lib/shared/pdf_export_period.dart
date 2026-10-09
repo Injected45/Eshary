@@ -567,6 +567,7 @@ extension PeriodReports on PdfExport {
             ({
               DateTime at,
               String who,
+              String account,
               double? income,
               double? outgoing,
               double balance,
@@ -576,9 +577,10 @@ extension PeriodReports on PdfExport {
     required double outgoingTotal,
     double openingBalance = 0,
     required String scopeLabel,
-    required String accountLabel,
+    required String title,
     required String rangeLabel,
     required bool showWho,
+    bool showAccount = false,
     String? exportedBy,
     String? notificationText,
   }) async {
@@ -588,11 +590,11 @@ extension PeriodReports on PdfExport {
     final exportedAtTime = DateTime.now();
     final logo = await _loadLogo();
     final header = _periodHeader(
-      title: 'كشف حساب',
+      title: title,
       period: rangeLabel,
       logo: logo,
       notificationText: notificationText,
-      extraLines: ['الكشف: $scopeLabel    |    الحساب: $accountLabel'],
+      extraLines: ['الكشف: $scopeLabel'],
     );
 
     if (rows.isEmpty) {
@@ -615,12 +617,13 @@ extension PeriodReports on PdfExport {
       'ت',
       'التاريخ',
       'الوقت',
+      if (showAccount) 'الحساب',
       if (showWho) 'المنفذ',
       'دخول',
       'خروج',
       'الرصيد',
     ];
-    final widths = <double>[0.5, 1.4, 1.3, if (showWho) 2.6, 1.4, 1.4, 1.6];
+    final widths = <double>[0.5, 1.4, 1.3, if (showAccount) 3.2, if (showWho) 2.6, 1.4, 1.4, 1.6];
     final incomeColumn = headers.indexOf('دخول');
     final outgoingColumn = headers.indexOf('خروج');
     final balanceColumn = headers.indexOf('الرصيد');
@@ -648,6 +651,7 @@ extension PeriodReports on PdfExport {
                 '',
                 '',
                 '',
+                if (showAccount) '',
                 if (showWho) 'رصيد افتتاحي',
                 '',
                 '',
@@ -658,6 +662,7 @@ extension PeriodReports on PdfExport {
                 '${i + 1}',
                 dayFmt.format(rows[i].at),
                 timeFmt.format(rows[i].at),
+                if (showAccount) rows[i].account,
                 if (showWho) rows[i].who,
                 rows[i].income == null ? '' : formatMoney(rows[i].income!),
                 rows[i].outgoing == null ? '' : formatMoney(rows[i].outgoing!),

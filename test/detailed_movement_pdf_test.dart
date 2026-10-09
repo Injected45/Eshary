@@ -260,6 +260,8 @@ void main() {
     }
   });
 
+  statementTitleChecks();
+
   group('the reports build', () {
     final t0 = DateTime(2026, 10, 8, 12);
     final company = Company(
@@ -333,5 +335,16 @@ void main() {
       expect(bytes.length, greaterThan(2000));
       expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
     });
+  });
+}
+
+void statementTitleChecks() {
+  test('the statement title names the account and the exchange company', () {
+    final screen = File(
+      'lib/features/companies/presentation/account_statement_screen.dart',
+    ).readAsStringSync();
+    expect(screen, contains('كشف حساب \${companies[selected.companyId]?.name'));
+    expect(screen, contains('لدى شركة \${selected.name}'));
+    expect(screen, contains('title: Text(title)'));
   });
 }

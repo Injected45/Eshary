@@ -181,6 +181,7 @@ void main() {
             (
               at: t0.add(Duration(minutes: i)),
               who: i.isEven ? 'المدير' : 'سامي',
+              account: i.isEven ? 'الرحالة الأولى - بهار روز' : 'الرحالة الأولى - الليبية الدولية',
               income: i.isEven ? 100.0 + i : null,
               outgoing: i.isEven ? null : 40.0 + i,
               balance: 100.0 + i,
@@ -190,7 +191,8 @@ void main() {
         outgoingTotal: 350,
         openingBalance: 3,
         scopeLabel: 'الكل',
-        accountLabel: 'كل الحسابات',
+        title: 'كشف حساب الرحالة الأولى لدى شركة بهار روز',
+        showAccount: true,
         rangeLabel: '2026/10/08',
         showWho: true,
         exportedBy: 'المدير',

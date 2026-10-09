@@ -85,7 +85,8 @@ class _AccountStatementScreenState
     required AccountStatement statement,
     required ({DateTime start, DateTime end}) range,
     required Map<String, SubUser> employees,
-    required String accountLabel,
+    required String title,
+    required Map<String, String> accountNames,
   }) async {
     setState(() => _exporting = true);
     try {
@@ -112,6 +113,7 @@ class _AccountStatementScreenState
               who: e.employeeId == null
                   ? 'المدير'
                   : (employees[e.employeeId]?.employeeName ?? '—'),
+              account: accountNames[e.exchangeId] ?? '—',
               income: e.income,
               outgoing: e.outgoing,
               balance: e.balance,
@@ -121,9 +123,10 @@ class _AccountStatementScreenState
         outgoingTotal: statement.totalOutgoing,
         openingBalance: statement.openingBalance,
         scopeLabel: _scopeLabel(employees),
-        accountLabel: accountLabel,
+        title: title,
         rangeLabel: periodLabel(range.start, range.end),
         showWho: _scope == StatementScope.all,
+        showAccount: _exchangeId == null,
         exportedBy: exportedBy,
         notificationText: notif,
       );
@@ -157,13 +160,12 @@ class _AccountStatementScreenState
     };
     String exchangeLabel(Exchange e) =>
         '${companies[e.companyId]?.name ?? '—'} — ${e.name}';
-    final accountLabel = _exchangeId == null
-        ? 'كل الحسابات'
-        : exchanges
-            .where((e) => e.id == _exchangeId)
-            .map(exchangeLabel)
-            .firstOrNull ??
-            '—';
+    // "كشف حساب <حسابي> لدى شركة <شركة الصرافة>": follows the chosen account.
+    final selected = exchanges.where((e) => e.id == _exchangeId).firstOrNull;
+    final title = selected == null
+        ? 'كشف حساب جميع الحسابات'
+        : 'كشف حساب ${companies[selected.companyId]?.name ?? '—'} '
+            'لدى شركة ${selected.name}';
 
     AccountStatement? statement;
     final data = dataAsync.valueOrNull;
@@ -200,7 +202,7 @@ class _AccountStatementScreenState
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('كشف حساب'),
+        title: Text(title),
         backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
         elevation: 0,
         actions: [
@@ -212,7 +214,12 @@ class _AccountStatementScreenState
                       statement: statement!,
                       range: r,
                       employees: employees,
-                      accountLabel: accountLabel,
+                      title: title,
+                      accountNames: {
+                        for (final e in exchanges)
+                          e.id:
+                              '${companies[e.companyId]?.name ?? '—'} - ${e.name}',
+                      },
                     ),
             icon: _exporting
                 ? const SizedBox(
@@ -258,7 +265,7 @@ class _AccountStatementScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'كشف حساب',
+                  'نوع الكشف',
                   style: TextStyle(
                     color: AppColors.textMid,
                     fontSize: 12,
