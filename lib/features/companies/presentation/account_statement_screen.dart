@@ -9,6 +9,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../../shared/period_label.dart';
 import '../../archive/presentation/archive_filters.dart';
 import '../../notifications/presentation/notifications_providers.dart';
@@ -132,7 +133,19 @@ class _AccountStatementScreenState
         exportedBy: exportedBy,
         notificationText: notif,
       );
-      await PdfExport.sharePdf(bytes, 'account_statement.pdf');
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName(
+          title,
+          who: switch (_scope) {
+            StatementScope.all => null,
+            StatementScope.me => 'المدير',
+            StatementScope.employee => 'الموظف ${_scopeLabel(employees)}',
+          },
+          start: range.start,
+          end: range.end,
+        ),
+      );
     } catch (e, st) {
       AppLogger.error('accountStatement.export', e, st);
       if (mounted) {

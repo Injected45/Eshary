@@ -10,6 +10,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../../shared/transaction_details.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
@@ -20,6 +21,7 @@ import '../../currency_buy/domain/currency_buy.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
+import '../../sub_users/presentation/sub_users_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
@@ -77,6 +79,19 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         _to = r.end;
       }
     }
+  }
+
+  /// Whose operations the exported file holds, for its name.
+  String? _whoForFile(String? employeeName) {
+    if (employeeName != null) return 'الموظف $employeeName';
+    final f = widget.creatorFilter;
+    if (f == null || f == kCreatorAll) return null;
+    if (f == kCreatorAdmin) return 'المدير';
+    final name = (ref.read(subUsersListProvider).valueOrNull ?? const [])
+        .where((e) => e.id == f)
+        .map((e) => e.employeeName)
+        .firstOrNull;
+    return name == null ? null : 'الموظف $name';
   }
 
   bool get _rangeReady =>
@@ -301,9 +316,12 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         notificationText: notif,
         employeeName: employeeName,
       );
-      final filename = 'movement_'
-          '${DateFormat('yyyyMMdd').format(start)}_'
-          '${DateFormat('yyyyMMdd').format(end)}.pdf';
+      final filename = pdfFileName(
+        'تفاصيل حركة الدخول والخروج للحوالات',
+        who: _whoForFile(employeeName),
+        start: start,
+        end: end,
+      );
       await PdfExport.sharePdf(bytes, filename);
     } catch (e, st) {
       AppLogger.error('diffDetails.exportPdf', e, st);

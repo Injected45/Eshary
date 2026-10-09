@@ -12,6 +12,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/transaction_details.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../../shared/pending_dispatch.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../companies/data/companies_repository.dart';
@@ -447,7 +448,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         exportedBy: exportedBy,
         employeeName: employeeName,
       );
-      await PdfExport.sharePdf(bytes, 'daily_transfers.pdf');
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName(
+          'سجل خروج الحوالات اليوم',
+          who: employeeName == null ? null : 'الموظف $employeeName',
+        ),
+      );
     } catch (e, st) {
       AppLogger.error('transfers.exportDailyPdf', e, st);
       _snack(friendlyError(e));

@@ -9,6 +9,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../archive/presentation/archive_filters.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../data/cancellations_repository.dart';
@@ -87,7 +88,10 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
         exportedBy: exportedBy,
         notificationText: notif,
       );
-      await PdfExport.sharePdf(bytes, 'cancellations.pdf');
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName('كشف الإلغاءات', start: r.start, end: r.end),
+      );
     } catch (e, st) {
       AppLogger.error('cancellations.export', e, st);
       if (mounted) {

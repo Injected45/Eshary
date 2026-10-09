@@ -9,6 +9,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../companies/domain/company.dart';
@@ -51,6 +52,12 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
 
   bool get _isIncome => widget.kind == HistoryKind.income;
   Color get _tint => _isIncome ? AppColors.positive : AppColors.negative;
+  /// An employee's export carries their name.
+  String? _whoForFile() {
+    final name = ref.read(currentEmployeeProvider).value?.employeeName;
+    return name == null ? null : 'الموظف $name';
+  }
+
   String get _title => _isIncome ? 'تفاصيل الدخول' : 'تفاصيل الخروج';
   String get _totalLabel => _isIncome ? 'إجمالي الدخول' : 'إجمالي الخروج';
 
@@ -316,7 +323,15 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           employeeName:
               ref.read(currentEmployeeProvider).value?.employeeName,
         );
-        await PdfExport.sharePdf(bytes, 'income_details.pdf');
+        await PdfExport.sharePdf(
+          bytes,
+          pdfFileName(
+            'حوالات الدخول إلى حساباتي',
+            who: _whoForFile(),
+            start: start,
+            end: end,
+          ),
+        );
         return;
       }
 
@@ -363,7 +378,15 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         notificationText: notif,
         employeeName: ref.read(currentEmployeeProvider).value?.employeeName,
       );
-      await PdfExport.sharePdf(bytes, 'outgoing_details.pdf');
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName(
+          'حوالات الخروج من حساباتي',
+          who: _whoForFile(),
+          start: start,
+          end: end,
+        ),
+      );
     } catch (e, st) {
       AppLogger.error('historyDetails.exportPdf', e, st);
       if (!mounted) return;
@@ -404,7 +427,11 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       late final List<List<String>> rowsData;
       if (row is CurrencyBuy) {
         title = 'تفاصيل الدخول — سجل واحد';
-        filename = 'income_record_${row.id}.pdf';
+        filename = pdfFileName(
+          'عملية دخول ${row.reference.isEmpty ? '' : row.reference} '
+          '${formatMoney(row.usdAmount)}\$',
+          start: row.archivedAt ?? row.createdAt,
+        );
         rowsData = [
           ['التاريخ', dateTime.format(row.archivedAt ?? row.createdAt)],
           [
@@ -429,7 +456,10 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         ];
       } else if (row is Transfer) {
         title = 'تفاصيل الخروج — سجل واحد';
-        filename = 'outgoing_record_${row.id}.pdf';
+        filename = pdfFileName(
+          'عملية خروج ${row.reference} ${formatMoney(row.amount)}\$',
+          start: row.archivedAt ?? row.createdAt,
+        );
         rowsData = [
           ['التاريخ', dateTime.format(row.archivedAt ?? row.createdAt)],
           [

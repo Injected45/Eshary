@@ -15,6 +15,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/transaction_details.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
+import '../../../shared/pdf_file_name.dart';
 import '../../../shared/pending_dispatch.dart';
 import '../../clients/data/clients_repository.dart';
 import '../../clients/domain/client.dart';
@@ -477,7 +478,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         exportedBy: exportedBy,
         employeeName: employeeName,
       );
-      await PdfExport.sharePdf(bytes, 'daily_buys.pdf');
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName(
+          'سجل دخول الحوالات اليوم',
+          who: employeeName == null ? null : 'الموظف $employeeName',
+        ),
+      );
     } catch (e, st) {
       AppLogger.error('currencyBuy.exportDailyPdf', e, st);
       _snack(friendlyError(e));

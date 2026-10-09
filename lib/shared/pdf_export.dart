@@ -285,7 +285,7 @@ class PdfExport {
                 pw.Expanded(
                   child: pw.Center(
                     child: _ArText(
-                      'سجل خروج الحوالات غير مرحلة',
+                      'سجل خروج الحوالات اليوم',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 22,
@@ -615,7 +615,7 @@ class PdfExport {
     return doc.save();
   }
 
-  /// "سجل دخول الحوالات غير المرحلة" — landscape A4 report mirroring
+  /// "سجل دخول الحوالات اليوم" — landscape A4 report mirroring
   /// `buildDailyTransfersReport` but for incoming currency buys. Columns
   /// (right→left): ت | دخول من شركة | حساب | الإشاري | القيمة | لشركة |
   /// حسابي | كود.
@@ -657,7 +657,7 @@ class PdfExport {
                 pw.Expanded(
                   child: pw.Center(
                     child: _ArText(
-                      'سجل دخول الحوالات غير المرحلة',
+                      'سجل دخول الحوالات اليوم',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 22,
