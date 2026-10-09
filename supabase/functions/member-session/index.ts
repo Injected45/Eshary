@@ -11,12 +11,14 @@
 // be proven too; the app then mails the e-mail code through Supabase Auth).
 // Then this function:
 //   1. checks the WhatsApp code (member_consume_otp, commit = false);
-//   2. when this is the account's FIRST time (needsEmail), checks the e-mail
-//      code with Supabase Auth, which proves the person owns the address;
-//   3. marks the WhatsApp code used (commit = true) and binds the phone;
+//   2. only for an EXISTING account that has no phone linked yet (needsEmail),
+//      checks the e-mail code with Supabase Auth, which proves the person owns
+//      the address. A brand-new e-mail (chosen from the phone's accounts) and
+//      an account whose phone is already linked need the WhatsApp code only;
+//   3. marks the WhatsApp code used (commit = true), creates the user when the
+//      e-mail is new, and binds the phone;
 //   4. returns a one-time token the app exchanges for a session
 //      (auth.verifyOTP(tokenHash, type: email)).
-// Later sign-ins skip step 2: e-mail + linked phone + WhatsApp code.
 //
 // The service-role key never leaves this function.
 
@@ -90,7 +92,20 @@ Deno.serve(async (req) => {
     if (commitError) return json({ ok: false, code: "server_error" }, 500);
     if (!done?.ok) return json(done);
     userId = userId ?? done.userId ?? null;
-    if (!userId) return json({ ok: false, code: "create_failed" }, 500);
+
+    // A new e-mail: create the account now (the e-mail counts as confirmed, the
+    // WhatsApp code proved the phone). It then waits for the administrator's
+    // approval like any new account.
+    let created = false;
+    if (!userId) {
+      const { data: made, error: createError } =
+        await admin.auth.admin.createUser({ email: mail, email_confirm: true });
+      if (createError || !made?.user) {
+        return json({ ok: false, code: "create_failed" }, 500);
+      }
+      userId = made.user.id;
+      created = true;
+    }
 
     const { error: linkError } = await admin.rpc("member_link_phone", {
       p_user_id: userId,
@@ -106,7 +121,11 @@ Deno.serve(async (req) => {
       return json({ ok: false, code: "link_failed" }, 500);
     }
 
-    return json({ ok: true, tokenHash, isNew: checked.needsEmail === true });
+    return json({
+      ok: true,
+      tokenHash,
+      isNew: created || checked.needsEmail === true,
+    });
   } catch (_e) {
     return json({ ok: false, code: "server_error" }, 500);
   }

@@ -241,7 +241,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
                           const SizedBox(height: 6),
                           Text(
                             !_sent
-                                ? 'أدخل بريدك ورقم هاتفك، وستصلك رموز التحقق.'
+                                ? 'اختر بريدك من الهاتف وأدخل رقم هاتفك، وسيصلك رمز التحقق على واتساب.'
                                 : (_needsEmail
                                     ? 'أدخل رمز البريد ورمز واتساب '
                                         '(${_maskedPhone ?? ''}). تحتاجهما هذه المرة فقط.'
@@ -333,7 +333,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
           const SizedBox(height: 18),
           FilledButton(
             onPressed: _busy ? null : _send,
-            child: _busy ? _spinner() : const Text('إرسال رموز التحقق'),
+            child: _busy ? _spinner() : const Text('إرسال رمز التحقق'),
           ),
         ],
       ];
