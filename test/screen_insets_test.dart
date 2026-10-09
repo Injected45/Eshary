@@ -159,6 +159,28 @@ void main() {
     expect(offenders, isEmpty, reason: offenders.join('\n'));
   });
 
+  testWidgets('حساباتي: the two buttons are the same width, centred',
+      (tester) async {
+    await pumpInShell(tester, const AccountsScreen());
+    Rect rectOf(String label) => tester.getRect(
+          find
+              .ancestor(
+                of: find.text(label),
+                matching: find.byWidgetPredicate((w) => w is FilledButton),
+              )
+              .first,
+        );
+    final a = rectOf('كشف حساب');
+    final b = rectOf('الإلغاءات');
+    expect(a.width, moreOrLessEquals(b.width, epsilon: 0.5));
+    expect(a.top, moreOrLessEquals(b.top, epsilon: 0.5));
+    // the pair sits in the middle: same margin on both sides of the screen
+    const screenWidth = 360.0;
+    final left = a.left < b.left ? a.left : b.left;
+    final right = a.right > b.right ? a.right : b.right;
+    expect(left, moreOrLessEquals(screenWidth - right, epsilon: 0.5));
+  });
+
   // A background refresh (the 5-second poll, realtime) must not flash a
   // loading bar or blank the screen: the data stays until the new one arrives.
   testWidgets('a background refresh does not flash حساباتي', (tester) async {

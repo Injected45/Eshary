@@ -127,64 +127,65 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     return ListView(
       padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
-        // Wraps onto a second line on a narrow phone.
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            // The statement shows every employee's operations: admin only.
-            if (!ref.watch(isEmployeeProvider))
-              FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const AccountStatementScreen(),
-                  ),
-                ),
-                icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
-                label: const Text('كشف حساب'),
-                style: FilledButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-              ),
-            // Requests + كشف الإلغاءات: admin only.
-            if (!ref.watch(isEmployeeProvider))
-              Badge(
-                isLabelVisible:
-                    ref.watch(pendingCancelRequestsProvider).isNotEmpty,
-                label: Text(
-                  '${ref.watch(pendingCancelRequestsProvider).length}',
-                ),
+        // Admin: كشف حساب and الإلغاءات side by side, same width, centred.
+        if (!ref.watch(isEmployeeProvider)) ...[
+          Row(
+            children: [
+              Expanded(
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const CancellationsScreen(),
+                      builder: (_) => const AccountStatementScreen(),
                     ),
                   ),
-                  icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
-                  label: const Text('الإلغاءات'),
+                  icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
+                  label: const Text('كشف حساب'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.cancelled,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    minimumSize: const Size.fromHeight(44),
                   ),
                 ),
               ),
-            OutlinedButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('قريبًا')),
+              const SizedBox(width: 12),
+              Expanded(
+                // The badge counts the employees' requests waiting.
+                child: Badge(
+                  isLabelVisible:
+                      ref.watch(pendingCancelRequestsProvider).isNotEmpty,
+                  label: Text(
+                    '${ref.watch(pendingCancelRequestsProvider).length}',
+                  ),
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CancellationsScreen(),
+                      ),
+                    ),
+                    icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
+                    label: const Text('الإلغاءات'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.cancelled,
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                  ),
+                ),
               ),
-              icon: const FaIcon(FontAwesomeIcons.filter, size: 12),
-              label: const Text('تصفية'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textHigh,
-                side: BorderSide(color: AppColors.glassBorder),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        Center(
+          child: OutlinedButton.icon(
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('قريبًا')),
             ),
-          ],
+            icon: const FaIcon(FontAwesomeIcons.filter, size: 12),
+            label: const Text('تصفية'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textHigh,
+              side: BorderSide(color: AppColors.glassBorder),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         _TotalBalanceCard(
