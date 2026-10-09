@@ -7,6 +7,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
+import '../../../shared/device_email_picker.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/member_auth_repository.dart';
@@ -34,6 +35,11 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
 
   bool _busy = false;
   bool _needsEmail = false;
+
+  /// The address is chosen from the phone's accounts; typing is only allowed
+  /// when the phone has no chooser.
+  late bool _manualEmail = !ref.read(deviceEmailPickerProvider).isSupported;
+  final _emailFocus = FocusNode();
   bool _sent = false;
   String? _maskedPhone;
   String? _error;
@@ -44,6 +50,7 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
   void dispose() {
     _timer?.cancel();
     _email.dispose();
+    _emailFocus.dispose();
     _phone.dispose();
     _code.dispose();
     _emailCode.dispose();
@@ -58,6 +65,29 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
       setState(() => _wait = _wait > 0 ? _wait - 1 : 0);
       if (_wait == 0) t.cancel();
     });
+  }
+
+  /// Opens the phone's list of e-mail accounts and fills the field with the
+  /// one chosen.
+  Future<void> _pickEmail() async {
+    if (_busy || _sent || _manualEmail) return;
+    final pick = await ref.read(deviceEmailPickerProvider).pick();
+    if (!mounted) return;
+    switch (pick) {
+      case EmailPicked(:final email):
+        setState(() {
+          _email.text = email;
+          _error = null;
+        });
+      case EmailPickCancelled():
+        break;
+      case EmailPickUnavailable():
+        setState(() {
+          _manualEmail = true;
+          _error = 'تعذّر عرض حسابات الهاتف. اكتب بريدك الإلكتروني.';
+        });
+        _emailFocus.requestFocus();
+    }
   }
 
   Future<void> _send() async {
@@ -268,13 +298,23 @@ class _MemberAuthScreenState extends ConsumerState<MemberAuthScreen> {
 
   List<Widget> _form() => [
         TextField(
+          key: const ValueKey('member-email'),
           controller: _email,
+          focusNode: _emailFocus,
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
-          readOnly: _sent,
-          decoration: const InputDecoration(
+          // Chosen from the phone's accounts, not typed.
+          readOnly: _sent || !_manualEmail,
+          showCursor: _manualEmail && !_sent,
+          onTap: _pickEmail,
+          decoration: InputDecoration(
             labelText: 'البريد الإلكتروني',
-            prefixIcon: Icon(Icons.alternate_email, color: AppColors.textLow),
+            hintText: _manualEmail ? null : 'اضغط لاختيار بريدك من الهاتف',
+            prefixIcon:
+                const Icon(Icons.alternate_email, color: AppColors.textLow),
+            suffixIcon: (_manualEmail || _sent)
+                ? null
+                : const Icon(Icons.arrow_drop_down, color: AppColors.textLow),
           ),
         ),
         const SizedBox(height: 14),
