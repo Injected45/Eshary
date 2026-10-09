@@ -280,6 +280,18 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                               .grantAdmin(rows[i].email),
                           successMessage: 'تم تعيين المشرف',
                         ),
+                        onDelete: () => _runAction(
+                          row: rows[i],
+                          confirmTitle: 'حذف الحساب نهائياً',
+                          confirmBody: 'البريد: ${rows[i].email}\n'
+                              'الهاتف: ${(rows[i].phone ?? '').isEmpty ? '—' : rows[i].phone}\n\n'
+                              'سيُحذف الحساب مع بيانات إعداده، ولا يمكن التراجع. '
+                              'لا يُحذف حساب له عمليات مالية؛ استخدم الحظر بدلاً منه.',
+                          action: () => ref
+                              .read(adminRepositoryProvider)
+                              .deleteUser(rows[i].userId),
+                          successMessage: 'تم حذف الحساب',
+                        ),
                         onRevokeAdmin: () => _runAction(
                           row: rows[i],
                           confirmTitle: 'إزالة صلاحيات المشرف',
@@ -303,7 +315,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 }
 
-enum _AdminAction { trial, lifetime, block, pending, grantAdmin, revokeAdmin }
+enum _AdminAction {
+  trial,
+  lifetime,
+  block,
+  pending,
+  grantAdmin,
+  revokeAdmin,
+  delete,
+}
 
 class _UserCard extends StatelessWidget {
   const _UserCard({
@@ -316,6 +336,7 @@ class _UserCard extends StatelessWidget {
     required this.onSetPending,
     required this.onGrantAdmin,
     required this.onRevokeAdmin,
+    required this.onDelete,
   });
 
   final AdminUserRow row;
@@ -326,6 +347,7 @@ class _UserCard extends StatelessWidget {
   final VoidCallback onSetPending;
   final VoidCallback onGrantAdmin;
   final VoidCallback onRevokeAdmin;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +390,8 @@ class _UserCard extends StatelessWidget {
                       onGrantAdmin();
                     case _AdminAction.revokeAdmin:
                       onRevokeAdmin();
+                    case _AdminAction.delete:
+                      onDelete();
                   }
                 },
                 itemBuilder: (_) => [
@@ -395,6 +419,14 @@ class _UserCard extends StatelessWidget {
                     const PopupMenuItem(
                       value: _AdminAction.revokeAdmin,
                       child: Text('إزالة صلاحيات المشرف'),
+                    ),
+                  if (!isSelf && !row.isAdmin)
+                    const PopupMenuItem(
+                      value: _AdminAction.delete,
+                      child: Text(
+                        'حذف الحساب',
+                        style: TextStyle(color: AppColors.negative),
+                      ),
                     ),
                   if (!isSelf && !row.isAdmin)
                     const PopupMenuItem(

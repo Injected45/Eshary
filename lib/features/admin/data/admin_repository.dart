@@ -52,6 +52,15 @@ class AdminRepository {
     );
   }
 
+  /// Deletes an account that never worked (refused by the database when it has
+  /// financial operations, and for admins / yourself). The deletion is recorded.
+  Future<void> deleteUser(String userId) async {
+    await _client.rpc<dynamic>(
+      'admin_delete_user',
+      params: {'p_user_id': userId},
+    );
+  }
+
   Future<void> revokeAdmin(String email) async {
     await _client.rpc<dynamic>(
       'admin_revoke_admin',

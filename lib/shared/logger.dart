@@ -194,6 +194,22 @@ String friendlyError(Object e) {
   if (s.contains('insufficient_balance')) {
     return 'الرصيد المتاح في الحساب لا يكفي لهذه الحوالة. تحقق من الرصيد المتاح.';
   }
+  // Admin: deleting an account / a backup (0052).
+  if (s.contains('user_has_operations')) {
+    return 'لا يمكن حذف هذا الحساب: له عمليات مالية مسجّلة. استخدم الحظر بدلاً من الحذف.';
+  }
+  if (s.contains('cannot_delete_self')) {
+    return 'لا يمكنك حذف حسابك أنت.';
+  }
+  if (s.contains('cannot_delete_admin')) {
+    return 'لا يمكن حذف حساب مشرف. أزل صلاحيات المشرف أولاً.';
+  }
+  if (s.contains('user_not_found')) {
+    return 'الحساب غير موجود. حدّث القائمة.';
+  }
+  if (s.contains('keep_one_backup')) {
+    return 'لا يمكن حذف كل النسخ الاحتياطية؛ يجب أن تبقى نسخة واحدة على الأقل.';
+  }
   if (s.contains('use_google')) {
     return 'هذا البريد غير مسجَّل. أنشئ حساباً جديداً بالتسجيل باستخدام Google.';
   }

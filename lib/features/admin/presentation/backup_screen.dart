@@ -32,6 +32,9 @@ class BackupScreen extends ConsumerStatefulWidget {
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _busy = false;
 
+  /// Snapshots ticked for deletion.
+  final Set<String> _selected = {};
+
   void _snack(String text, {bool error = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +70,31 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         mimeType: 'application/json',
       ),
     ]);
+  }
+
+  Future<void> _deleteSelected(List<BackupInfo> all) async {
+    final chosen = all.where((b) => _selected.contains(b.id)).toList();
+    if (chosen.isEmpty) return;
+    final df = DateFormat('yyyy/MM/dd HH:mm');
+    final bytes = chosen.fold<int>(0, (s, b) => s + b.sizeBytes);
+    final ok = await _confirm(
+      title: 'حذف ${chosen.length} نسخة؟',
+      body: 'الأقدم: ${df.format(chosen.last.createdAt.toLocal())}\n'
+          'الأحدث: ${df.format(chosen.first.createdAt.toLocal())}\n'
+          'المساحة التي تتحرر: ${_size(bytes)}\n\n'
+          'لا يمكن التراجع. تبقى نسخة واحدة على الأقل دائماً.',
+      confirmLabel: 'حذف',
+      destructive: true,
+    );
+    if (ok != true) return;
+    await _run(() async {
+      final n = await ref
+          .read(backupRepositoryProvider)
+          .deleteMany(chosen.map((b) => b.id).toList());
+      _selected.clear();
+      ref.invalidate(backupsListProvider);
+      _snack('تم حذف $n نسخة');
+    }, 'backup.delete');
   }
 
   Future<void> _backupNow() => _run(() async {
@@ -259,7 +287,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             const Text(
-              'يُنشأ نسخ احتياطي تلقائي كل ساعة ويُحتفظ بآخر 7 أيام.',
+              'يُنشأ نسخ احتياطي تلقائي كل 24 ساعة (منتصف الليل بتوقيت ليبيا) '
+              'ويُحتفظ به 30 يوماً. يمكنك حذف النسخ القديمة لتوفير المساحة.',
               style: TextStyle(color: AppColors.textLow, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -300,6 +329,53 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            if (backups.valueOrNull?.isNotEmpty ?? false)
+              // a Wrap, so a narrow phone puts the delete button on a second line
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  TextButton(
+                    key: const ValueKey('backup-select-all'),
+                    style: TextButton.styleFrom(minimumSize: const Size(0, 40)),
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() {
+                              final all = backups.value!;
+                              if (_selected.length == all.length) {
+                                _selected.clear();
+                              } else {
+                                _selected
+                                  ..clear()
+                                  ..addAll(all.map((b) => b.id));
+                              }
+                            }),
+                    child: Text(
+                      _selected.length == backups.value!.length
+                          ? 'إلغاء التحديد'
+                          : 'تحديد الكل',
+                    ),
+                  ),
+                  FilledButton.icon(
+                    key: const ValueKey('backup-delete'),
+                    onPressed: (_busy || _selected.isEmpty)
+                        ? null
+                        : () => _deleteSelected(backups.value!),
+                    icon: const FaIcon(FontAwesomeIcons.trashCan, size: 13),
+                    label: Text(
+                      _selected.isEmpty
+                          ? 'حذف'
+                          : 'حذف المحدد (${_selected.length})',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.negative,
+                      // the theme's buttons are full-width; this one sits in a row
+                      minimumSize: const Size(0, 40),
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 4),
             backups.when(
               skipLoadingOnReload: true,
               skipError: true,
@@ -329,6 +405,22 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                             vertical: 10,
                           ),
                           child: Row(children: [
+                            Checkbox(
+                              key: ValueKey('backup-check-${b.id}'),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              value: _selected.contains(b.id),
+                              onChanged: _busy
+                                  ? null
+                                  : (v) => setState(() {
+                                        if (v ?? false) {
+                                          _selected.add(b.id);
+                                        } else {
+                                          _selected.remove(b.id);
+                                        }
+                                      }),
+                            ),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,6 +443,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               ),
                             ),
                             IconButton(
+                              visualDensity: VisualDensity.compact,
                               tooltip: 'تنزيل',
                               onPressed: _busy ? null : () => _download(b),
                               icon: const FaIcon(
@@ -359,6 +452,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               ),
                             ),
                             IconButton(
+                              visualDensity: VisualDensity.compact,
                               tooltip: 'استعادة',
                               onPressed:
                                   _busy ? null : () => _restoreFromStored(b),

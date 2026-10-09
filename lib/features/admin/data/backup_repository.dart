@@ -58,6 +58,16 @@ class BackupRepository {
     return res;
   }
 
+  /// Deletes the chosen stored snapshots to free space. The database refuses to
+  /// delete the last one. Returns how many were deleted.
+  Future<int> deleteMany(List<String> ids) async {
+    final res = await _client.rpc<dynamic>(
+      'admin_delete_backups',
+      params: {'p_ids': ids},
+    );
+    return (res as num).toInt();
+  }
+
   /// Replaces operational data with [backup]. Returns rows restored per table.
   Future<Map<String, dynamic>> restore(Map<String, dynamic> backup) async {
     final res = await _client.rpc<Map<String, dynamic>>(
