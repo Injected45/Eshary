@@ -9,6 +9,7 @@ import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'add_client_dialog.dart';
 import 'clients_providers.dart';
+import '../../../shared/top_message.dart';
 
 class ClientsScreen extends ConsumerWidget {
   const ClientsScreen({super.key});
@@ -42,7 +43,8 @@ class ClientsScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipError: true,
         data: (clients) => ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+          padding:
+              EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [
             if (clients.isEmpty)
               const Padding(
@@ -166,8 +168,7 @@ class _ClientTile extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(false),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -178,8 +179,7 @@ class _ClientTile extends ConsumerWidget {
                         backgroundColor: AppColors.negative,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(true),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
                       child: const Text('حذف'),
                     ),
                   ),
@@ -197,7 +197,8 @@ class _ClientTile extends ConsumerWidget {
       } catch (e, st) {
         AppLogger.error('clients.delete', e, st);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

@@ -12,6 +12,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../domain/company.dart';
 import 'companies_providers.dart';
+import '../../../shared/top_message.dart';
 
 class AccountDetailsScreen extends ConsumerStatefulWidget {
   const AccountDetailsScreen({super.key, required this.company});
@@ -41,8 +42,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
         throw StateError('boundary not ready');
       }
       final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         throw StateError('byteData null');
       }
@@ -56,8 +56,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     } catch (e, st) {
       AppLogger.error('account.share', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) {
         setState(() {
@@ -92,7 +91,8 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
         child: Container(
           color: AppColors.bgDeep,
           child: ListView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
               GlassCard(
                 padding: const EdgeInsets.all(18),
@@ -107,8 +107,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                     _KvRow(label: 'اسم الحساب', value: company.name),
                     if (!_hideForShare) ...[
                       const SizedBox(height: 8),
-                      _KvRow(
-                          label: 'إشاري الافتتاح', value: company.startRef),
+                      _KvRow(label: 'إشاري الافتتاح', value: company.startRef),
                     ],
                   ],
                 ),
@@ -143,15 +142,13 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                           children: [
                             _KvRow(label: 'شركة الصرافة', value: ex.name),
                             const SizedBox(height: 8),
-                            _KvRow(
-                                label: 'الدولة', value: ex.country ?? '—'),
+                            _KvRow(label: 'الدولة', value: ex.country ?? '—'),
                             const SizedBox(height: 8),
                             _KvRow(
                               label: 'كود الحساب',
-                              value:
-                                  (ex.ourCode == null || ex.ourCode!.isEmpty)
-                                      ? '—'
-                                      : ex.ourCode!,
+                              value: (ex.ourCode == null || ex.ourCode!.isEmpty)
+                                  ? '—'
+                                  : ex.ourCode!,
                             ),
                             if (!_hideForShare) ...[
                               const SizedBox(height: 8),

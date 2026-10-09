@@ -23,6 +23,7 @@ import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart' show todayDate;
+import '../../../shared/top_message.dart';
 
 enum HistoryKind { income, outgoing }
 
@@ -52,6 +53,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
 
   bool get _isIncome => widget.kind == HistoryKind.income;
   Color get _tint => _isIncome ? AppColors.positive : AppColors.negative;
+
   /// An employee's export carries their name.
   String? _whoForFile() {
     final name = ref.read(currentEmployeeProvider).value?.employeeName;
@@ -111,14 +113,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       );
     }
     final all = archivedAsync.value ?? const <CurrencyBuy>[];
-    final filtered = all
-        .where((b) => _withinFilter(b.archivedAt ?? b.createdAt))
-        .toList()
-      ..sort((a, b) {
-        final ad = a.archivedAt ?? a.createdAt;
-        final bd = b.archivedAt ?? b.createdAt;
-        return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
-      });
+    final filtered =
+        all.where((b) => _withinFilter(b.archivedAt ?? b.createdAt)).toList()
+          ..sort((a, b) {
+            final ad = a.archivedAt ?? a.createdAt;
+            final bd = b.archivedAt ?? b.createdAt;
+            return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
+          });
     final total = filtered.fold<double>(0, (s, b) => s + b.netAmount);
     return _buildBody<CurrencyBuy>(
       rows: filtered,
@@ -170,14 +171,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       ...(dailyAsync.value ?? const <Transfer>[]),
       ...(archivedAsync.value ?? const <Transfer>[]),
     ];
-    final filtered = all
-        .where((t) => _withinFilter(t.archivedAt ?? t.createdAt))
-        .toList()
-      ..sort((a, b) {
-        final ad = a.archivedAt ?? a.createdAt;
-        final bd = b.archivedAt ?? b.createdAt;
-        return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
-      });
+    final filtered =
+        all.where((t) => _withinFilter(t.archivedAt ?? t.createdAt)).toList()
+          ..sort((a, b) {
+            final ad = a.archivedAt ?? a.createdAt;
+            final bd = b.archivedAt ?? b.createdAt;
+            return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
+          });
     final total = filtered.fold<double>(0, (s, t) => s + t.netAmount);
     return _buildBody<Transfer>(
       rows: filtered,
@@ -281,8 +281,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
             ref.read(companiesListProvider).value ?? const <Company>[];
         final exchanges =
             ref.read(allExchangesProvider).value ?? const <Exchange>[];
-        final clients =
-            ref.read(clientsListProvider).value ?? const <Client>[];
+        final clients = ref.read(clientsListProvider).value ?? const <Client>[];
 
         final user = ref.read(supabaseClientProvider).auth.currentUser;
         final meta = user?.userMetadata ?? const <String, dynamic>{};
@@ -299,9 +298,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           start = _filterRange!.start;
           end = _filterRange!.end;
         } else if (buys.isNotEmpty) {
-          final dates = buys
-              .map((b) => b.archivedAt ?? b.createdAt)
-              .toList()
+          final dates = buys.map((b) => b.archivedAt ?? b.createdAt).toList()
             ..sort();
           start = dates.first;
           end = dates.last;
@@ -321,8 +318,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           title: _title,
           exportedBy: exportedBy,
           notificationText: notif,
-          employeeName:
-              ref.read(currentEmployeeProvider).value?.employeeName,
+          employeeName: ref.read(currentEmployeeProvider).value?.employeeName,
         );
         await PdfExport.sharePdf(
           bytes,
@@ -391,8 +387,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     } catch (e, st) {
       AppLogger.error('historyDetails.exportPdf', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     }
   }
 
@@ -410,8 +405,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           ref.read(companiesListProvider).value ?? const <Company>[];
       final exchanges =
           ref.read(allExchangesProvider).value ?? const <Exchange>[];
-      final clients =
-          ref.read(clientsListProvider).value ?? const <Client>[];
+      final clients = ref.read(clientsListProvider).value ?? const <Client>[];
 
       String resolveCompany(String? id) =>
           companies.where((c) => c.id == id).map((c) => c.name).firstOrNull ??
@@ -479,9 +473,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           ],
           [
             'كود حساب المستفيد',
-            (row.beneficiaryCode?.isEmpty ?? true)
-                ? '—'
-                : row.beneficiaryCode!,
+            (row.beneficiaryCode?.isEmpty ?? true) ? '—' : row.beneficiaryCode!,
           ],
           ['القيمة بالدولار', '${formatMoney(row.amount)} \$'],
         ];
@@ -509,8 +501,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     } catch (e, st) {
       AppLogger.error('historyDetails.exportSingle', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     }
   }
 }
@@ -654,8 +645,7 @@ class _FilterSortRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           onTap: () => onSortChanged(!newestFirst),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(children: [
               Text(
                 newestFirst ? 'الأحدث أولاً' : 'الأقدم أولاً',
@@ -767,8 +757,7 @@ class _RecordRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.glassFill,
             border: Border.all(color: AppColors.glassBorder),
@@ -886,8 +875,7 @@ class _BuyDetailDialog extends ConsumerWidget {
         ref.watch(companiesListProvider).value ?? const <Company>[];
     final exchanges =
         ref.watch(allExchangesProvider).value ?? const <Exchange>[];
-    final clients =
-        ref.watch(clientsListProvider).value ?? const <Client>[];
+    final clients = ref.watch(clientsListProvider).value ?? const <Client>[];
 
     final myCompanyName = companies
             .where((c) => c.id == row.myCompanyId)
@@ -902,9 +890,8 @@ class _BuyDetailDialog extends ConsumerWidget {
       }
     }
     final exchangeName = exchange?.name ?? '—';
-    final myAccountCode = (exchange?.ourCode?.isEmpty ?? true)
-        ? '—'
-        : exchange!.ourCode!;
+    final myAccountCode =
+        (exchange?.ourCode?.isEmpty ?? true) ? '—' : exchange!.ourCode!;
 
     Client? client;
     if (row.clientId != null) {
@@ -1012,19 +999,16 @@ class _TransferDetailDialog extends ConsumerWidget {
       }
     }
     final exchangeName = exchange?.name ?? '—';
-    final myAccountCode = (exchange?.ourCode?.isEmpty ?? true)
-        ? '—'
-        : exchange!.ourCode!;
+    final myAccountCode =
+        (exchange?.ourCode?.isEmpty ?? true) ? '—' : exchange!.ourCode!;
 
-    final beneficiaryCompany =
-        (row.beneficiaryAccountCompany?.isEmpty ?? true)
-            ? '—'
-            : row.beneficiaryAccountCompany!;
+    final beneficiaryCompany = (row.beneficiaryAccountCompany?.isEmpty ?? true)
+        ? '—'
+        : row.beneficiaryAccountCompany!;
     final beneficiaryName =
         row.beneficiaryName.isEmpty ? '—' : row.beneficiaryName;
-    final beneficiaryCode = (row.beneficiaryCode?.isEmpty ?? true)
-        ? '—'
-        : row.beneficiaryCode!;
+    final beneficiaryCode =
+        (row.beneficiaryCode?.isEmpty ?? true) ? '—' : row.beneficiaryCode!;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -1091,7 +1075,6 @@ class _TransferDetailDialog extends ConsumerWidget {
     );
   }
 }
-
 
 class _DetailKvData {
   const _DetailKvData(this.label, this.value, {this.color});
@@ -1233,8 +1216,7 @@ class _DetailDialogRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 color: labelColor,
-                fontWeight:
-                    color == null ? FontWeight.normal : FontWeight.w700,
+                fontWeight: color == null ? FontWeight.normal : FontWeight.w700,
               ),
             ),
           ),
@@ -1264,4 +1246,3 @@ class _DetailDialogRow extends StatelessWidget {
     );
   }
 }
-

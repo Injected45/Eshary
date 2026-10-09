@@ -9,6 +9,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
 import 'deleted_accounts_screen.dart';
+import '../../../shared/top_message.dart';
 
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
@@ -52,13 +53,15 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       // Force the list to refetch; the watching widgets rebuild on next emit.
       ref.invalidate(adminUsersListProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(content: Text(successMessage)),
       );
     } catch (e, st) {
       AppLogger.error('admin.action', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(
           backgroundColor: AppColors.negative.withValues(alpha: 0.85),
           content: Text(
@@ -103,21 +106,23 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('إلغاء'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        child: const Text('إلغاء'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      child: const Text('تأكيد'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        child: const Text('تأكيد'),
+                      ),
                     ),
-                  ),
-                ],),
+                  ],
+                ),
               ],
             ),
           ),
@@ -230,10 +235,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       );
                     }
                     return ListView.separated(
-                      padding: EdgeInsets.fromLTRB(16, 4, 16, contentBottomPadding(context)),
+                      padding: EdgeInsets.fromLTRB(
+                          16, 4, 16, contentBottomPadding(context)),
                       itemCount: rows.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _UserCard(
                         // Key on userId+status+isAdmin so the card rebuilds
                         // its chips immediately when those change.
@@ -489,8 +494,7 @@ class _UserCard extends StatelessWidget {
                 const _Chip(label: 'دائمة', color: AppColors.positive),
               if (row.trialEndsAt != null && row.status == 'trial')
                 _Chip(
-                  label:
-                      'حتى ${dateOnly.format(row.trialEndsAt!.toLocal())}',
+                  label: 'حتى ${dateOnly.format(row.trialEndsAt!.toLocal())}',
                   color: AppColors.textMid,
                 ),
             ],

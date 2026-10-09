@@ -159,6 +159,22 @@ void main() {
     expect(offenders, isEmpty, reason: offenders.join('\n'));
   });
 
+  testWidgets('حساباتي: the two buttons sit in a card; no تصفية button',
+      (tester) async {
+    await pumpInShell(tester, const AccountsScreen());
+    final card = find.byKey(const ValueKey('accounts-actions'));
+    expect(card, findsOneWidget);
+    expect(
+      find.descendant(of: card, matching: find.text('كشف حساب')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: card, matching: find.text('الإلغاءات')),
+      findsOneWidget,
+    );
+    expect(find.text('تصفية'), findsNothing);
+  });
+
   testWidgets('حساباتي: the two buttons are the same width, centred',
       (tester) async {
     await pumpInShell(tester, const AccountsScreen());

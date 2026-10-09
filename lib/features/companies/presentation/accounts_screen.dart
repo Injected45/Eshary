@@ -46,13 +46,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   Widget build(BuildContext context) {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
-    final exchangeCompaniesAsync =
-        ref.watch(exchangeCompaniesListProvider);
+    final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
     final archivedBuys = ref.watch(archivedBuysProvider).value ?? const [];
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const [];
-    final hasArchive =
-        archivedBuys.isNotEmpty || archivedTransfers.isNotEmpty;
+    final hasArchive = archivedBuys.isNotEmpty || archivedTransfers.isNotEmpty;
 
     // Employees may see the accounts before the first close; for the admin the
     // empty state is kept as it was.
@@ -60,8 +58,8 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: Padding(
-          padding:
-              EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+          padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16,
+              contentBottomPadding(context)),
           child: Center(
             child: GlassCard(
               padding: const EdgeInsets.symmetric(
@@ -119,75 +117,65 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         .where((ec) => (exchangesByEcName[ec.name]?.isNotEmpty ?? false))
         .toList();
 
-    final totalBalance =
-        exchanges.fold<double>(0, (s, e) => s + e.balance);
+    final totalBalance = exchanges.fold<double>(0, (s, e) => s + e.balance);
     final accountsCount = exchanges.length;
     final ecCount = ecsWithAccounts.length;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
-        // Admin: كشف حساب and الإلغاءات side by side, same width, centred.
+        // Admin: كشف حساب and الإلغاءات, side by side and equal, in a card like
+        // the ones below it.
         if (!ref.watch(isEmployeeProvider)) ...[
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AccountStatementScreen(),
-                    ),
-                  ),
-                  icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
-                  label: const Text('كشف حساب'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                // The badge counts the employees' requests waiting.
-                child: Badge(
-                  isLabelVisible:
-                      ref.watch(pendingCancelRequestsProvider).isNotEmpty,
-                  label: Text(
-                    '${ref.watch(pendingCancelRequestsProvider).length}',
-                  ),
+          GlassCard(
+            key: const ValueKey('accounts-actions'),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
                   child: FilledButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => const CancellationsScreen(),
+                        builder: (_) => const AccountStatementScreen(),
                       ),
                     ),
-                    icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
-                    label: const Text('الإلغاءات'),
+                    icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
+                    label: const Text('كشف حساب'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.cancelled,
                       minimumSize: const Size.fromHeight(44),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  // The badge counts the employees' requests waiting.
+                  child: Badge(
+                    isLabelVisible:
+                        ref.watch(pendingCancelRequestsProvider).isNotEmpty,
+                    label: Text(
+                      '${ref.watch(pendingCancelRequestsProvider).length}',
+                    ),
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CancellationsScreen(),
+                        ),
+                      ),
+                      icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
+                      label: const Text('الإلغاءات'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.cancelled,
+                        minimumSize: const Size.fromHeight(44),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
-        Center(
-          child: OutlinedButton.icon(
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('قريبًا')),
-            ),
-            icon: const FaIcon(FontAwesomeIcons.filter, size: 12),
-            label: const Text('تصفية'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.textHigh,
-              side: BorderSide(color: AppColors.glassBorder),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
         _TotalBalanceCard(
           total: totalBalance,
           accountsCount: accountsCount,
@@ -231,7 +219,8 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   }
 
   Widget _errorBody(Object? e) => Padding(
-        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        padding: EdgeInsets.fromLTRB(
+            16, contentTopPadding(context), 16, contentBottomPadding(context)),
         child: Center(
           child: Text(
             '$e',
@@ -477,8 +466,7 @@ class _ExchangesTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: const [
                 Expanded(

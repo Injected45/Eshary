@@ -8,6 +8,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/branches_repository.dart';
 import '../domain/branch.dart';
+import '../../../shared/top_message.dart';
 
 class AddBranchDialog extends ConsumerStatefulWidget {
   const AddBranchDialog({
@@ -73,8 +74,7 @@ class _AddBranchDialogState extends ConsumerState<AddBranchDialog> {
     } catch (e, st) {
       AppLogger.error('branches.addBranch.save', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -129,8 +129,7 @@ class _AddBranchDialogState extends ConsumerState<AddBranchDialog> {
                     ),
                   ),
                   IconButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
                     color: AppColors.textLow,
                   ),
@@ -149,8 +148,7 @@ class _AddBranchDialogState extends ConsumerState<AddBranchDialog> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     child: const Text('إلغاء'),
                   ),
                 ),

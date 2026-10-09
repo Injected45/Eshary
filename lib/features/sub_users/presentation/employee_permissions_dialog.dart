@@ -9,6 +9,7 @@ import '../data/sub_users_repository.dart';
 import '../domain/employee_permissions.dart';
 import '../domain/sub_user.dart';
 import 'sub_users_providers.dart';
+import '../../../shared/top_message.dart';
 
 /// The admin's checklist of what one employee may do. Saving writes the list
 /// through `admin_set_employee_permissions`; the database enforces it, and it
@@ -56,7 +57,8 @@ class _EmployeePermissionsDialogState
       AppLogger.error('subUsers.setPermissions', e, st);
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(content: Text(friendlyError(e))),
       );
     }

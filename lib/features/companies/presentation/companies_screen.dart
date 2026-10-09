@@ -10,6 +10,7 @@ import '../domain/company.dart';
 import 'account_details_screen.dart';
 import 'add_company_dialog.dart';
 import 'companies_providers.dart';
+import '../../../shared/top_message.dart';
 
 class CompaniesScreen extends ConsumerWidget {
   const CompaniesScreen({super.key});
@@ -46,7 +47,8 @@ class CompaniesScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipError: true,
         data: (companies) => ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+          padding:
+              EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [
             if (companies.isEmpty)
               const Padding(
@@ -87,10 +89,9 @@ class _CompanyTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final exchangesAsync = ref.watch(exchangesByCompanyProvider(company.id));
-    final exchangeName =
-        exchangesAsync.value?.isNotEmpty == true
-            ? exchangesAsync.value!.first.name
-            : '—';
+    final exchangeName = exchangesAsync.value?.isNotEmpty == true
+        ? exchangesAsync.value!.first.name
+        : '—';
 
     return Material(
       color: Colors.transparent,
@@ -143,8 +144,7 @@ class _CompanyTile extends ConsumerWidget {
                       onSaved: () {
                         ref.invalidate(companiesListProvider);
                         ref.invalidate(allExchangesProvider);
-                        ref.invalidate(
-                            exchangesByCompanyProvider(company.id));
+                        ref.invalidate(exchangesByCompanyProvider(company.id));
                       },
                     ),
                   );
@@ -207,8 +207,7 @@ class _CompanyTile extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(false),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -219,8 +218,7 @@ class _CompanyTile extends ConsumerWidget {
                         backgroundColor: AppColors.negative,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(true),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
                       child: const Text('حذف'),
                     ),
                   ),
@@ -239,7 +237,8 @@ class _CompanyTile extends ConsumerWidget {
       } catch (e, st) {
         AppLogger.error('companies.delete', e, st);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

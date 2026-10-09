@@ -16,6 +16,7 @@ import '../data/cancellations_repository.dart';
 import '../domain/cancellation.dart';
 import 'cancel_operation_dialog.dart';
 import 'cancellations_providers.dart';
+import '../../../shared/top_message.dart';
 
 final _stampFmt = DateFormat('yyyy/MM/dd  HH:mm');
 
@@ -35,8 +36,7 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
   DateTime? _to;
   bool _exporting = false;
 
-  bool get _rangeReady =>
-      _from != null && _to != null && !_from!.isAfter(_to!);
+  bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -95,8 +95,7 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
     } catch (e, st) {
       AppLogger.error('cancellations.export', e, st);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -120,9 +119,8 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
         actions: [
           IconButton(
             tooltip: 'تصدير كشف الإلغاءات PDF',
-            onPressed: (rows == null || _exporting)
-                ? null
-                : () => _export(rows, r),
+            onPressed:
+                (rows == null || _exporting) ? null : () => _export(rows, r),
             icon: _exporting
                 ? const SizedBox(
                     width: 16,
@@ -317,14 +315,14 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
           .reject(widget.request.id, note: text.isEmpty ? null : text);
       ref.invalidate(cancelRequestsProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         const SnackBar(content: Text('تم رفض الطلب وإبلاغ الموظف.')),
       );
     } catch (e, st) {
       AppLogger.error('cancellations.reject', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -15,6 +15,7 @@ import '../data/companies_repository.dart';
 import '../data/exchanges_repository.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
+import '../../../shared/top_message.dart';
 
 class AddCompanyDialog extends ConsumerStatefulWidget {
   const AddCompanyDialog({super.key, required this.onSaved, this.existing});
@@ -106,9 +107,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                 name: _exName.text.trim(),
                 balance: parseMoney(_balance.text),
                 ourCode: _ourCode.text.trim(),
-                country: _country.text.trim().isEmpty
-                    ? null
-                    : _country.text.trim(),
+                country:
+                    _country.text.trim().isEmpty ? null : _country.text.trim(),
               );
         }
       } else {
@@ -124,9 +124,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
               name: _exName.text.trim(),
               balance: parseMoney(_balance.text),
               ourCode: _ourCode.text.trim(),
-              country: _country.text.trim().isEmpty
-                  ? null
-                  : _country.text.trim(),
+              country:
+                  _country.text.trim().isEmpty ? null : _country.text.trim(),
             );
       }
       widget.onSaved();
@@ -134,8 +133,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
     } catch (e, st) {
       AppLogger.error('companies.addCompany.save', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -173,8 +171,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                                 AppColors.positive.withValues(alpha: 0.20),
                               ],
                             ),
-                            border: Border.all(
-                                color: AppColors.glassBorderStrong),
+                            border:
+                                Border.all(color: AppColors.glassBorderStrong),
                           ),
                           child: FaIcon(
                             _isEdit
@@ -187,9 +185,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            _isEdit
-                                ? 'تعديل بيانات الحساب'
-                                : 'إضافة حساب جديد',
+                            _isEdit ? 'تعديل بيانات الحساب' : 'إضافة حساب جديد',
                             style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
@@ -198,11 +194,9 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                           ),
                         ),
                         IconButton(
-                          onPressed: _busy
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                          icon: const FaIcon(FontAwesomeIcons.xmark,
-                              size: 16),
+                          onPressed:
+                              _busy ? null : () => Navigator.of(context).pop(),
+                          icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
                           color: AppColors.textLow,
                         ),
                       ],
@@ -263,9 +257,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                     if (_locked)
                       Center(
                         child: OutlinedButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => Navigator.of(context).pop(),
+                          onPressed:
+                              _busy ? null : () => Navigator.of(context).pop(),
                           icon: const FaIcon(
                             FontAwesomeIcons.lock,
                             size: 12,
@@ -318,9 +311,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
       data: (items) {
         final filtered = _country.text.trim().isEmpty
             ? <ExchangeCompany>[]
-            : items
-                .where((ec) => ec.country == _country.text.trim())
-                .toList();
+            : items.where((ec) => ec.country == _country.text.trim()).toList();
         if (filtered.isEmpty) {
           return _buildEmptyExchangeCompanyAddPill();
         }
@@ -369,15 +360,13 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
               showGlassDialog<void>(
                 context: context,
                 builder: (_) => AddExchangeCompanyDialog(
-                  onSaved: () =>
-                      ref.invalidate(exchangeCompaniesListProvider),
+                  onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
                 ),
               );
             },
             child: Container(
               height: 48,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.glassFill,
                 borderRadius: BorderRadius.circular(14),
@@ -417,8 +406,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
       );
     }
     final current = _country.text.trim();
-    final value =
-        kExchangeCompanyCountries.contains(current) ? current : null;
+    final value = kExchangeCompanyCountries.contains(current) ? current : null;
     return DropdownButtonFormField<String>(
       value: value,
       isExpanded: true,

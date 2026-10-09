@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/top_message.dart';
 
 /// Shown once after the admin creates a sub_user (or regenerates a code).
 /// The plain code lives only in the in-memory state of this dialog; once
@@ -115,7 +116,8 @@ class CodeDisplayDialog extends StatelessWidget {
                               ClipboardData(text: code),
                             );
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              showTopSnackBar(
+                                context,
                                 const SnackBar(
                                   content: Text('تم نسخ الكود'),
                                   duration: Duration(seconds: 1),

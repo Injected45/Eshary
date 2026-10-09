@@ -9,6 +9,7 @@ import '../../../shared/logger.dart';
 import '../data/exchange_companies_repository.dart';
 import '../domain/exchange_company.dart';
 import 'exchange_companies_providers.dart';
+import '../../../shared/top_message.dart';
 
 class ExchangeCompaniesScreen extends ConsumerWidget {
   const ExchangeCompaniesScreen({super.key});
@@ -31,8 +32,7 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
               showGlassDialog<void>(
                 context: context,
                 builder: (_) => AddExchangeCompanyDialog(
-                  onSaved: () =>
-                      ref.invalidate(exchangeCompaniesListProvider),
+                  onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
                 ),
               );
             },
@@ -43,7 +43,8 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipError: true,
         data: (items) => ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+          padding:
+              EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [
             if (items.isEmpty)
               const Padding(
@@ -111,8 +112,7 @@ class _ExchangeCompanyTile extends ConsumerWidget {
                 context: context,
                 builder: (_) => AddExchangeCompanyDialog(
                   existing: item,
-                  onSaved: () =>
-                      ref.invalidate(exchangeCompaniesListProvider),
+                  onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
                 ),
               );
             },
@@ -158,8 +158,7 @@ class _ExchangeCompanyTile extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(false),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -170,8 +169,7 @@ class _ExchangeCompanyTile extends ConsumerWidget {
                         backgroundColor: AppColors.negative,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(true),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
                       child: const Text('حذف'),
                     ),
                   ),
@@ -189,7 +187,8 @@ class _ExchangeCompanyTile extends ConsumerWidget {
       } catch (e, st) {
         AppLogger.error('exchangeCompanies.delete', e, st);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -330,8 +329,7 @@ class AddExchangeCompanyDialogState
                     ),
                   ),
                   IconButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
                     color: AppColors.textLow,
                   ),
@@ -382,8 +380,7 @@ class AddExchangeCompanyDialogState
               Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     child: const Text('إلغاء'),
                   ),
                 ),

@@ -11,6 +11,7 @@ import '../../../shared/logger.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../license/domain/license_status.dart';
 import '../../license/presentation/license_provider.dart';
+import '../../../shared/top_message.dart';
 
 class ProfileDetailsScreen extends ConsumerWidget {
   const ProfileDetailsScreen({super.key});
@@ -27,8 +28,7 @@ class ProfileDetailsScreen extends ConsumerWidget {
     for (final identity in user?.identities ?? const []) {
       final data = identity.identityData ?? const {};
       avatarUrl ??= (data['avatar_url'] ?? data['picture']) as String?;
-      fullName ??=
-          (data['full_name'] ?? data['name']) as String?;
+      fullName ??= (data['full_name'] ?? data['name']) as String?;
     }
     avatarUrl ??= (meta['avatar_url'] ?? meta['picture']) as String?;
     fullName ??= (meta['full_name'] ?? meta['name']) as String?;
@@ -38,9 +38,9 @@ class ProfileDetailsScreen extends ConsumerWidget {
     debugPrint('[profile] email=$email');
     debugPrint('[profile] userMetadata=$meta');
     debugPrint('[profile] identities=${user?.identities?.map((i) => {
-              'provider': i.provider,
-              'data': i.identityData,
-            }).toList()}');
+          'provider': i.provider,
+          'data': i.identityData,
+        }).toList()}');
     debugPrint('[profile] resolved avatarUrl=$avatarUrl');
 
     return Scaffold(
@@ -149,7 +149,8 @@ class ProfileDetailsScreen extends ConsumerWidget {
     final source = (fullName?.trim().isNotEmpty ?? false)
         ? fullName!.trim()
         : email.trim();
-    final initial = source.isEmpty ? '?' : source.characters.first.toUpperCase();
+    final initial =
+        source.isEmpty ? '?' : source.characters.first.toUpperCase();
     return Container(
       color: AppColors.bgPanel,
       alignment: Alignment.center,
@@ -200,8 +201,7 @@ class ProfileDetailsScreen extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(false),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -212,8 +212,7 @@ class ProfileDetailsScreen extends ConsumerWidget {
                         backgroundColor: AppColors.negative,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(true),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
                       child: const Text('خروج'),
                     ),
                   ),
@@ -270,7 +269,8 @@ class _PlanCard extends ConsumerWidget {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                error: (_, __) => _badge(label: '...', color: AppColors.textLow),
+                error: (_, __) =>
+                    _badge(label: '...', color: AppColors.textLow),
                 data: (s) {
                   final (label, color) = _planStyle(s);
                   return _badge(label: label, color: color);
@@ -384,8 +384,7 @@ class _ChangePasswordSectionState
       return;
     }
     if (p1.length < 6) {
-      setState(
-          () => _error = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setState(() => _error = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
       return;
     }
     if (p1 != p2) {
@@ -398,7 +397,8 @@ class _ChangePasswordSectionState
       if (!mounted) return;
       _newPass.clear();
       _confirmPass.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(
           backgroundColor: AppColors.positive.withValues(alpha: 0.85),
           content: const Text(
@@ -410,7 +410,8 @@ class _ChangePasswordSectionState
     } catch (e, st) {
       AppLogger.error('profile.changePassword', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(
           backgroundColor: AppColors.negative.withValues(alpha: 0.85),
           content: Text(friendlyError(e),

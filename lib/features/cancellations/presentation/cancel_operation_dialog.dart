@@ -11,6 +11,7 @@ import '../../transfers/presentation/transfers_providers.dart';
 import '../data/cancellations_repository.dart';
 import '../domain/cancellation.dart';
 import 'cancellations_providers.dart';
+import '../../../shared/top_message.dart';
 
 /// Re-reads everything a cancellation changes: the operation lists, the
 /// balances and the requests.
@@ -137,7 +138,8 @@ class _CancelOperationDialogState extends ConsumerState<CancelOperationDialog> {
         ref.invalidate(cancelRequestsProvider);
         if (!mounted) return;
         Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           const SnackBar(content: Text('تم إرسال طلب الإلغاء إلى المدير.')),
         );
         return;
@@ -154,7 +156,8 @@ class _CancelOperationDialogState extends ConsumerState<CancelOperationDialog> {
         case CancelDone():
           invalidateAfterCancel(ref);
           Navigator.of(context).pop(true);
-          ScaffoldMessenger.of(context).showSnackBar(
+          showTopSnackBar(
+            context,
             SnackBar(
               content: Text(
                 'تم إلغاء العملية. الرصيد الآن \$${formatMoney(result.balanceAfter)}',
@@ -302,8 +305,9 @@ class _CancelOperationDialogState extends ConsumerState<CancelOperationDialog> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed:
-                            _busy ? null : () => Navigator.of(context).pop(false),
+                        onPressed: _busy
+                            ? null
+                            : () => Navigator.of(context).pop(false),
                         child: const Text('رجوع'),
                       ),
                     ),

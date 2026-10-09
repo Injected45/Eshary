@@ -12,6 +12,7 @@ import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/sub_users_repository.dart';
+import '../../../shared/top_message.dart';
 
 /// Shows the one-time sign-in QR for an employee. The employee scans it from
 /// the employee sign-in screen; it works once and expires after 10 minutes.
@@ -67,7 +68,8 @@ class _QrDisplayDialogState extends State<QrDisplayDialog> {
     } catch (e, st) {
       AppLogger.error('subUsers.shareQr', e, st);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

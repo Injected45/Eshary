@@ -25,6 +25,7 @@ import 'employee_my_account_screen.dart';
 import 'employee_records_screen.dart';
 import '../data/employee_auth_repository.dart';
 import 'employee_auth_providers.dart';
+import '../../../shared/top_message.dart';
 
 /// Role-aware shell shown after a successful employee login.
 ///
@@ -106,9 +107,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
       }
       playAlert();
       final first = fresh.first;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(
           duration: const Duration(seconds: 6),
           content: Text(
@@ -184,7 +184,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
                         ref.invalidate(pendingBuysProvider);
                         ref.invalidate(archivedBuysProvider);
                         ref.invalidate(allExchangesProvider);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        showTopSnackBar(
+                          context,
                           const SnackBar(
                             content: Text('جاري التحديث...'),
                             duration: Duration(seconds: 1),
@@ -211,7 +212,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
                         FontAwesomeIcons.userTie,
                         size: 16,
                       ),
-                      onPressed: () => _showProfileSheet(context, ref, identity),
+                      onPressed: () =>
+                          _showProfileSheet(context, ref, identity),
                     ),
                   ],
                 ),
@@ -246,8 +248,7 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
     final p = permissions.toSet();
     final canExit = p.contains(kPermTransfersCreate);
     final canEntry = p.contains(kPermBuysCreate);
-    final canSeeRecords =
-        p.contains(kPermViewOwn) || p.contains(kPermViewAll);
+    final canSeeRecords = p.contains(kPermViewOwn) || p.contains(kPermViewAll);
     return [
       if (canExit)
         _EmployeeTab(
@@ -506,8 +507,7 @@ class _GlassBottomNav extends StatelessWidget {
                 height: 64,
                 selectedIndex: index,
                 onDestinationSelected: onChanged,
-                labelBehavior:
-                    NavigationDestinationLabelBehavior.alwaysShow,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: [
                   for (final t in tabs)
                     NavigationDestination(

@@ -7,6 +7,7 @@ import '../../../core/theme.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/logger.dart';
 import '../../admin/presentation/admin_screen.dart';
 import '../../admin/presentation/backup_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
@@ -22,6 +23,8 @@ import '../../license/presentation/license_provider.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../sub_users/presentation/sub_users_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../data/wipe_repository.dart';
+import '../../../shared/top_message.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -34,7 +37,8 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        padding: EdgeInsets.fromLTRB(
+            16, contentTopPadding(context), 16, contentBottomPadding(context)),
         children: [
           _SettingsRow(
             icon: FontAwesomeIcons.user,
@@ -198,8 +202,7 @@ Future<bool?> _showWipeConfirmDialog(
                   Row(children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(false),
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
                         child: const Text('إلغاء'),
                       ),
                     ),
@@ -235,52 +238,31 @@ Future<void> _confirmAndWipeEntries(
     context,
     title: 'حذف المدخلات؟',
     body:
-        'ستُحذف العمليات المسجلة: الحوالات والمشتريات. تبقى الشركات وشركات الصرافة والعملاء كما هي.',
+        'ستُحذف كل العمليات المالية: عمليات الخروج والدخول وما يتصل بها من إلغاءات '
+        'وإشعارات، وتُصفَّر أرصدة الحسابات. تبقى الشركات وشركات الصرافة والعملاء '
+        'كما هي. تُحفظ نسخة احتياطية قبل الحذف يمكنك استعادتها من شاشة النسخ الاحتياطي.',
   );
   if (confirmed != true) return;
 
   final uid = ref.read(currentUserIdProvider);
   if (uid == null) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showTopSnackBar(
+      context,
       const SnackBar(content: Text('لم يتم تسجيل الدخول')),
     );
     return;
   }
 
-  final client = ref.read(supabaseClientProvider);
-  final errors = <String>[];
-  const tables = ['transfers', 'currency_buys'];
-  for (final table in tables) {
-    try {
-      await client.from(table).delete().eq('owner_id', uid);
-    } catch (e) {
-      errors.add('$table: $e');
-    }
-  }
-
-  var companyIds = const <String>[];
+  // One database transaction: a safety backup first, then every exit, entry,
+  // cancellation and alert about them goes, and the balances return to 0.
+  WipeResult? result;
+  Object? failure;
   try {
-    final companyRows = await client
-        .from('companies')
-        .select('id')
-        .eq('owner_id', uid);
-    companyIds = (companyRows as List)
-        .map((r) => (r as Map<String, dynamic>)['id'] as String)
-        .toList();
-  } catch (e) {
-    errors.add('companies: $e');
-  }
-
-  if (companyIds.isNotEmpty) {
-    try {
-      await client
-          .from('exchanges')
-          .update({'balance': 0})
-          .inFilter('company_id', companyIds);
-    } catch (e) {
-      errors.add('exchanges: $e');
-    }
+    result = await ref.read(wipeRepositoryProvider).wipeOperations();
+  } catch (e, st) {
+    AppLogger.error('settings.wipeOperations', e, st);
+    failure = e;
   }
 
   await ref.read(jsonCacheProvider).clear();
@@ -296,15 +278,18 @@ Future<void> _confirmAndWipeEntries(
   ref.invalidate(archivedSoldTotalProvider);
   ref.invalidate(archivedBoughtTotalProvider);
 
-  playAlert();
+  if (failure == null) playAlert();
 
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
+  showTopSnackBar(
+    context,
     SnackBar(
       content: Text(
-        errors.isEmpty
-            ? 'تم حذف المدخلات'
-            : 'حُذفت جزئيًا. أخطاء: ${errors.length}',
+        failure != null
+            ? friendlyError(failure)
+            : 'تم حذف كل العمليات المالية: '
+                '${result!.transfers} خروج و${result.currencyBuys} دخول. '
+                'حُفظت نسخة احتياطية قبل الحذف.',
       ),
     ),
   );

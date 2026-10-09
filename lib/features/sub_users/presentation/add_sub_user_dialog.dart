@@ -10,6 +10,7 @@ import '../../branches/presentation/add_branch_dialog.dart';
 import '../../branches/presentation/branches_providers.dart';
 import '../data/sub_users_repository.dart';
 import '../domain/sub_user.dart';
+import '../../../shared/top_message.dart';
 
 /// Returned from [AddSubUserDialog] on success — bundles the new row id,
 /// the one-time plain code, and the labels needed to render the
@@ -130,7 +131,8 @@ class _AddSubUserDialogState extends ConsumerState<AddSubUserDialog> {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: raw));
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
+              showTopSnackBar(
+                context,
                 const SnackBar(
                   content: Text('تم نسخ الخطأ'),
                   duration: Duration(seconds: 1),

@@ -15,6 +15,7 @@ import 'employee_activity_screen.dart';
 import 'employee_permissions_dialog.dart';
 import 'qr_display_dialog.dart';
 import 'sub_users_providers.dart';
+import '../../../shared/top_message.dart';
 
 class SubUsersScreen extends ConsumerWidget {
   const SubUsersScreen({super.key});
@@ -44,7 +45,8 @@ class SubUsersScreen extends ConsumerWidget {
           ),
         ),
         data: (rows) => ListView(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, contentBottomPadding(context)),
+          padding:
+              EdgeInsets.fromLTRB(16, 8, 16, contentBottomPadding(context)),
           children: [
             SizedBox(
               width: double.infinity,
@@ -385,7 +387,8 @@ class _SubUserCard extends ConsumerWidget {
       builder: (_) => EmployeePermissionsDialog(user: user),
     );
     if (saved == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(content: Text('تم حفظ صلاحيات ${user.employeeName}')),
       );
     }
@@ -438,7 +441,8 @@ class _SubUserCard extends ConsumerWidget {
     controller.dispose();
     if (phone == null || phone == user.phoneNumber || !context.mounted) return;
     if (!RegExp(r'^09[0-9]{8}$').hasMatch(phone)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         const SnackBar(content: Text('الصيغة: 09XXXXXXXX (10 أرقام)')),
       );
       return;
@@ -449,7 +453,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.updatePhone', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -511,7 +516,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.issueQr', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -557,7 +563,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.regenerateCode', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -595,7 +602,8 @@ class _SubUserCard extends ConsumerWidget {
       await ref.read(subUsersRepositoryProvider).resetDevice(user.id);
       ref.invalidate(subUsersListProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(
           content: Text('تم فك ربط جهاز ${user.employeeName}'),
         ),
@@ -603,7 +611,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.resetDevice', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -623,7 +632,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.toggleStatus', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }
@@ -656,7 +666,8 @@ class _SubUserCard extends ConsumerWidget {
     } catch (e, st) {
       AppLogger.error('subUsers.delete', e, st);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

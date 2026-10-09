@@ -143,8 +143,7 @@ String friendlyError(Object e) {
   if (s.contains('client_has_operations')) {
     return 'لا يمكن حذف هذه الجهة لارتباطها بعمليات مالية سابقة.';
   }
-  if (s.contains('current_license_status') ||
-      s.contains('account_licenses')) {
+  if (s.contains('current_license_status') || s.contains('account_licenses')) {
     return 'تعذّر التحقق من حالة الحساب.';
   }
   if (s.contains('pending currency buy') ||
@@ -162,6 +161,9 @@ String friendlyError(Object e) {
   }
   if (s.contains('23505') || s.contains('duplicate key')) {
     return 'هذا العنصر موجود مسبقًا.';
+  }
+  if (s.contains('not_authorized')) {
+    return 'غير مصرح بهذا الإجراء.';
   }
   if (s.contains('not authorized') ||
       s.contains('permission denied') ||
@@ -249,7 +251,8 @@ String friendlyError(Object e) {
   if (s.contains('busy')) {
     return 'الخدمة مشغولة حالياً. حاول بعد قليل.';
   }
-  if (s.contains('create_failed') || s.contains('link_failed') ||
+  if (s.contains('create_failed') ||
+      s.contains('link_failed') ||
       s.contains('server_error')) {
     return 'تعذّر إكمال الدخول الآن. حاول مرة أخرى بعد قليل.';
   }

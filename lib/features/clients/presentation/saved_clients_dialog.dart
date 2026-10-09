@@ -9,6 +9,7 @@ import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../data/clients_repository.dart';
 import 'add_client_dialog.dart';
 import 'clients_providers.dart';
+import '../../../shared/top_message.dart';
 
 class SavedEntitiesConfig {
   const SavedEntitiesConfig({
@@ -48,8 +49,7 @@ class SavedClientsDialog extends ConsumerStatefulWidget {
   final SavedEntitiesConfig config;
 
   @override
-  ConsumerState<SavedClientsDialog> createState() =>
-      _SavedClientsDialogState();
+  ConsumerState<SavedClientsDialog> createState() => _SavedClientsDialogState();
 }
 
 class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
@@ -94,8 +94,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                           AppColors.positive.withValues(alpha: 0.20),
                         ],
                       ),
-                      border:
-                          Border.all(color: AppColors.glassBorderStrong),
+                      border: Border.all(color: AppColors.glassBorderStrong),
                     ),
                     child: const FaIcon(
                       FontAwesomeIcons.bookmark,
@@ -156,8 +155,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: items.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 8),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
                         final item = items[i];
                         return Material(
@@ -232,11 +230,10 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                                             st,
                                           );
                                           if (!context.mounted) return;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          showTopSnackBar(
+                                            context,
                                             SnackBar(
-                                              content:
-                                                  Text(friendlyError(e)),
+                                              content: Text(friendlyError(e)),
                                             ),
                                           );
                                         }

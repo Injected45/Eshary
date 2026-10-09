@@ -33,6 +33,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
+import '../../../shared/top_message.dart';
 
 enum _PendingBuyKind { pending, execute }
 
@@ -48,8 +49,7 @@ class CurrencyBuyScreen extends ConsumerStatefulWidget {
   const CurrencyBuyScreen({super.key});
 
   @override
-  ConsumerState<CurrencyBuyScreen> createState() =>
-      _CurrencyBuyScreenState();
+  ConsumerState<CurrencyBuyScreen> createState() => _CurrencyBuyScreenState();
 }
 
 class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
@@ -117,9 +117,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   void _showSenderBlocked() {
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    showTopSnackBar(
+      context,
       const SnackBar(
         content: Text(
           'عذراً لا يمكن فتح الجهة المرسلة.\n'
@@ -252,18 +251,16 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   List<String> _composeBuyMessages() {
     final amount = formatMoney(parseMoney(_usd.text));
     final exchangeCompany = _exchangeCompanyName ?? '—';
-    final senderCompany =
-        (_senderCompany != null && _senderCompany!.isNotEmpty)
-            ? _senderCompany!
-            : (_client?.company ?? '—');
+    final senderCompany = (_senderCompany != null && _senderCompany!.isNotEmpty)
+        ? _senderCompany!
+        : (_client?.company ?? '—');
     final senderAccount = _client?.name ?? '—';
     final senderCode =
         _effectiveSenderCode.isEmpty ? '—' : _effectiveSenderCode;
     final myCompany = _myCompany?.name ?? '—';
     final myCode = _exchange?.ourCode ?? '—';
-    final reference = _reference.text.trim().isEmpty
-        ? '—'
-        : _reference.text.trim();
+    final reference =
+        _reference.text.trim().isEmpty ? '—' : _reference.text.trim();
 
     final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
         'نرجوا منكم تأكيد الدخول\n'
@@ -382,11 +379,9 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.negative,
                         side: BorderSide(
-                          color:
-                              AppColors.negative.withValues(alpha: 0.6),
+                          color: AppColors.negative.withValues(alpha: 0.6),
                         ),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -402,8 +397,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                       style: FilledButton.styleFrom(
                         backgroundColor: tint,
                         foregroundColor: Colors.black,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 12),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                   ),
@@ -427,8 +421,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(text)));
+    showTopSnackBar(context, SnackBar(content: Text(text)));
   }
 
   Future<void> _exportDailyPdf(List<CurrencyBuy> rows) async {
@@ -504,7 +497,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         .where((e) => e.name == name)
         .toList();
     if (matches.length != 1) return;
-    final companies = ref.read(companiesListProvider).value ?? const <Company>[];
+    final companies =
+        ref.read(companiesListProvider).value ?? const <Company>[];
     for (final c in companies) {
       if (c.id == matches.first.companyId) {
         setState(() {
@@ -611,7 +605,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         _CollapsibleSection(
           color: AppColors.positive,
@@ -669,12 +664,10 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         ),
                       );
                     }
-                    final liveValue =
-                        names.contains(_exchangeCompanyName)
-                            ? _exchangeCompanyName
-                            : null;
-                    if (liveValue == null &&
-                        _exchangeCompanyName != null) {
+                    final liveValue = names.contains(_exchangeCompanyName)
+                        ? _exchangeCompanyName
+                        : null;
+                    if (liveValue == null && _exchangeCompanyName != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) _onExchangeCompanyChanged(null);
                       });
@@ -800,7 +793,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           ),
         ),
         const SizedBox(height: 14),
-
         _CollapsibleSection(
           color: AppColors.accent,
           header: const _AccentSectionTitle(
@@ -857,16 +849,14 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         onAdd: _openAddClientDialog,
                       );
                     }
-                    final companyNames = (<String>{}..addAll(
-                            clients
-                                .where((c) =>
-                                    c.company != null && c.company!.isNotEmpty)
-                                .map((c) => c.company!)))
+                    final companyNames = (<String>{}..addAll(clients
+                            .where((c) =>
+                                c.company != null && c.company!.isNotEmpty)
+                            .map((c) => c.company!)))
                         .toList();
-                    final liveValue =
-                        companyNames.contains(_senderCompany)
-                            ? _senderCompany
-                            : null;
+                    final liveValue = companyNames.contains(_senderCompany)
+                        ? _senderCompany
+                        : null;
                     if (liveValue == null && _senderCompany != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) {
@@ -1033,7 +1023,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           ),
         ),
         const SizedBox(height: 14),
-
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
@@ -1049,7 +1038,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           ),
         ),
         const SizedBox(height: 24),
-
         _CollapsibleSection(
           header: Row(children: [
             const Expanded(
@@ -1062,8 +1050,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
             IconButton(
               tooltip: 'تصدير PDF',
               icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
-              onPressed: () =>
-                  _exportDailyPdf(dailyAsync.value ?? const []),
+              onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
             ),
             if (!_executedExpanded)
               Padding(
@@ -1086,7 +1073,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           ),
         ),
         const SizedBox(height: 16),
-
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
@@ -1437,35 +1423,34 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
               ],
               rows: visible
                   .map((b) => DataRow(
-                      onSelectChanged: (_) =>
-                          showCurrencyBuyDetails(context, ref, buy: b),
-                      cells: [
-                        DataCell(Text(
-                          clientById[b.clientId]?.company ??
-                              b.clientFromAccount ??
-                              '—',
-                        )),
-                        DataCell(Text(
-                          clientById[b.clientId]?.name ?? '—',
-                        )),
-                        DataCell(Text(
-                          b.isCancelled
-                              ? '\$${formatMoney(b.usdAmount)} ملغاة'
-                              : '\$${formatMoney(b.usdAmount)}',
-                          style: TextStyle(
-                            color: b.isCancelled
-                                ? AppColors.cancelled
-                                : AppColors.positive,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        )),
-                        DataCell(
-                            Text(companyById[b.myCompanyId] ?? '—')),
-                        DataCell(Text(fmt(b.createdAt))),
-                        DataCell(CreatorChip(
-                          createdByEmployeeId: b.createdByEmployeeId,
-                        )),
-                      ]))
+                          onSelectChanged: (_) =>
+                              showCurrencyBuyDetails(context, ref, buy: b),
+                          cells: [
+                            DataCell(Text(
+                              clientById[b.clientId]?.company ??
+                                  b.clientFromAccount ??
+                                  '—',
+                            )),
+                            DataCell(Text(
+                              clientById[b.clientId]?.name ?? '—',
+                            )),
+                            DataCell(Text(
+                              b.isCancelled
+                                  ? '\$${formatMoney(b.usdAmount)} ملغاة'
+                                  : '\$${formatMoney(b.usdAmount)}',
+                              style: TextStyle(
+                                color: b.isCancelled
+                                    ? AppColors.cancelled
+                                    : AppColors.positive,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )),
+                            DataCell(Text(companyById[b.myCompanyId] ?? '—')),
+                            DataCell(Text(fmt(b.createdAt))),
+                            DataCell(CreatorChip(
+                              createdByEmployeeId: b.createdByEmployeeId,
+                            )),
+                          ]))
                   .toList(),
             ),
           ),
@@ -1474,6 +1459,4 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
   }
 }
 
-DateTime _tripoliTime(DateTime t) =>
-    t.toUtc().add(const Duration(hours: 2));
-
+DateTime _tripoliTime(DateTime t) => t.toUtc().add(const Duration(hours: 2));

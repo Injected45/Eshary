@@ -11,6 +11,7 @@ import '../../../shared/logger.dart';
 import '../../auth/data/auth_repository.dart';
 import '../domain/license_status.dart';
 import 'license_provider.dart';
+import '../../../shared/top_message.dart';
 
 class PendingActivationScreen extends ConsumerStatefulWidget {
   const PendingActivationScreen({super.key});
@@ -48,7 +49,8 @@ class _PendingActivationScreenState
     } catch (e, st) {
       AppLogger.error('license.signOut', e, st);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

@@ -31,6 +31,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 import 'transfers_providers.dart';
+import '../../../shared/top_message.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
 
@@ -171,9 +172,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     if (!mounted) return;
     setState(() => _company = derived);
     if (derived == null) return;
-    final newRef = await ref
-        .read(companiesRepositoryProvider)
-        .nextReference(derived.id);
+    final newRef =
+        await ref.read(companiesRepositoryProvider).nextReference(derived.id);
     if (mounted) setState(() => _reference = newRef);
   }
 
@@ -293,8 +293,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   void _snack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(text)));
+    showTopSnackBar(context, SnackBar(content: Text(text)));
   }
 
   bool get _outgoingFieldsEnabled =>
@@ -321,9 +320,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void _showBeneficiaryBlocked() {
     if (!mounted) return;
     final over = _exitFormComplete && _overBalance;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    showTopSnackBar(
+      context,
       SnackBar(
         content: Text(
           over
@@ -498,7 +496,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         // Section 1 (top) — خروج من حسابي
         _CollapsibleSection(
@@ -532,7 +531,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                     // Only companies where I actually hold an account
                     // (an exchange with the same name), sorted by name.
                     final accountNames = {
-                      for (final e in exchangesAsync.value ?? const <Exchange>[])
+                      for (final e
+                          in exchangesAsync.value ?? const <Exchange>[])
                         e.name,
                     };
                     final names = items
@@ -552,10 +552,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         ),
                       );
                     }
-                    final liveValue =
-                        names.contains(_exchangeCompanyName)
-                            ? _exchangeCompanyName
-                            : null;
+                    final liveValue = names.contains(_exchangeCompanyName)
+                        ? _exchangeCompanyName
+                        : null;
                     if (liveValue == null && _exchangeCompanyName != null) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (mounted) _onExchangeCompanyChanged(null);
@@ -569,8 +568,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         suffixIcon: _IconBox(FontAwesomeIcons.building),
                       ),
                       items: names
-                          .map((n) =>
-                              DropdownMenuItem(value: n, child: Text(n)))
+                          .map(
+                              (n) => DropdownMenuItem(value: n, child: Text(n)))
                           .toList(),
                       onChanged: _onExchangeCompanyChanged,
                     );
@@ -760,7 +759,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                                       expands: true,
                                       minLines: null,
                                       maxLines: null,
-                                      textAlignVertical: TextAlignVertical.center,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
                                       textAlign: TextAlign.center,
                                       style: _kFieldTextStyle,
                                       decoration: const InputDecoration(
@@ -906,8 +906,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             IconButton(
               tooltip: 'تصدير PDF',
               icon: const Icon(Icons.picture_as_pdf),
-              onPressed: () =>
-                  _exportDailyPdf(dailyAsync.value ?? const []),
+              onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
             ),
             if (!_logExpanded)
               Padding(
@@ -1280,16 +1279,13 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
                               context,
                               transfer: t,
                               companyName: companyById[t.companyId],
-                              exchangeName:
-                                  exchangeById[t.exchangeId]?.name,
-                              exchangeCode:
-                                  exchangeById[t.exchangeId]?.ourCode,
+                              exchangeName: exchangeById[t.exchangeId]?.name,
+                              exchangeCode: exchangeById[t.exchangeId]?.ourCode,
                             ),
                             cells: [
                               DataCell(Text(
                                   exchangeById[t.exchangeId]?.name ?? '—')),
-                              DataCell(
-                                  Text(companyById[t.companyId] ?? '—')),
+                              DataCell(Text(companyById[t.companyId] ?? '—')),
                               DataCell(Text(t.reference)),
                               DataCell(Text(
                                 t.isCancelled
@@ -1325,4 +1321,3 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
 // Transfer details dialog moved to lib/shared/transaction_details.dart so
 // both the admin's daily table and the employee's "سجلاتي" tab share the
 // exact same presentation.
-

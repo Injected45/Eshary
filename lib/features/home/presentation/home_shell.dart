@@ -19,6 +19,7 @@ import '../../employee_alerts/presentation/employee_alerts_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../transfers/presentation/transfers_screen.dart';
+import '../../../shared/top_message.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
@@ -117,9 +118,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         return;
       }
       playAlert();
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(duration: const Duration(seconds: 6), content: Text(text)),
       );
     });
@@ -188,7 +188,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ref.invalidate(pendingBuysProvider);
                     ref.invalidate(archivedBuysProvider);
                     ref.invalidate(allExchangesProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    showTopSnackBar(
+                      context,
                       const SnackBar(
                         content: Text('جاري التحديث...'),
                         duration: Duration(seconds: 1),
@@ -227,7 +228,8 @@ class _TransfersHub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         _HubButton(
           icon: FontAwesomeIcons.paperPlane,
@@ -321,8 +323,7 @@ class _GlassBottomNav extends StatelessWidget {
                 height: 64,
                 selectedIndex: index,
                 onDestinationSelected: onChanged,
-                labelBehavior:
-                    NavigationDestinationLabelBehavior.alwaysShow,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                 destinations: const [
                   NavigationDestination(
                     icon: FaIcon(

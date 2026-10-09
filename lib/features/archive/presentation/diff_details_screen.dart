@@ -26,6 +26,7 @@ import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart';
+import '../../../shared/top_message.dart';
 
 class DiffDetailsScreen extends ConsumerStatefulWidget {
   const DiffDetailsScreen({
@@ -53,8 +54,7 @@ class DiffDetailsScreen extends ConsumerStatefulWidget {
   final String? creatorFilter;
 
   @override
-  ConsumerState<DiffDetailsScreen> createState() =>
-      _DiffDetailsScreenState();
+  ConsumerState<DiffDetailsScreen> createState() => _DiffDetailsScreenState();
 }
 
 class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
@@ -94,8 +94,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     return name == null ? null : 'الموظف $name';
   }
 
-  bool get _rangeReady =>
-      _from != null && _to != null && !_from!.isAfter(_to!);
+  bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -191,8 +190,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
                 .where((b) => b.isCancelled)
                 .fold<double>(0, (s, b) => s + b.usdAmount);
     final diff = incomeTotal - outgoingTotal;
-    final hasAny =
-        filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty;
+    final hasAny = filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty;
 
     final buckets = _bucketize(
       buys: filteredBuys,
@@ -243,8 +241,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
             }),
             onPickFrom: _pickFrom,
             onPickTo: _pickTo,
-            showInvalidHint:
-                _mode == DateFilterMode.range && !_rangeReady,
+            showInvalidHint: _mode == DateFilterMode.range && !_rangeReady,
           ),
           const SizedBox(height: 14),
           _BigDiffCard(diff: diff, hasAny: hasAny),
@@ -261,8 +258,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
             buys: filteredBuys,
             transfers: filteredTransfers,
             expanded: _tableExpanded,
-            onToggle: () =>
-                setState(() => _tableExpanded = !_tableExpanded),
+            onToggle: () => setState(() => _tableExpanded = !_tableExpanded),
           ),
           const SizedBox(height: 16),
         ],
@@ -281,8 +277,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
           ref.read(companiesListProvider).value ?? const <Company>[];
       final exchanges =
           ref.read(allExchangesProvider).value ?? const <Exchange>[];
-      final clients =
-          ref.read(clientsListProvider).value ?? const <Client>[];
+      final clients = ref.read(clientsListProvider).value ?? const <Client>[];
 
       final user = ref.read(supabaseClientProvider).auth.currentUser;
       final meta = user?.userMetadata ?? const <String, dynamic>{};
@@ -326,8 +321,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     } catch (e, st) {
       AppLogger.error('diffDetails.exportPdf', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     }
   }
 }
@@ -383,8 +377,7 @@ List<_Bucket> _bucketize({
     } else if (spanDays <= 14) {
       final base = DateTime(start.year, start.month, start.day);
       final tBase = DateTime(ts.year, ts.month, ts.day);
-      final idx =
-          tBase.difference(base).inDays.clamp(0, buckets.length - 1);
+      final idx = tBase.difference(base).inDays.clamp(0, buckets.length - 1);
       return idx;
     } else {
       final base = DateTime(start.year, start.month, start.day);
@@ -422,9 +415,7 @@ class _BigDiffCard extends StatelessWidget {
         ? 'لا توجد إقفالات بعد'
         : (diff == 0
             ? 'متوازن'
-            : (isPositive
-                ? 'الدخول أكثر من الخروج'
-                : 'الخروج أكثر من الدخول'));
+            : (isPositive ? 'الدخول أكثر من الخروج' : 'الخروج أكثر من الدخول'));
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
@@ -704,8 +695,7 @@ class _LineChart extends StatelessWidget {
         lineTouchData: LineTouchData(
           handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) =>
-                AppColors.bgDeep.withValues(alpha: 0.92),
+            getTooltipColor: (_) => AppColors.bgDeep.withValues(alpha: 0.92),
             tooltipRoundedRadius: 10,
             tooltipPadding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -923,6 +913,7 @@ class _OperationRow {
     this.cancelled = false,
   });
   final DateTime t;
+
   /// Opens the full-screen details page for the underlying record.
   final VoidCallback onOpen;
   final String kind;
@@ -930,6 +921,7 @@ class _OperationRow {
   final String account;
   final String party;
   final String status;
+
   /// Outgoing → transfer's own reference. Incoming → the buy's reference
   /// (which is what arrived from the sender).
   final String reference;
@@ -977,8 +969,7 @@ class _OperationsTable extends ConsumerWidget {
         ref.read(companiesListProvider).value ?? const <Company>[];
     final exchanges =
         ref.read(allExchangesProvider).value ?? const <Exchange>[];
-    final clients =
-        ref.read(clientsListProvider).value ?? const <Client>[];
+    final clients = ref.read(clientsListProvider).value ?? const <Client>[];
 
     final companyName = <String, String>{
       for (final c in companies) c.id: c.name,
@@ -1057,8 +1048,7 @@ class _OperationsTable extends ConsumerWidget {
         child: ExpansionTile(
           initiallyExpanded: expanded,
           onExpansionChanged: (_) => onToggle(),
-          tilePadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
           title: const Text(
             'كل العمليات',

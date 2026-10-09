@@ -10,6 +10,7 @@ import '../data/branches_repository.dart';
 import '../domain/branch.dart';
 import 'add_branch_dialog.dart';
 import 'branches_providers.dart';
+import '../../../shared/top_message.dart';
 
 class BranchesScreen extends ConsumerWidget {
   const BranchesScreen({super.key});
@@ -46,7 +47,8 @@ class BranchesScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipError: true,
         data: (branches) => ListView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+          padding:
+              EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [
             if (branches.isEmpty)
               const Padding(
@@ -172,8 +174,7 @@ class _BranchTile extends ConsumerWidget {
                 Row(children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(false),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
                       child: const Text('إلغاء'),
                     ),
                   ),
@@ -184,8 +185,7 @@ class _BranchTile extends ConsumerWidget {
                         backgroundColor: AppColors.negative,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(true),
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
                       child: const Text('حذف'),
                     ),
                   ),
@@ -204,7 +204,8 @@ class _BranchTile extends ConsumerWidget {
       } catch (e, st) {
         AppLogger.error('branches.delete', e, st);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        showTopSnackBar(
+          context,
           SnackBar(content: Text(friendlyError(e))),
         );
       }

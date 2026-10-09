@@ -21,6 +21,7 @@ import '../../exchange_companies/presentation/exchange_companies_providers.dart'
 import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../data/backup_repository.dart';
+import '../../../shared/top_message.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -37,7 +38,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   void _snack(String text, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showTopSnackBar(
+      context,
       SnackBar(
         backgroundColor:
             error ? AppColors.negative.withValues(alpha: 0.85) : null,
@@ -266,6 +268,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         'auto' => 'تلقائية',
         'manual' => 'يدوية',
         'pre_restore' => 'قبل استعادة',
+        'pre_wipe' => 'قبل حذف المدخلات',
         _ => kind,
       };
 

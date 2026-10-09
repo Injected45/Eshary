@@ -8,6 +8,7 @@ import '../../sub_users/domain/sub_user.dart';
 import '../../sub_users/presentation/sub_users_providers.dart';
 import '../data/employee_alerts_repository.dart';
 import 'employee_alerts_providers.dart';
+import '../../../shared/top_message.dart';
 
 Future<void> showSendEmployeeMessageDialog(BuildContext context) {
   return showGlassDialog<void>(
@@ -52,15 +53,17 @@ class _SendEmployeeMessageDialogState
     }
     setState(() => _busy = true);
     try {
-      final count = await ref.read(employeeAlertsRepositoryProvider).sendMessage(
-            subUserIds: _toAll ? null : _picked.toList(),
-            title: _title.text.trim().isEmpty ? null : _title.text.trim(),
-            body: body,
-          );
+      final count =
+          await ref.read(employeeAlertsRepositoryProvider).sendMessage(
+                subUserIds: _toAll ? null : _picked.toList(),
+                title: _title.text.trim().isEmpty ? null : _title.text.trim(),
+                body: body,
+              );
       ref.invalidate(sentMessagesProvider);
       if (!mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
+      showTopSnackBar(
+        context,
         SnackBar(content: Text('تم إرسال الرسالة إلى $count موظف.')),
       );
     } catch (e, st) {
@@ -72,14 +75,13 @@ class _SendEmployeeMessageDialogState
   }
 
   void _snack(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      showTopSnackBar(context, SnackBar(content: Text(text)));
 
   @override
   Widget build(BuildContext context) {
     final employees = ref.watch(subUsersListProvider).valueOrNull ?? const [];
-    final active = employees
-        .where((e) => e.status == SubUserStatus.active)
-        .toList();
+    final active =
+        employees.where((e) => e.status == SubUserStatus.active).toList();
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -107,9 +109,8 @@ class _SendEmployeeMessageDialogState
                   ButtonSegment(value: false, label: Text('موظفون محددون')),
                 ],
                 selected: {_toAll},
-                onSelectionChanged: _busy
-                    ? null
-                    : (s) => setState(() => _toAll = s.first),
+                onSelectionChanged:
+                    _busy ? null : (s) => setState(() => _toAll = s.first),
               ),
               if (!_toAll) ...[
                 const SizedBox(height: 8),

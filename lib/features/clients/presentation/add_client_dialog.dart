@@ -13,6 +13,7 @@ import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'clients_providers.dart';
 import 'saved_clients_dialog.dart';
+import '../../../shared/top_message.dart';
 
 class AddClientDialog extends ConsumerStatefulWidget {
   const AddClientDialog({
@@ -130,8 +131,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
     } catch (e, st) {
       AppLogger.error('clients.addClient.save', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+      showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -235,8 +235,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                     ),
                   ),
                   IconButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     icon: const FaIcon(FontAwesomeIcons.xmark, size: 16),
                     color: AppColors.textLow,
                   ),
@@ -269,8 +268,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed:
-                        _busy ? null : () => Navigator.of(context).pop(),
+                    onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     child: const Text('إلغاء'),
                   ),
                 ),

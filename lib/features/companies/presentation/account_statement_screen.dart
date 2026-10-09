@@ -20,6 +20,7 @@ import '../domain/company.dart';
 import '../domain/exchange.dart';
 import 'account_statement_providers.dart';
 import 'companies_providers.dart';
+import '../../../shared/top_message.dart';
 
 /// "كشف حساب": a short statement — دخول | خروج | الرصيد — that the admin can
 /// cut by who did the operations (everyone, the admin, one employee), by
@@ -46,8 +47,7 @@ class _AccountStatementScreenState
   static final _dateFmt = DateFormat('yyyy/MM/dd');
   static final _timeFmt = DateFormat('HH:mm');
 
-  bool get _rangeReady =>
-      _from != null && _to != null && !_from!.isAfter(_to!);
+  bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -149,8 +149,7 @@ class _AccountStatementScreenState
     } catch (e, st) {
       AppLogger.error('accountStatement.export', e, st);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
+        showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -385,9 +384,8 @@ class _AccountStatementScreenState
             _StatementTable(
               statement: statement,
               showWho: _scope == StatementScope.all,
-              whoOf: (id) => id == null
-                  ? 'المدير'
-                  : (employees[id]?.employeeName ?? '—'),
+              whoOf: (id) =>
+                  id == null ? 'المدير' : (employees[id]?.employeeName ?? '—'),
               dateFmt: _dateFmt,
               timeFmt: _timeFmt,
             ),
@@ -438,8 +436,7 @@ class _Totals extends StatelessWidget {
         Expanded(
           child: _Tile(
             label: 'الرصيد',
-            value:
-                '${balance >= 0 ? '' : '-'}\$${formatMoney(balance.abs())}',
+            value: '${balance >= 0 ? '' : '-'}\$${formatMoney(balance.abs())}',
             color: balance >= 0 ? AppColors.positive : AppColors.negative,
           ),
         ),

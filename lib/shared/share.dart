@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import './top_message.dart';
 
 /// Share [text] via the native share sheet, falling back to the clipboard
 /// (with the source's `alert("تم النسخ!")` SnackBar) if sharing isn't
@@ -12,7 +13,8 @@ Future<void> shareText(BuildContext context, String text,
   } catch (_) {
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showTopSnackBar(
+      context,
       const SnackBar(content: Text('تم النسخ!')),
     );
   }
