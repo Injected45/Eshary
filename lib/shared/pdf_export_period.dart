@@ -30,10 +30,39 @@ String _slash(String? a, String? b) {
   return '$x / $y';
 }
 
-/// Logo (right), title and period (centre), notification (left).
+/// Logo (right), title (centre), notification (left); the period sits on the
+/// left edge of the page under them.
 pw.Widget _periodHeader({
   required String title,
   required String period,
+  required pw.MemoryImage? logo,
+  String? notificationText,
+  List<String> extraLines = const [],
+}) =>
+    pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        _periodHeaderTop(
+          title: title,
+          logo: logo,
+          notificationText: notificationText,
+          extraLines: extraLines,
+        ),
+        // الفترة: on the left edge of the page.
+        pw.Align(
+          alignment: pw.Alignment.centerLeft,
+          child: _ArText(
+            'الفترة: $period',
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+            textDirection: pw.TextDirection.rtl,
+          ),
+        ),
+      ],
+    );
+
+/// Logo (right), title and any extra lines (centre), notification (left).
+pw.Widget _periodHeaderTop({
+  required String title,
   required pw.MemoryImage? logo,
   String? notificationText,
   List<String> extraLines = const [],
@@ -80,15 +109,7 @@ pw.Widget _periodHeader({
                 ),
                 textDirection: pw.TextDirection.rtl,
               ),
-              pw.SizedBox(height: 6),
-              _ArText(
-                'الفترة: $period',
-                style: const pw.TextStyle(
-                  fontSize: 10,
-                  color: PdfColors.grey700,
-                ),
-                textDirection: pw.TextDirection.rtl,
-              ),
+              if (extraLines.isNotEmpty) pw.SizedBox(height: 6),
               for (final line in extraLines)
                 _ArText(
                   line,
@@ -158,7 +179,7 @@ pw.Widget _reportCell(String text, {required bool header, PdfColor? color}) =>
         style: pw.TextStyle(
           fontSize: header ? 9 : 8,
           fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
-          color: color,
+          color: color ?? PdfColors.black,
         ),
         textDirection: pw.TextDirection.rtl,
         textAlign: pw.TextAlign.center,
@@ -180,7 +201,7 @@ pw.Widget _reportTable({
   return pw.Directionality(
     textDirection: pw.TextDirection.rtl,
     child: pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.4),
+      border: pw.TableBorder.all(color: PdfColors.black, width: 0.4),
       // pdf tables lay columns out left → right, so the reading order is
       // reversed here.
       columnWidths: {

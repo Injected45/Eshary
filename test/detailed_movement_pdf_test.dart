@@ -180,10 +180,56 @@ void main() {
       expect(src, contains('alignment: pw.Alignment.center'));
     });
 
+    test('the period sits on the left edge of the page', () {
+      final header = between('pw.Widget _periodHeader(', 'pw.Widget _periodHeaderTop(');
+      // the period is aligned physically left, and is the only place it is drawn
+      final at = header.indexOf("'الفترة: \$period'");
+      expect(at, greaterThan(0));
+      expect(header.lastIndexOf('pw.Alignment.centerLeft', at), greaterThan(0));
+      expect(RegExp("'الفترة:").allMatches(src).length, 1);
+    });
+
+    test('every table line is black (grey lines fade when printed)', () {
+      final files = {
+        'lib/shared/pdf_export.dart': File('lib/shared/pdf_export.dart').readAsStringSync(),
+        'lib/shared/pdf_export_period.dart': src,
+      };
+      var tables = 0;
+      for (final e in files.entries) {
+        // from "pw.Table(" to its column widths: the border definition
+        for (final m in RegExp(r'pw\.Table\(\s*border:[\s\S]*?columnWidths').allMatches(e.value)) {
+          tables++;
+          expect(m.group(0), isNot(contains('grey')), reason: e.key);
+          expect(m.group(0), contains('PdfColors.black'), reason: e.key);
+        }
+      }
+      expect(tables, 3, reason: 'daily exits, daily entries, shared report table');
+      // the single-record sheet writes its black lines down too
+      expect(files['lib/shared/pdf_export.dart'],
+          contains('border: pw.TableBorder.all(color: PdfColors.black)'));
+    });
+
+    test('table text is black unless it is an entry (green) or an exit (red)', () {
+      final cell = between('pw.Widget _reportCell(', 'pw.Widget _reportTable(');
+      expect(cell, contains('color ?? PdfColors.black'));
+    });
+
     test('a cell is never clipped (a clipped cell lost its last letter)', () {
       final cell = between('pw.Widget _reportCell(', 'pw.Widget _reportTable(');
       expect(cell, isNot(contains('TextOverflow.clip')));
       expect(cell, isNot(contains('maxLines')));
+    });
+
+    test('the daily reports do not clip their cells either', () {
+      final daily = File('lib/shared/pdf_export.dart').readAsStringSync();
+      final cells = RegExp(
+        r'pw\.Widget cell\(String text, \{required bool header\}\)[\s\S]*?\n        \);',
+      ).allMatches(daily).toList();
+      expect(cells.length, 2, reason: 'daily exits and daily entries');
+      for (final c in cells) {
+        expect(c.group(0), isNot(contains('TextOverflow.clip')));
+        expect(c.group(0), isNot(contains('maxLines')));
+      }
     });
 
     test('the period reads "من … إلى …", never an arrow', () {

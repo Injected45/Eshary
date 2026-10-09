@@ -218,6 +218,7 @@ class PdfExport {
             ),
             pw.Divider(),
             pw.TableHelper.fromTextArray(
+              border: pw.TableBorder.all(color: PdfColors.black),
               headers: [for (final h in headers) fixIsolatedYeh(h)],
               data: [
                 for (final row in dataRows)
@@ -226,10 +227,14 @@ class PdfExport {
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 fontSize: 11,
+                color: PdfColors.black,
               ),
               headerDecoration:
                   const pw.BoxDecoration(color: PdfColors.grey200),
-              cellStyle: const pw.TextStyle(fontSize: 10),
+              cellStyle: const pw.TextStyle(
+                fontSize: 10,
+                color: PdfColors.black,
+              ),
               cellAlignment: pw.Alignment.centerRight,
               cellPadding: const pw.EdgeInsets.all(4),
             ),
@@ -427,12 +432,11 @@ class PdfExport {
               fontSize: header ? 11 : 10,
               fontWeight:
                   header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: PdfColors.black,
             ),
             textDirection: pw.TextDirection.rtl,
             textAlign: pw.TextAlign.center,
-            softWrap: false,
-            maxLines: 1,
-            overflow: pw.TextOverflow.clip,
+            softWrap: true,
           ),
         );
 
@@ -473,27 +477,27 @@ class PdfExport {
           pw.Table(
             border: pw.TableBorder(
               top: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               bottom: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               left: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               right: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               horizontalInside: const pw.BorderSide(
-                color: PdfColors.grey400,
+                color: PdfColors.black,
                 width: 0.5,
               ),
               verticalInside: const pw.BorderSide(
-                color: PdfColors.grey400,
+                color: PdfColors.black,
                 width: 0.5,
               ),
             ),
@@ -804,12 +808,11 @@ class PdfExport {
               fontSize: header ? 11 : 10,
               fontWeight:
                   header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              color: PdfColors.black,
             ),
             textDirection: pw.TextDirection.rtl,
             textAlign: pw.TextAlign.center,
-            softWrap: false,
-            maxLines: 1,
-            overflow: pw.TextOverflow.clip,
+            softWrap: true,
           ),
         );
 
@@ -850,27 +853,27 @@ class PdfExport {
           pw.Table(
             border: pw.TableBorder(
               top: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               bottom: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               left: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               right: const pw.BorderSide(
-                color: PdfColors.grey700,
+                color: PdfColors.black,
                 width: 1.0,
               ),
               horizontalInside: const pw.BorderSide(
-                color: PdfColors.grey400,
+                color: PdfColors.black,
                 width: 0.5,
               ),
               verticalInside: const pw.BorderSide(
-                color: PdfColors.grey400,
+                color: PdfColors.black,
                 width: 0.5,
               ),
             ),
