@@ -353,6 +353,7 @@ class _DetailedOp {
     required this.amount,
     required this.myAccount,
     required this.party,
+    this.cancelled = false,
   });
   final DateTime t;
   final bool isIncome;
@@ -361,7 +362,25 @@ class _DetailedOp {
   final double amount;
   final String myAccount;
   final String party;
+
+  /// A cancelled operation or its reversing entry: both drawn in purple.
+  final bool cancelled;
+
+  /// The reversing entry of [this] at [at]: same details, other direction.
+  _DetailedOp reversalAt(DateTime at) => _DetailedOp(
+        t: at,
+        isIncome: !isIncome,
+        reference: reference,
+        senderReference: senderReference,
+        amount: amount,
+        myAccount: myAccount,
+        party: 'قيد عكسي (إلغاء) — $party',
+        cancelled: true,
+      );
 }
+
+/// Purple, for a cancelled operation and its reversing entry.
+const _cancelledColor = PdfColors.purple700;
 
 /// One row of an entries-only or exits-only report.
 class _KindRow {
@@ -372,6 +391,7 @@ class _KindRow {
     required this.reference,
     required this.party,
     required this.amount,
+    this.cancelled = false,
   });
   final DateTime t;
   final String code;
@@ -379,6 +399,9 @@ class _KindRow {
   final String reference;
   final String party;
   final double amount;
+
+  /// Shown in purple, marked "ملغاة", and left out of the total.
+  final bool cancelled;
 }
 
 extension PeriodReports on PdfExport {
@@ -407,8 +430,7 @@ extension PeriodReports on PdfExport {
       final myExchangeRow = exchangeById[b.exchangeId];
       final myCode = (myExchangeRow?.ourCode ?? '').trim();
       final client = b.clientId != null ? clientById[b.clientId!] : null;
-      ops.add(
-        _DetailedOp(
+      final op = _DetailedOp(
           t: b.archivedAt ?? b.createdAt,
           isIncome: true,
           // For دخول: this column shows MY account code (وجهة الدخول); the
@@ -421,12 +443,13 @@ extension PeriodReports on PdfExport {
             client?.company ?? '',
             client?.name ?? b.clientFromAccount ?? '',
           ),
-        ),
-      );
+          cancelled: b.isCancelled,
+        );
+      ops.add(op);
+      if (b.cancelledAt != null) ops.add(op.reversalAt(b.cancelledAt!));
     }
     for (final t in transfers) {
-      ops.add(
-        _DetailedOp(
+      final op = _DetailedOp(
           t: t.archivedAt ?? t.createdAt,
           isIncome: false,
           // For خروج: this column shows my transfer reference; the sender
@@ -442,8 +465,10 @@ extension PeriodReports on PdfExport {
             exchangeById[t.exchangeId]?.name,
           ),
           party: _slash(t.beneficiaryAccountCompany, t.beneficiaryName),
-        ),
-      );
+          cancelled: t.isCancelled,
+        );
+      ops.add(op);
+      if (t.cancelledAt != null) ops.add(op.reversalAt(t.cancelledAt!));
     }
     ops.sort((a, b) => a.t.compareTo(b.t));
 
@@ -525,6 +550,7 @@ extension PeriodReports on PdfExport {
               ],
           ],
           colorOf: (row, column) {
+            if (ops[row].cancelled && column != 9) return _cancelledColor;
             if (column == 7) return PdfColors.green800; // دخول
             if (column == 8) return PdfColors.red800; // خروج
             if (column == 9) {
@@ -571,6 +597,8 @@ extension PeriodReports on PdfExport {
               double? income,
               double? outgoing,
               double balance,
+              bool cancelled,
+              bool isReversal,
             })>
         rows,
     required double incomeTotal,
@@ -661,8 +689,17 @@ extension PeriodReports on PdfExport {
               [
                 '${i + 1}',
                 dayFmt.format(rows[i].at),
-                timeFmt.format(rows[i].at),
-                if (showAccount) rows[i].account,
+                // without the account column, the time cell names the line
+                (rows[i].cancelled && !showAccount)
+                    ? '${timeFmt.format(rows[i].at)}\n'
+                        '${rows[i].isReversal ? 'قيد عكسي' : 'ملغاة'}'
+                    : timeFmt.format(rows[i].at),
+                if (showAccount)
+                  rows[i].isReversal
+                      ? 'قيد عكسي (إلغاء) — ${rows[i].account}'
+                      : rows[i].cancelled
+                          ? '${rows[i].account} (ملغاة)'
+                          : rows[i].account,
                 if (showWho) rows[i].who,
                 rows[i].income == null ? '' : formatMoney(rows[i].income!),
                 rows[i].outgoing == null ? '' : formatMoney(rows[i].outgoing!),
@@ -674,6 +711,9 @@ extension PeriodReports on PdfExport {
               return column == balanceColumn ? PdfColors.grey800 : null;
             }
             final line = rows[showOpening ? row - 1 : row];
+            if (line.cancelled && column != balanceColumn) {
+              return _cancelledColor;
+            }
             if (column == incomeColumn) return PdfColors.green800;
             if (column == outgoingColumn) return PdfColors.red800;
             if (column == balanceColumn) {
@@ -743,6 +783,7 @@ extension PeriodReports on PdfExport {
               client?.name ?? b.clientFromAccount ?? '',
             ),
             amount: b.usdAmount,
+            cancelled: b.isCancelled,
           );
         }(),
     ];
@@ -787,6 +828,7 @@ extension PeriodReports on PdfExport {
               : t.reference,
           party: _slash(t.beneficiaryAccountCompany, t.beneficiaryName),
           amount: t.amount,
+          cancelled: t.isCancelled,
         ),
     ];
     return _buildKindReport(
@@ -856,7 +898,11 @@ extension PeriodReports on PdfExport {
     ];
     const widths = <double>[0.5, 0.9, 1.1, 1.3, 2.2, 1.4, 2.6, 1.5];
 
-    final total = sorted.fold<double>(0, (s, r) => s + r.amount);
+    // A cancelled operation is listed (purple, "ملغاة") but not counted.
+    final total = sorted
+        .where((r) => !r.cancelled)
+        .fold<double>(0, (s, r) => s + r.amount);
+    final cancelledCount = sorted.where((r) => r.cancelled).length;
     final color = income ? PdfColors.green800 : PdfColors.red800;
     final sign = income ? '+' : '-';
 
@@ -881,10 +927,16 @@ extension PeriodReports on PdfExport {
                 sorted[i].myAccount,
                 sorted[i].reference,
                 sorted[i].party,
-                '$sign${formatMoney(sorted[i].amount)} \$',
+                sorted[i].cancelled
+                    ? '${formatMoney(sorted[i].amount)} \$ ملغاة'
+                    : '$sign${formatMoney(sorted[i].amount)} \$',
               ],
           ],
-          colorOf: (row, column) => column == 7 ? color : null,
+          colorOf: (row, column) => sorted[row].cancelled
+              ? _cancelledColor
+              : column == 7
+                  ? color
+                  : null,
         ),
         pw.SizedBox(height: 12),
         _statRow([
@@ -895,8 +947,134 @@ extension PeriodReports on PdfExport {
           ),
           _statTile(
             'عدد المعاملات',
-            '${sorted.length}',
+            '${sorted.length - cancelledCount}',
             PdfColors.grey800,
+          ),
+          if (cancelledCount > 0)
+            _statTile(
+              'ملغاة',
+              '$cancelledCount',
+              _cancelledColor,
+            ),
+        ]),
+      ],
+    );
+
+    return doc.save();
+  }
+
+  /// "كشف الإلغاءات": every cancellation of the period with who did the
+  /// operation, who asked, who cancelled, why, and the balance before / after.
+  Future<Uint8List> buildCancellationsReport({
+    required List<OperationCancellation> rows,
+    required DateTime start,
+    required DateTime end,
+    String? exportedBy,
+    String? notificationText,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final stampFmt = DateFormat('yyyy/MM/dd HH:mm');
+    final sorted = [...rows]
+      ..sort((a, b) => a.cancelledAt.compareTo(b.cancelledAt));
+
+    final exportedAtTime = DateTime.now();
+    final logo = await _loadLogo();
+    final header = _periodHeader(
+      title: 'كشف الإلغاءات',
+      period: periodLabel(start, end),
+      logo: logo,
+      notificationText: notificationText,
+    );
+
+    if (sorted.isEmpty) {
+      _addEmptyReportPage(
+        doc,
+        theme: _theme,
+        header: header,
+        message: 'لا توجد عمليات ملغاة في الفترة المحددة',
+        at: exportedAtTime,
+        by: exportedBy,
+      );
+      return doc.save();
+    }
+
+    // Reading order (right → left). Every column and its data are centred.
+    const headers = <String>[
+      'ت',
+      'وقت الإلغاء',
+      'النوع',
+      'الحساب',
+      'القيمة',
+      'إشاري/كود',
+      'الجهة',
+      'وقت العملية',
+      'المنفذ',
+      'طلب الإلغاء',
+      'ألغاها',
+      'السبب',
+      'الرصيد قبل',
+      'الرصيد بعد',
+    ];
+    const widths = <double>[
+      0.45, 1.2, 0.7, 2.0, 1.1, 1.1, 1.6, 1.2, 1.2, 1.1, 1.1, 2.2, 1.1, 1.1,
+    ];
+
+    final outTotal = sorted
+        .where((c) => c.kind == OperationKind.transfer)
+        .fold<double>(0, (s, c) => s + c.amount);
+    final inTotal = sorted
+        .where((c) => c.kind == OperationKind.buy)
+        .fold<double>(0, (s, c) => s + c.amount);
+
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: exportedAtTime,
+      by: exportedBy,
+      body: [
+        header,
+        pw.SizedBox(height: 10),
+        _reportTable(
+          headers: headers,
+          widths: widths,
+          rows: [
+            for (var i = 0; i < sorted.length; i++)
+              [
+                '${i + 1}',
+                stampFmt.format(sorted[i].cancelledAt),
+                sorted[i].kindLabel,
+                sorted[i].accountLabel,
+                '${formatMoney(sorted[i].amount)} \$',
+                (sorted[i].reference ?? '').isEmpty ? '—' : sorted[i].reference!,
+                (sorted[i].partyName ?? '').isEmpty ? '—' : sorted[i].partyName!,
+                stampFmt.format(sorted[i].operationCreatedAt),
+                sorted[i].operationEmployeeName,
+                sorted[i].requestedByName ?? '—',
+                sorted[i].cancelledByName,
+                sorted[i].reason,
+                formatMoney(sorted[i].balanceBefore),
+                formatMoney(sorted[i].balanceAfter),
+              ],
+          ],
+          colorOf: (row, column) =>
+              (column == 2 || column == 4) ? _cancelledColor : null,
+        ),
+        pw.SizedBox(height: 12),
+        _statRow([
+          _statTile(
+            'عدد الإلغاءات',
+            '${sorted.length}',
+            _cancelledColor,
+          ),
+          _statTile(
+            'خروج ملغى (أُعيد للرصيد)',
+            '+\$${formatMoney(outTotal)}',
+            PdfColors.green800,
+          ),
+          _statTile(
+            'دخول ملغى (خُصم من الرصيد)',
+            '-\$${formatMoney(inTotal)}',
+            PdfColors.red800,
           ),
         ]),
       ],

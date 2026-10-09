@@ -114,6 +114,8 @@ class _AccountStatementScreenState
                   ? 'المدير'
                   : (employees[e.employeeId]?.employeeName ?? '—'),
               account: accountNames[e.exchangeId] ?? '—',
+              cancelled: e.cancelled,
+              isReversal: e.isReversal,
               income: e.income,
               outgoing: e.outgoing,
               balance: e.balance,
@@ -602,11 +604,26 @@ class _StatementTable extends StatelessWidget {
                             fontSize: 10,
                           ),
                         ),
+                        if (e.cancelled)
+                          Text(
+                            e.isReversal ? 'قيد عكسي (إلغاء)' : 'ملغاة',
+                            style: const TextStyle(
+                              color: AppColors.cancelled,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  money(e.income, AppColors.positive),
-                  money(e.outgoing, AppColors.negative),
+                  money(
+                    e.income,
+                    e.cancelled ? AppColors.cancelled : AppColors.positive,
+                  ),
+                  money(
+                    e.outgoing,
+                    e.cancelled ? AppColors.cancelled : AppColors.negative,
+                  ),
                   money(
                     e.balance,
                     e.balance >= 0 ? AppColors.positive : AppColors.negative,

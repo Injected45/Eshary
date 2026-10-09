@@ -163,10 +163,18 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         (a, b) => _stampForTransfer(a).compareTo(_stampForTransfer(b)),
       );
 
+    // Like the movement report: a cancelled operation stays on its side and
+    // its reversing entry is counted on the other side (they cancel out).
     final incomeTotal =
-        filteredBuys.fold<double>(0, (s, b) => s + b.usdAmount);
+        filteredBuys.fold<double>(0, (s, b) => s + b.usdAmount) +
+            filteredTransfers
+                .where((t) => t.isCancelled)
+                .fold<double>(0, (s, t) => s + t.amount);
     final outgoingTotal =
-        filteredTransfers.fold<double>(0, (s, t) => s + t.amount);
+        filteredTransfers.fold<double>(0, (s, t) => s + t.amount) +
+            filteredBuys
+                .where((b) => b.isCancelled)
+                .fold<double>(0, (s, b) => s + b.usdAmount);
     final diff = incomeTotal - outgoingTotal;
     final hasAny =
         filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty;
@@ -370,11 +378,11 @@ List<_Bucket> _bucketize({
 
   for (final b in buys) {
     final ts = b.archivedAt ?? b.createdAt;
-    buckets[bucketIndex(ts)].income += b.usdAmount;
+    buckets[bucketIndex(ts)].income += b.netAmount;
   }
   for (final t in transfers) {
     final ts = t.archivedAt ?? t.createdAt;
-    buckets[bucketIndex(ts)].outgoing += t.amount;
+    buckets[bucketIndex(ts)].outgoing += t.netAmount;
   }
   return buckets;
 }
@@ -894,6 +902,7 @@ class _OperationRow {
     required this.reference,
     required this.onOpen,
     this.runningDiff = 0,
+    this.cancelled = false,
   });
   final DateTime t;
   /// Opens the full-screen details page for the underlying record.
@@ -907,6 +916,22 @@ class _OperationRow {
   /// (which is what arrived from the sender).
   final String reference;
   double runningDiff;
+
+  /// A cancelled operation or its reversing entry (purple).
+  final bool cancelled;
+
+  /// The reversing entry of this row, at [at].
+  _OperationRow reversalAt(DateTime at) => _OperationRow(
+        t: at,
+        kind: 'قيد عكسي',
+        amountSigned: -amountSigned,
+        account: account,
+        party: 'إلغاء — $party',
+        status: status,
+        reference: reference,
+        onOpen: onOpen,
+        cancelled: true,
+      );
 }
 
 class _OperationsTable extends ConsumerWidget {
@@ -949,7 +974,7 @@ class _OperationsTable extends ConsumerWidget {
 
     final all = <_OperationRow>[];
     for (final b in buys) {
-      all.add(_OperationRow(
+      final row = _OperationRow(
         t: b.archivedAt ?? b.createdAt,
         kind: 'دخول',
         amountSigned: b.usdAmount,
@@ -960,10 +985,13 @@ class _OperationsTable extends ConsumerWidget {
         status: _statusLabel(b.status),
         reference: b.reference.isEmpty ? '—' : b.reference,
         onOpen: () => showCurrencyBuyDetails(context, ref, buy: b),
-      ));
+        cancelled: b.isCancelled,
+      );
+      all.add(row);
+      if (b.cancelledAt != null) all.add(row.reversalAt(b.cancelledAt!));
     }
     for (final t in transfers) {
-      all.add(_OperationRow(
+      final row = _OperationRow(
         t: t.archivedAt ?? t.createdAt,
         kind: 'خروج',
         amountSigned: -t.amount,
@@ -982,7 +1010,10 @@ class _OperationsTable extends ConsumerWidget {
               .map((e) => e.ourCode)
               .firstOrNull,
         ),
-      ));
+        cancelled: t.isCancelled,
+      );
+      all.add(row);
+      if (t.cancelledAt != null) all.add(row.reversalAt(t.cancelledAt!));
     }
     all.sort((a, b) => a.t.compareTo(b.t));
 
@@ -1066,9 +1097,11 @@ class _OperationsTable extends ConsumerWidget {
                         DataCell(Text(
                           '${r.amountSigned >= 0 ? '+' : '-'}\$${formatMoney(r.amountSigned.abs())}',
                           style: TextStyle(
-                            color: r.amountSigned >= 0
-                                ? AppColors.positive
-                                : AppColors.negative,
+                            color: r.cancelled
+                                ? AppColors.cancelled
+                                : r.amountSigned >= 0
+                                    ? AppColors.positive
+                                    : AppColors.negative,
                             fontWeight: FontWeight.w700,
                           ),
                         )),

@@ -117,6 +117,29 @@ class AppLogger {
 /// Translate a raw exception into a short Arabic user-facing message.
 String friendlyError(Object e) {
   final s = e.toString();
+  // Cancelling an operation (0048).
+  if (s.contains('cancel_day_passed')) {
+    return 'لا يمكن إلغاء هذه العملية: الإلغاء مسموح في يوم العملية فقط.';
+  }
+  if (s.contains('cancel_already')) {
+    return 'هذه العملية ملغاة مسبقاً.';
+  }
+  if (s.contains('cancel_insufficient_balance')) {
+    return 'لا يمكن إلغاء هذا الدخول: رصيد الحساب الآن أقل من قيمته '
+        '(خرج المبلغ أو جزء منه). ألغِ عمليات الخروج المرتبطة أولاً.';
+  }
+  if (s.contains('cancel_reason_required')) {
+    return 'اكتب سبب الإلغاء (3 أحرف على الأقل).';
+  }
+  if (s.contains('cancel_request_exists')) {
+    return 'يوجد طلب إلغاء لهذه العملية بانتظار المدير.';
+  }
+  if (s.contains('cancel_request_not_found')) {
+    return 'طلب الإلغاء لم يعد قائماً. حدّث القائمة.';
+  }
+  if (s.contains('cancel_not_cancellable') || s.contains('cancel_not_found')) {
+    return 'لا يمكن إلغاء هذه العملية.';
+  }
   if (s.contains('client_has_operations')) {
     return 'لا يمكن حذف هذه الجهة لارتباطها بعمليات مالية سابقة.';
   }

@@ -1396,7 +1396,7 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
           selected: _filter,
           onChanged: (v) => setState(() => _filter = v),
           rows: widget.rows,
-          amountOf: (b) => b.usdAmount,
+          amountOf: (b) => b.netAmount,
           creatorOf: (b) => b.createdByEmployeeId,
           amountColor: AppColors.positive,
         ),
@@ -1432,9 +1432,13 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
                           clientById[b.clientId]?.name ?? '—',
                         )),
                         DataCell(Text(
-                          '\$${formatMoney(b.usdAmount)}',
-                          style: const TextStyle(
-                            color: AppColors.positive,
+                          b.isCancelled
+                              ? '\$${formatMoney(b.usdAmount)} ملغاة'
+                              : '\$${formatMoney(b.usdAmount)}',
+                          style: TextStyle(
+                            color: b.isCancelled
+                                ? AppColors.cancelled
+                                : AppColors.positive,
                             fontWeight: FontWeight.w700,
                           ),
                         )),

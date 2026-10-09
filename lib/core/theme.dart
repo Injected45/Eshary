@@ -19,6 +19,7 @@ class AppColors {
   static const positive = Color(0xFF22C55E); // green-500 — currency buy / income
   static const negative = Color(0xFFEF4444); // red-500 — transfers / outflow
   static const warning = Color(0xFFF59E0B);  // amber-500 — pending
+  static const cancelled = Color(0xFFA855F7); // purple-500 — a cancelled operation and its reversal
 
   // Text.
   static const textHigh = Color(0xFFF8FAFC);   // slate-50

@@ -5,6 +5,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
+import '../../cancellations/presentation/cancellations_providers.dart';
+import '../../cancellations/presentation/cancellations_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
@@ -122,7 +124,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
       children: [
-        Row(
+        // Wraps onto a second line on a narrow phone.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             // The statement shows every employee's operations: admin only.
             if (!ref.watch(isEmployeeProvider))
@@ -139,7 +145,29 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
               ),
-            const Spacer(),
+            // Requests + كشف الإلغاءات: admin only.
+            if (!ref.watch(isEmployeeProvider))
+              Badge(
+                isLabelVisible:
+                    ref.watch(pendingCancelRequestsProvider).isNotEmpty,
+                label: Text(
+                  '${ref.watch(pendingCancelRequestsProvider).length}',
+                ),
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CancellationsScreen(),
+                    ),
+                  ),
+                  icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
+                  label: const Text('الإلغاءات'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.cancelled,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                ),
+              ),
             OutlinedButton.icon(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('قريبًا')),

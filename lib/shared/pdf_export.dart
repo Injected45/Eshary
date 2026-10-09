@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../features/cancellations/domain/cancellation.dart';
 import '../features/clients/domain/client.dart';
 import '../features/companies/domain/company.dart';
 import '../features/companies/domain/exchange.dart';
@@ -409,7 +410,9 @@ class PdfExport {
           rows[i].reference,
           companyNameById[rows[i].companyId] ?? '—',
           exchangeNameById[rows[i].exchangeId] ?? '—',
-          '${formatMoney(rows[i].amount)} \$',
+          rows[i].isCancelled
+              ? '${formatMoney(rows[i].amount)} \$ ملغاة'
+              : '${formatMoney(rows[i].amount)} \$',
           (rows[i].beneficiaryAccountCompany?.isEmpty ?? true)
               ? '—'
               : rows[i].beneficiaryAccountCompany!,
@@ -458,7 +461,7 @@ class PdfExport {
         ),
     ];
 
-    final sum = rows.fold<double>(0, (a, r) => a + r.amount);
+    final sum = rows.fold<double>(0, (a, r) => a + r.netAmount);
     final totalText = '${formatMoney(sum)} \$';
     final wordsText = _arabicNumberWords(sum.round());
 
@@ -787,7 +790,9 @@ class PdfExport {
           senderCompanyOf(rows[i]),
           clientById[rows[i].clientId]?.name ?? '—',
           rows[i].reference.isEmpty ? '—' : rows[i].reference,
-          '${formatMoney(rows[i].usdAmount)} \$',
+          rows[i].isCancelled
+              ? '${formatMoney(rows[i].usdAmount)} \$ ملغاة'
+              : '${formatMoney(rows[i].usdAmount)} \$',
           exchangeById[rows[i].exchangeId]?.name ?? '—',
           companyNameById[rows[i].myCompanyId] ?? '—',
           (exchangeById[rows[i].exchangeId]?.ourCode ?? '').trim().isEmpty
@@ -834,7 +839,7 @@ class PdfExport {
         ),
     ];
 
-    final sum = rows.fold<double>(0, (a, r) => a + r.usdAmount);
+    final sum = rows.fold<double>(0, (a, r) => a + r.netAmount);
     final totalText = '${formatMoney(sum)} \$';
     final wordsText = _arabicNumberWords(sum.round());
 

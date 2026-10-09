@@ -70,9 +70,9 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
         .toList();
 
     final incomeTotal =
-        filteredBuys.fold<double>(0, (s, b) => s + b.usdAmount);
+        filteredBuys.fold<double>(0, (s, b) => s + b.netAmount);
     final outgoingTotal =
-        filteredTransfers.fold<double>(0, (s, t) => s + t.amount);
+        filteredTransfers.fold<double>(0, (s, t) => s + t.netAmount);
     final diff = incomeTotal - outgoingTotal;
 
     final showRangeSuffix =

@@ -1,4 +1,12 @@
-enum AlertKind { transfer, buy, pendingBuy }
+enum AlertKind {
+  transfer,
+  buy,
+  pendingBuy,
+
+  /// An employee asks the admin to cancel one of their exits / entries.
+  cancelRequestTransfer,
+  cancelRequestBuy,
+}
 
 AlertKind _parseKind(String s) {
   switch (s) {
@@ -6,6 +14,10 @@ AlertKind _parseKind(String s) {
       return AlertKind.buy;
     case 'pending_buy':
       return AlertKind.pendingBuy;
+    case 'cancel_request_transfer':
+      return AlertKind.cancelRequestTransfer;
+    case 'cancel_request_buy':
+      return AlertKind.cancelRequestBuy;
     default:
       return AlertKind.transfer;
   }
@@ -40,11 +52,19 @@ class EmployeeAlert {
 
   bool get isRead => readAt != null;
 
+  bool get isCancelRequest =>
+      kind == AlertKind.cancelRequestTransfer ||
+      kind == AlertKind.cancelRequestBuy;
+
+  /// The operation was an exit (transfer), not an entry.
+  bool get isExit =>
+      kind == AlertKind.transfer || kind == AlertKind.cancelRequestTransfer;
+
   /// خروج (transfer) or دخول (currency buy).
-  String get directionLabel => kind == AlertKind.transfer ? 'خروج' : 'دخول';
+  String get directionLabel => isExit ? 'خروج' : 'دخول';
 
   /// The counterpart: المستفيد for an exit, العميل for an entry.
-  String get partyLabel => kind == AlertKind.transfer ? 'المستفيد' : 'العميل';
+  String get partyLabel => isExit ? 'المستفيد' : 'العميل';
 
   factory EmployeeAlert.fromJson(Map<String, dynamic> json) => EmployeeAlert(
         id: json['id'] as String,

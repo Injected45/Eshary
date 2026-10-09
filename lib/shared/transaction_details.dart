@@ -4,6 +4,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../core/theme.dart';
+import '../features/cancellations/domain/cancellation.dart';
+import '../features/cancellations/presentation/operation_cancel_bar.dart';
 import '../features/clients/presentation/clients_providers.dart';
 import '../features/companies/domain/company.dart';
 import '../features/companies/domain/exchange.dart';
@@ -35,6 +37,14 @@ void showTransferDetails(
         title: 'تفاصيل عملية خروج',
         accent: AppColors.negative,
         createdAt: transfer.createdAt,
+        footer: OperationCancelBar(
+          kind: OperationKind.transfer,
+          operationId: transfer.id,
+          amount: transfer.amount,
+          createdAt: transfer.createdAt,
+          cancelledAt: transfer.cancelledAt,
+          partyName: transfer.beneficiaryName,
+        ),
         sections: [
           _DetailSection(
             title: 'خروج من حسابي',
@@ -138,6 +148,16 @@ void showCurrencyBuyDetails(
         title: 'تفاصيل عملية دخول',
         accent: AppColors.positive,
         createdAt: buy.createdAt,
+        footer: buy.status == CurrencyBuyStatus.archived
+            ? OperationCancelBar(
+                kind: OperationKind.buy,
+                operationId: buy.id,
+                amount: buy.usdAmount,
+                createdAt: buy.createdAt,
+                cancelledAt: buy.cancelledAt,
+                partyName: clientName,
+              )
+            : null,
         sections: [
           _DetailSection(
             title: 'دخول الى حسابي',
@@ -201,12 +221,16 @@ class _DetailsPage extends StatelessWidget {
     required this.accent,
     required this.createdAt,
     required this.sections,
+    this.footer,
   });
 
   final String title;
   final Color accent;
   final DateTime createdAt;
   final List<Widget> sections;
+
+  /// Cancel / request / "ملغاة" (see [OperationCancelBar]).
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +252,7 @@ class _DetailsPage extends StatelessWidget {
             s,
             const SizedBox(height: 14),
           ],
+          if (footer != null) footer!,
         ],
       ),
     );

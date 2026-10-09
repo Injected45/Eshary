@@ -5,10 +5,10 @@ import '../../transfers/presentation/transfers_providers.dart';
 
 final archivedSoldTotalProvider = FutureProvider<double>((ref) async {
   final rows = await ref.watch(archivedTransfersProvider.future);
-  return rows.fold<double>(0, (sum, t) => sum + t.amount);
+  return rows.fold<double>(0, (sum, t) => sum + t.netAmount);
 });
 
 final archivedBoughtTotalProvider = FutureProvider<double>((ref) async {
   final rows = await ref.watch(archivedBuysProvider.future);
-  return rows.fold<double>(0, (sum, b) => sum + b.usdAmount);
+  return rows.fold<double>(0, (sum, b) => sum + b.netAmount);
 });

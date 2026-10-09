@@ -112,12 +112,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         final bd = b.archivedAt ?? b.createdAt;
         return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
       });
-    final total = filtered.fold<double>(0, (s, b) => s + b.usdAmount);
+    final total = filtered.fold<double>(0, (s, b) => s + b.netAmount);
     return _buildBody<CurrencyBuy>(
       rows: filtered,
       total: total,
       getDate: (b) => b.archivedAt ?? b.createdAt,
       getAmount: (b) => b.usdAmount,
+      getCancelled: (b) => b.isCancelled,
       getCreator: (b) => b.createdByEmployeeId,
       onExport: () => _exportPdf(filtered, total),
       onRowTap: (b) => showGlassDialog<void>(
@@ -169,12 +170,13 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         final bd = b.archivedAt ?? b.createdAt;
         return _newestFirst ? bd.compareTo(ad) : ad.compareTo(bd);
       });
-    final total = filtered.fold<double>(0, (s, t) => s + t.amount);
+    final total = filtered.fold<double>(0, (s, t) => s + t.netAmount);
     return _buildBody<Transfer>(
       rows: filtered,
       total: total,
       getDate: (t) => t.archivedAt ?? t.createdAt,
       getAmount: (t) => t.amount,
+      getCancelled: (t) => t.isCancelled,
       getCreator: (t) => t.createdByEmployeeId,
       onExport: () => _exportPdf(filtered, total),
       onRowTap: (t) => showGlassDialog<void>(
@@ -196,6 +198,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     required double total,
     required DateTime Function(T) getDate,
     required double Function(T) getAmount,
+    required bool Function(T) getCancelled,
     required String? Function(T) getCreator,
     required VoidCallback onExport,
     required void Function(T) onRowTap,
@@ -241,6 +244,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
                 date: getDate(rows[i]),
                 amount: getAmount(rows[i]),
                 tint: _tint,
+                cancelled: getCancelled(rows[i]),
                 createdByEmployeeId: getCreator(rows[i]),
                 onTap: () => onRowTap(rows[i]),
                 onDownload: () => onRowDownload(rows[i]),
@@ -707,11 +711,15 @@ class _RecordRow extends StatelessWidget {
     required this.createdByEmployeeId,
     required this.onTap,
     required this.onDownload,
+    this.cancelled = false,
   });
   final int index;
   final DateTime date;
   final double amount;
   final Color tint;
+
+  /// Cancelled: purple, marked, and left out of the total above.
+  final bool cancelled;
 
   /// null → admin-authored; non-null → sub_user.id of the author.
   final String? createdByEmployeeId;
@@ -761,10 +769,12 @@ class _RecordRow extends StatelessWidget {
                   Expanded(
                     flex: 3,
                     child: Text(
-                      '\$${formatMoney(amount)}',
+                      cancelled
+                          ? '\$${formatMoney(amount)}\nملغاة'
+                          : '\$${formatMoney(amount)}',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: tint,
+                        color: cancelled ? AppColors.cancelled : tint,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),

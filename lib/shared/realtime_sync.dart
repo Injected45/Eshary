@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_provider.dart';
+import '../features/cancellations/presentation/cancellations_providers.dart';
 import '../features/companies/presentation/companies_providers.dart';
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
 import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
@@ -49,6 +50,8 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(employeeAlertsProvider);
     ref.invalidate(sentMessagesProvider);
     ref.invalidate(employeeInboxProvider);
+    // Cancellation requests (admin: waiting list; employee: own status).
+    ref.invalidate(cancelRequestsProvider);
   }
 
   // Coalesce bursts (e.g. an INSERT echoing back to this client). 400ms is
@@ -110,6 +113,15 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         table: 'admin_alerts',
         callback: (payload) {
           AppLogger.info('[realtime] admin_alerts insert');
+          scheduleInvalidate();
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'cancellation_requests',
+        callback: (payload) {
+          AppLogger.info('[realtime] cancellation_requests event');
           scheduleInvalidate();
         },
       )

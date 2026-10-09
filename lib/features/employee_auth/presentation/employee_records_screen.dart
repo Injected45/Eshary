@@ -61,9 +61,9 @@ class _EmployeeRecordsScreenState
     final allIncoming = [...dailyB, ...archB]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    final outgoingTotal = allOutgoing.fold<double>(0, (s, t) => s + t.amount);
+    final outgoingTotal = allOutgoing.fold<double>(0, (s, t) => s + t.netAmount);
     final incomingTotal =
-        allIncoming.fold<double>(0, (s, b) => s + b.usdAmount);
+        allIncoming.fold<double>(0, (s, b) => s + b.netAmount);
 
     // Show only the type(s) the admin granted. An employee given exits only
     // sees no "دخول" card or section.
@@ -402,8 +402,10 @@ class _TransferList extends ConsumerWidget {
             middle: exchangeNameById[t.exchangeId] ?? '—',
             bottom: '${t.reference} • ${fmt.format(t.createdAt.toLocal())}',
             amount: t.amount,
-            amountColor: AppColors.negative,
+            amountColor:
+                t.isCancelled ? AppColors.cancelled : AppColors.negative,
             archived: t.status == TransferStatus.archived,
+            cancelled: t.isCancelled,
             onTap: () => showTransferDetails(
               context,
               transfer: t,
@@ -452,8 +454,10 @@ class _CurrencyBuyList extends ConsumerWidget {
             bottom:
                 '${b.reference.isEmpty ? '—' : b.reference} • ${fmt.format(b.createdAt.toLocal())}',
             amount: b.usdAmount,
-            amountColor: AppColors.positive,
+            amountColor:
+                b.isCancelled ? AppColors.cancelled : AppColors.positive,
             archived: b.status == CurrencyBuyStatus.archived,
+            cancelled: b.isCancelled,
             pending: b.status == CurrencyBuyStatus.pending,
             onTap: () => showCurrencyBuyDetails(context, ref, buy: b),
           ),
@@ -471,6 +475,7 @@ class _RecordTile extends StatelessWidget {
     required this.amountColor,
     required this.archived,
     this.pending = false,
+    this.cancelled = false,
     this.onTap,
   });
 
@@ -481,6 +486,7 @@ class _RecordTile extends StatelessWidget {
   final Color amountColor;
   final bool archived;
   final bool pending;
+  final bool cancelled;
   final VoidCallback? onTap;
 
   @override
@@ -528,7 +534,12 @@ class _RecordTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    if (archived)
+                    if (cancelled)
+                      const _StatusPill(
+                        label: 'ملغاة',
+                        color: AppColors.cancelled,
+                      )
+                    else if (archived)
                       _StatusPill(
                         label: 'مرحّلة',
                         color: AppColors.textLow,

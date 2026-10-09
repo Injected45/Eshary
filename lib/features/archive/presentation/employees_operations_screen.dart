@@ -87,13 +87,13 @@ class _EmployeesOperationsScreenState
 
     for (final b in visibleBuys) {
       incomeByCreator[b.createdByEmployeeId] =
-          (incomeByCreator[b.createdByEmployeeId] ?? 0) + b.usdAmount;
+          (incomeByCreator[b.createdByEmployeeId] ?? 0) + b.netAmount;
       countByCreator[b.createdByEmployeeId] =
           (countByCreator[b.createdByEmployeeId] ?? 0) + 1;
     }
     for (final t in visibleTransfers) {
       outgoingByCreator[t.createdByEmployeeId] =
-          (outgoingByCreator[t.createdByEmployeeId] ?? 0) + t.amount;
+          (outgoingByCreator[t.createdByEmployeeId] ?? 0) + t.netAmount;
       countByCreator[t.createdByEmployeeId] =
           (countByCreator[t.createdByEmployeeId] ?? 0) + 1;
     }

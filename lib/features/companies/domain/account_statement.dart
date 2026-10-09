@@ -24,6 +24,8 @@ class StatementEntry {
     required this.balance,
     required this.employeeId,
     required this.exchangeId,
+    this.cancelled = false,
+    this.isReversal = false,
   });
 
   final DateTime at;
@@ -40,6 +42,13 @@ class StatementEntry {
   /// The employee who did it; null means the admin.
   final String? employeeId;
   final String exchangeId;
+
+  /// A cancelled operation, or the reversing entry that cancelled it. Both
+  /// stay in the statement (drawn in purple) and cancel each other out.
+  final bool cancelled;
+
+  /// The reversing entry (قيد عكسي) posted when the operation was cancelled.
+  final bool isReversal;
 
   bool get isIncome => income != null;
 }
@@ -97,6 +106,9 @@ AccountStatement buildAccountStatement({
     }
   }
 
+  // A cancelled operation keeps its line and gets a reversing line (the other
+  // direction, same amount) at the time it was cancelled; both belong to the
+  // person who did the operation, so their statement nets to zero too.
   final ops = <({
     DateTime at,
     bool isIncome,
@@ -104,9 +116,11 @@ AccountStatement buildAccountStatement({
     String? by,
     String exchange,
     String id,
+    bool cancelled,
+    bool reversal,
   })>[
     for (final b in buys)
-      if (wanted(b.createdByEmployeeId, b.exchangeId, b.archivedAt ?? b.createdAt))
+      if (wanted(b.createdByEmployeeId, b.exchangeId, b.archivedAt ?? b.createdAt)) ...[
         (
           at: b.archivedAt ?? b.createdAt,
           isIncome: true,
@@ -114,9 +128,24 @@ AccountStatement buildAccountStatement({
           by: b.createdByEmployeeId,
           exchange: b.exchangeId,
           id: b.id,
+          cancelled: b.isCancelled,
+          reversal: false,
         ),
+        if (b.cancelledAt != null &&
+            wanted(b.createdByEmployeeId, b.exchangeId, b.cancelledAt!))
+          (
+            at: b.cancelledAt!,
+            isIncome: false,
+            amount: b.usdAmount,
+            by: b.createdByEmployeeId,
+            exchange: b.exchangeId,
+            id: '${b.id}~',
+            cancelled: true,
+            reversal: true,
+          ),
+      ],
     for (final t in transfers)
-      if (wanted(t.createdByEmployeeId, t.exchangeId, t.archivedAt ?? t.createdAt))
+      if (wanted(t.createdByEmployeeId, t.exchangeId, t.archivedAt ?? t.createdAt)) ...[
         (
           at: t.archivedAt ?? t.createdAt,
           isIncome: false,
@@ -124,7 +153,22 @@ AccountStatement buildAccountStatement({
           by: t.createdByEmployeeId,
           exchange: t.exchangeId,
           id: t.id,
+          cancelled: t.isCancelled,
+          reversal: false,
         ),
+        if (t.cancelledAt != null &&
+            wanted(t.createdByEmployeeId, t.exchangeId, t.cancelledAt!))
+          (
+            at: t.cancelledAt!,
+            isIncome: true,
+            amount: t.amount,
+            by: t.createdByEmployeeId,
+            exchange: t.exchangeId,
+            id: '${t.id}~',
+            cancelled: true,
+            reversal: true,
+          ),
+      ],
   ]..sort((a, b) {
       final c = a.at.compareTo(b.at);
       return c != 0 ? c : a.id.compareTo(b.id);
@@ -154,6 +198,8 @@ AccountStatement buildAccountStatement({
           balance: lines[i].balance,
           employeeId: ops[i].by,
           exchangeId: ops[i].exchange,
+          cancelled: ops[i].cancelled,
+          isReversal: ops[i].reversal,
         ),
     ],
     totalIncome: income,
@@ -180,12 +226,19 @@ double openingBalanceAt({
     if (at.isBefore(start)) continue;
     if (exchangeId != null && b.exchangeId != exchangeId) continue;
     net += b.usdAmount;
+    // its reversing entry, when cancelled since [start]
+    if (b.cancelledAt != null && !b.cancelledAt!.isBefore(start)) {
+      net -= b.usdAmount;
+    }
   }
   for (final t in transfers) {
     final at = t.archivedAt ?? t.createdAt;
     if (at.isBefore(start)) continue;
     if (exchangeId != null && t.exchangeId != exchangeId) continue;
     net -= t.amount;
+    if (t.cancelledAt != null && !t.cancelledAt!.isBefore(start)) {
+      net += t.amount;
+    }
   }
   return currentBalance - net;
 }

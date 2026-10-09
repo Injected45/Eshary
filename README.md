@@ -70,6 +70,7 @@ Apply with the Supabase CLI: `supabase db reset` (local) or `supabase db push` (
 - **Offline read cache** — recent list responses are cached in `SharedPreferences` and served when the live call fails.
 - **Exits are limited to the account balance** (migrations 0046/0047) — a trigger on `transfers` refuses an exit above `exchanges.balance` (`insufficient_balance`), for the admin, employees and direct API inserts alike, and locks the account row so two exits cannot both pass. Restoring a backup skips the check.
 - **Employee permissions, notifications, per-type visibility** (migrations 0039–0045) — see the migration headers.
+- **Cancelling an operation entered by mistake** (migration 0048) — never a delete: `admin_cancel_operation` posts a reversing entry (the balance goes back) and stamps `cancelled_at` on the row, which keeps all its values. Admin only, after re-typing the account password (5 wrong tries lock it for 15 minutes), with a reason, and only on the operation's calendar day in Libya (Africa/Tripoli). Employees send a request (`employee_request_cancellation`) that the admin approves or rejects. Every cancellation is kept in the append-only `operation_cancellations` (كشف الإلغاءات). Statements show the cancelled operation and its reversing entry in purple; single-type lists mark it "ملغاة" and leave it out of totals. Direct insert/update/delete on `transfers` / `currency_buys` from the API is closed.
 
 ## Phases
 

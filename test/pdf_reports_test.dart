@@ -185,6 +185,8 @@ void main() {
               income: i.isEven ? 100.0 + i : null,
               outgoing: i.isEven ? null : 40.0 + i,
               balance: 100.0 + i,
+              cancelled: i % 7 == 0,
+              isReversal: i % 14 == 7,
             ),
         ],
         incomeTotal: 1000,

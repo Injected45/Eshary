@@ -1235,7 +1235,7 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
           selected: _filter,
           onChanged: (v) => setState(() => _filter = v),
           rows: widget.rows,
-          amountOf: (t) => t.amount,
+          amountOf: (t) => t.netAmount,
           creatorOf: (t) => t.createdByEmployeeId,
           amountColor: AppColors.negative,
         ),
@@ -1279,9 +1279,13 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
                                   Text(companyById[t.companyId] ?? '—')),
                               DataCell(Text(t.reference)),
                               DataCell(Text(
-                                '\$${formatMoney(t.amount)}',
-                                style: const TextStyle(
-                                  color: AppColors.negative,
+                                t.isCancelled
+                                    ? '\$${formatMoney(t.amount)} ملغاة'
+                                    : '\$${formatMoney(t.amount)}',
+                                style: TextStyle(
+                                  color: t.isCancelled
+                                      ? AppColors.cancelled
+                                      : AppColors.negative,
                                   fontWeight: FontWeight.w700,
                                 ),
                               )),

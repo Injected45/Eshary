@@ -38,6 +38,7 @@ class CurrencyBuy {
     required this.createdAt,
     required this.archivedAt,
     required this.createdByEmployeeId,
+    this.cancelledAt,
   });
 
   final String id;
@@ -58,6 +59,15 @@ class CurrencyBuy {
   /// `record_pending_buy` from `current_employee_id()` (migration 0025).
   final String? createdByEmployeeId;
 
+  /// Set when the admin cancelled this operation (migration 0048). The row
+  /// keeps all its values; a reversing entry moved the balance back.
+  final DateTime? cancelledAt;
+
+  bool get isCancelled => cancelledAt != null;
+
+  /// What it counts for in a total: nothing once cancelled.
+  double get netAmount => isCancelled ? 0 : usdAmount;
+
   factory CurrencyBuy.fromJson(Map<String, dynamic> json) => CurrencyBuy(
         id: json['id'] as String,
         ownerId: json['owner_id'] as String,
@@ -75,5 +85,8 @@ class CurrencyBuy {
             ? null
             : DateTime.parse(json['archived_at'] as String),
         createdByEmployeeId: json['created_by_employee_id'] as String?,
+        cancelledAt: json['cancelled_at'] == null
+            ? null
+            : DateTime.parse(json['cancelled_at'] as String),
       );
 }

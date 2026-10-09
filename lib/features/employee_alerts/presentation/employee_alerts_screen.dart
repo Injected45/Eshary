@@ -7,6 +7,7 @@ import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../cancellations/presentation/cancellations_screen.dart';
 import '../../sub_users/presentation/sub_users_providers.dart';
 import '../data/employee_alerts_repository.dart';
 import '../domain/employee_alert.dart';
@@ -18,6 +19,10 @@ final _dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
 /// The notification text for one operation, in the wording the admin asked for.
 String alertText(EmployeeAlert a) {
   final party = (a.partyName ?? '').trim().isEmpty ? '—' : a.partyName!.trim();
+  if (a.isCancelRequest) {
+    return 'طلب إلغاء "${a.directionLabel}" من الموظف ${a.employeeName}\n'
+        'بقيمة ${formatMoney(a.amount)}\$ - ${a.partyLabel} $party';
+  }
   return 'تم تنفيذ "${a.directionLabel}" من الموظف ${a.employeeName}\n'
       'بقيمة ${formatMoney(a.amount)}\$ إلى ${a.partyLabel} $party';
 }
@@ -361,8 +366,12 @@ class _AlertTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isOut = alert.kind == AlertKind.transfer;
-    final color = isOut ? AppColors.negative : AppColors.positive;
+    final isOut = alert.isExit;
+    final color = alert.isCancelRequest
+        ? AppColors.cancelled
+        : isOut
+            ? AppColors.negative
+            : AppColors.positive;
     final party =
         (alert.partyName ?? '').trim().isEmpty ? '—' : alert.partyName!.trim();
 
@@ -399,6 +408,7 @@ class _AlertTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
+                      '${alert.isCancelRequest ? 'طلب إلغاء ' : ''}'
                       '${alert.directionLabel} · \$${formatMoney(alert.amount)}'
                       ' · $party',
                       maxLines: 1,
@@ -488,6 +498,23 @@ class _AlertTile extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (alert.isCancelRequest) ...[
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.cancelled,
+                    ),
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CancellationsScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('فتح طلبات الإلغاء'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
                   child: const Text('إغلاق'),

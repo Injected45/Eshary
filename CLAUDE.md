@@ -16,7 +16,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0047) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0048) in order.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0047    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save
+supabase/migrations/0001..0048    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -46,6 +46,10 @@ Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`
 There is **no manual daily close**. `record_transfer` and `record_currency_buy` store the row as `status='archived'` (with `archived_at`) and move `exchanges.balance` in the same transaction: an exit subtracts, an entry adds. So `exchanges.balance` is always the real balance and an employee and the admin see the same figure. (Before 0047 the balance was deferred to `archive_daily_*`; `0017_defer_balance_update.sql` and the `archive_daily_*` functions are kept only for older app builds and now do nothing.)
 
 An exit above the balance is refused by a trigger on `transfers` (`_check_transfer_balance`, 0046/0047): it locks the account row and raises `insufficient_balance`. `admin_restore_backup` sets `eshary.skip_balance_check` so a restore never moves or checks balances. Never write a two-step `insert` + `update balance` from Dart; always go through the RPCs. `record_pending_buy` (legacy) still creates a `pending` row that does not touch the balance.
+
+### Cancellations (migration 0048)
+
+An operation is never deleted or edited. `admin_cancel_operation(kind, id, reason, password, request_id)` checks the admin's password server-side (`crypt` against `auth.users`), the same Libya calendar day, and (for an entry) that the balance covers it; then it moves the balance back, stamps `cancelled_at` and appends a row to `operation_cancellations`. Employees only call `employee_request_cancellation`. `transfers` / `currency_buys` accept no direct insert/update/delete from the API any more. In Dart, `Transfer.netAmount` / `CurrencyBuy.netAmount` (0 once cancelled) feed every total; ledger reports (account statement, movement report) add a reversing line instead.
 
 The exit/entry screens show **today's** executed rows (`todayTransfersProvider` / `todayBuysProvider`: archived rows created today by the phone's local date), so the lists start empty every new day. The "العمليات" tab (formerly "الإقفالات") is the permanent record. The permissions `archive_transfers` / `archive_buys` / `archive_all` are retired.
 
