@@ -82,9 +82,12 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       );
     }
 
-    if (companiesAsync.isLoading ||
-        exchangesAsync.isLoading ||
-        exchangeCompaniesAsync.isLoading) {
+    // Only the first load shows the bar; a background refresh keeps the
+    // accounts on screen (no flashing every few seconds).
+    if ((companiesAsync.isLoading && !companiesAsync.hasValue) ||
+        (exchangesAsync.isLoading && !exchangesAsync.hasValue) ||
+        (exchangeCompaniesAsync.isLoading &&
+            !exchangeCompaniesAsync.hasValue)) {
       return Padding(
         padding: EdgeInsets.only(top: contentTopPadding(context)),
         child: const LinearProgressIndicator(),

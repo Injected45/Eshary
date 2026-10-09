@@ -101,7 +101,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
   Widget _renderIncome(
     AsyncValue<List<CurrencyBuy>> archivedAsync,
   ) {
-    if (archivedAsync.isLoading) {
+    if (archivedAsync.isLoading && !archivedAsync.hasValue) {
       return const LinearProgressIndicator();
     }
     if (archivedAsync.hasError) {
@@ -150,7 +150,8 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     AsyncValue<List<Transfer>> dailyAsync,
     AsyncValue<List<Transfer>> archivedAsync,
   ) {
-    if (dailyAsync.isLoading || archivedAsync.isLoading) {
+    if ((dailyAsync.isLoading && !dailyAsync.hasValue) ||
+        (archivedAsync.isLoading && !archivedAsync.hasValue)) {
       return const LinearProgressIndicator();
     }
     if (dailyAsync.hasError) {

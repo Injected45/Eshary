@@ -518,6 +518,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               _LabeledField(
                 label: 'الشركة',
                 child: exchangeCompaniesAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (items) {
                     if (items.isEmpty) {
                       return _EmptyExchangeCompaniesState(
@@ -581,6 +583,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               _LabeledField(
                 label: 'اسم الحساب',
                 child: exchangesAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (allExchanges) {
                     final filtered = _exchangeCompanyName == null
                         ? const <Exchange>[]
@@ -914,6 +918,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           expanded: _logExpanded,
           onToggle: () => setState(() => _logExpanded = !_logExpanded),
           child: dailyAsync.when(
+            skipLoadingOnReload: true,
+            skipError: true,
             data: (rows) => _DailyTransfersTable(rows: rows),
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('$e'),

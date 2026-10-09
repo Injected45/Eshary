@@ -74,6 +74,8 @@ class _PendingActivationScreenState
               child: GlassCard(
                 padding: const EdgeInsets.all(28),
                 child: asyncStatus.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (s) => _buildContent(context, s, email),
                   loading: () => _buildLoading(),
                   error: (e, _) => _buildError(e),

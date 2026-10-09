@@ -630,6 +630,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               _LabeledField(
                 label: 'اسم الشركة',
                 child: exchangeCompaniesAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (items) {
                     if (items.isEmpty) {
                       return _EmptyExchangeCompaniesState(
@@ -704,6 +706,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               _LabeledField(
                 label: 'اسم حسابي',
                 child: companiesAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (companies) {
                     final allExchanges =
                         allExchangesAsync.value ?? const <Exchange>[];
@@ -845,6 +849,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               _LabeledField(
                 label: 'الشركة المرسلة',
                 child: clientsAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (clients) {
                     if (clients.isEmpty) {
                       return _EmptyClientsState(
@@ -901,6 +907,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               _LabeledField(
                 label: 'اسم حساب المرسل',
                 child: clientsAsync.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   data: (clients) {
                     final filtered = _senderCompany == null
                         ? const <Client>[]
@@ -1070,6 +1078,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           onToggle: () =>
               setState(() => _executedExpanded = !_executedExpanded),
           child: dailyAsync.when(
+            skipLoadingOnReload: true,
+            skipError: true,
             data: (rows) => _DailyBuysTable(rows: rows),
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('$e'),

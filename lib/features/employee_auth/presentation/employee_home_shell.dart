@@ -123,6 +123,8 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
     final async = ref.watch(currentEmployeeProvider);
 
     return async.when(
+      skipLoadingOnReload: true,
+      skipError: true,
       loading: () => const Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(child: CircularProgressIndicator()),

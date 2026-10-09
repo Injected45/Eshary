@@ -151,6 +151,8 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
       ),
     );
     final companyField = ref.watch(exchangeCompaniesListProvider).when(
+          skipLoadingOnReload: true,
+          skipError: true,
           data: (companies) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

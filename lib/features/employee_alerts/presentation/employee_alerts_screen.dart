@@ -60,6 +60,7 @@ class EmployeeAlertsScreen extends ConsumerWidget {
       ),
       body: alertsAsync.when(
         skipLoadingOnReload: true,
+        skipError: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -557,6 +558,7 @@ class SentMessagesScreen extends ConsumerWidget {
       ),
       body: async.when(
         skipLoadingOnReload: true,
+        skipError: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(

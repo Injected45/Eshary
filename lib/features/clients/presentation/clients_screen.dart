@@ -39,6 +39,8 @@ class ClientsScreen extends ConsumerWidget {
         ],
       ),
       body: asyncList.when(
+        skipLoadingOnReload: true,
+        skipError: true,
         data: (clients) => ListView(
           padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [

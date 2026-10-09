@@ -30,6 +30,8 @@ class SubUsersScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: async.when(
+        skipLoadingOnReload: true,
+        skipError: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(

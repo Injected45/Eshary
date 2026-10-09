@@ -288,6 +288,8 @@ class _BranchPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(branchesListProvider);
     return async.when(
+      skipLoadingOnReload: true,
+      skipError: true,
       loading: () => const LinearProgressIndicator(),
       error: (e, _) => Text('$e'),
       data: (branches) {

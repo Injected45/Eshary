@@ -22,6 +22,8 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
     final top = contentTopPadding(context);
 
     return async.when(
+      skipLoadingOnReload: true,
+      skipError: true,
       loading: () => Padding(
         padding: EdgeInsets.only(top: top),
         child: const LinearProgressIndicator(),

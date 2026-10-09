@@ -301,6 +301,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ),
             const SizedBox(height: 8),
             backups.when(
+              skipLoadingOnReload: true,
+              skipError: true,
               loading: () => const Padding(
                 padding: EdgeInsets.all(16),
                 child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

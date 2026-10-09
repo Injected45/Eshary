@@ -313,6 +313,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
     }
     final asyncList = ref.watch(exchangeCompaniesListProvider);
     return asyncList.when(
+      skipLoadingOnReload: true,
+      skipError: true,
       data: (items) {
         final filtered = _country.text.trim().isEmpty
             ? <ExchangeCompany>[]

@@ -125,6 +125,8 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
                     ),
                     const SizedBox(height: 12),
                     exchangesAsync.when(
+                      skipLoadingOnReload: true,
+                      skipError: true,
                       data: (exchanges) {
                         if (exchanges.isEmpty) {
                           return const Padding(

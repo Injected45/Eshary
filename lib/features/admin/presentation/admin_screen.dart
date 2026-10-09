@@ -152,6 +152,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               child: RefreshIndicator(
                 onRefresh: _reload,
                 child: asyncRows.when(
+                  skipLoadingOnReload: true,
+                  skipError: true,
                   loading: () => const Center(
                     child: SizedBox(
                       height: 28,

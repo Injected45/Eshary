@@ -23,6 +23,7 @@ void main() {
   const statusBar = 44.0;
   const systemBottom = 34.0;
   const bottomBar = 96.0;
+  var slowRefresh = false;
 
   Future<void> pumpInShell(WidgetTester tester, Widget body) async {
     await tester.binding.setSurfaceSize(const Size(360, 780));
@@ -43,17 +44,22 @@ void main() {
             ],
           ),
           allExchangesProvider.overrideWith(
-            (ref) async => [
-              Exchange(
-                id: 'e1',
-                companyId: 'c1',
-                name: 'بهار روز',
-                balance: 100,
-                ourCode: 'X',
-                country: null,
-                createdAt: t0,
-              ),
-            ],
+            (ref) async {
+              if (slowRefresh) {
+                await Future<void>.delayed(const Duration(seconds: 2));
+              }
+              return [
+                Exchange(
+                  id: 'e1',
+                  companyId: 'c1',
+                  name: 'بهار روز',
+                  balance: 100,
+                  ourCode: 'X',
+                  country: null,
+                  createdAt: t0,
+                ),
+              ];
+            },
           ),
           exchangeCompaniesListProvider.overrideWith(
             (ref) async => [
@@ -148,6 +154,48 @@ void main() {
                 .hasMatch(l)) {
           offenders.add('${f.path}:${i + 1}: ${l.trim()}');
         }
+      }
+    }
+    expect(offenders, isEmpty, reason: offenders.join('\n'));
+  });
+
+  // A background refresh (the 5-second poll, realtime) must not flash a
+  // loading bar or blank the screen: the data stays until the new one arrives.
+  testWidgets('a background refresh does not flash حساباتي', (tester) async {
+    await pumpInShell(tester, const AccountsScreen());
+    expect(find.text('كشف حساب'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AccountsScreen)),
+    );
+    slowRefresh = true;
+    container.invalidate(allExchangesProvider);
+    container.invalidate(companiesListProvider);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    // still refreshing: the old data is on screen, no loading bar
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.text('كشف حساب'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    slowRefresh = false;
+    expect(find.text('كشف حساب'), findsOneWidget);
+  });
+
+  test('every async view keeps its data while it refreshes', () {
+    final offenders = <String>[];
+    for (final f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart')) continue;
+      final src = f.readAsStringSync().replaceAll('\r\n', '\n');
+      for (final m
+          in RegExp(r'\.when\(\n([^\n]*)\n([^\n]*)').allMatches(src)) {
+        if (!m.group(1)!.contains('skipLoadingOnReload: true') ||
+            !m.group(2)!.contains('skipError: true')) {
+          offenders.add('${f.path}: ${m.group(0)}');
+        }
+      }
+      if (RegExp(r'Async\.isLoading\)').hasMatch(src) ||
+          RegExp(r'Async\.isLoading \|\|').hasMatch(src)) {
+        offenders.add('${f.path}: isLoading without hasValue');
       }
     }
     expect(offenders, isEmpty, reason: offenders.join('\n'));

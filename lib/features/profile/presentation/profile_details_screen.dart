@@ -263,6 +263,8 @@ class _PlanCard extends ConsumerWidget {
               ),
               const Spacer(),
               asyncLicense.when(
+                skipLoadingOnReload: true,
+                skipError: true,
                 loading: () => const SizedBox(
                   height: 16,
                   width: 16,

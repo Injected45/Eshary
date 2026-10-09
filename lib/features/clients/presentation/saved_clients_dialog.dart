@@ -130,6 +130,8 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
               ),
               const SizedBox(height: 12),
               listAsync.when(
+                skipLoadingOnReload: true,
+                skipError: true,
                 data: (items) {
                   if (items.isEmpty) {
                     return Padding(

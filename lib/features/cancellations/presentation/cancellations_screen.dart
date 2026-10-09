@@ -179,6 +179,8 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
           ),
           const SizedBox(height: 12),
           listAsync.when(
+            skipLoadingOnReload: true,
+            skipError: true,
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => _Empty(text: friendlyError(e)),
             data: (list) => list.isEmpty
