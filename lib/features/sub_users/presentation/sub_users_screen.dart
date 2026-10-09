@@ -42,7 +42,7 @@ class SubUsersScreen extends ConsumerWidget {
           ),
         ),
         data: (rows) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          padding: EdgeInsets.fromLTRB(16, 8, 16, contentBottomPadding(context)),
           children: [
             SizedBox(
               width: double.infinity,

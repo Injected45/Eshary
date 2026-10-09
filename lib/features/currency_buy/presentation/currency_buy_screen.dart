@@ -604,7 +604,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     }
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         _CollapsibleSection(
           color: AppColors.positive,

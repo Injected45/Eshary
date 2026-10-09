@@ -99,7 +99,7 @@ class _MessagesDispatchScreenState
         automaticallyImplyLeading: false,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 120),
+        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
         children: [
           GlassCard(
             padding: const EdgeInsets.all(14),

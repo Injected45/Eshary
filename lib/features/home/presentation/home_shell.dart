@@ -227,7 +227,7 @@ class _TransfersHub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         _HubButton(
           icon: FontAwesomeIcons.paperPlane,

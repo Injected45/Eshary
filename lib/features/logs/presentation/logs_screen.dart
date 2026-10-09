@@ -39,7 +39,7 @@ class _LogsScreenState extends ConsumerState<LogsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
         children: [
           if (entries.isEmpty)
             const Padding(

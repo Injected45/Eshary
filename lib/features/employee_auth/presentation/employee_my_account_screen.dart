@@ -27,7 +27,7 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
         child: const LinearProgressIndicator(),
       ),
       error: (e, _) => Padding(
-        padding: EdgeInsets.fromLTRB(16, top, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, top, 16, contentBottomPadding(context)),
         child: GlassCard(
           child: Text(
             friendlyError(e),
@@ -39,7 +39,7 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
       data: (rows) {
         if (rows.isEmpty) {
           return Padding(
-            padding: EdgeInsets.fromLTRB(16, top, 16, 96),
+            padding: EdgeInsets.fromLTRB(16, top, 16, contentBottomPadding(context)),
             child: Center(
               child: GlassCard(
                 padding:
@@ -68,7 +68,7 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
             await ref.read(employeeMyAccountProvider.future);
           },
           child: ListView(
-            padding: EdgeInsets.fromLTRB(16, top, 16, 96),
+            padding: EdgeInsets.fromLTRB(16, top, 16, contentBottomPadding(context)),
             children: [
               Row(
                 children: [

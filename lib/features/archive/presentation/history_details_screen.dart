@@ -205,7 +205,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     required void Function(T) onRowDownload,
   }) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
       children: [
         _SummaryCard(
           label: _totalLabel,

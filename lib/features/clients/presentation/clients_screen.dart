@@ -40,7 +40,7 @@ class ClientsScreen extends ConsumerWidget {
       ),
       body: asyncList.when(
         data: (clients) => ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
           children: [
             if (clients.isEmpty)
               const Padding(

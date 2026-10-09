@@ -84,7 +84,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
     final detailsRange = DateTimeRange(start: r.start, end: r.end);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         DateFilterBar(
           mode: _mode,

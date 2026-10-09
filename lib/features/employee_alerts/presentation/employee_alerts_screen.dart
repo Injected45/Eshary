@@ -97,7 +97,7 @@ class EmployeeAlertsScreen extends ConsumerWidget {
           final unreadAll = alerts.where((a) => !a.isRead).length;
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
               SizedBox(
                 height: 48,
@@ -339,7 +339,7 @@ class EmployeeAlertsListScreen extends ConsumerWidget {
                     await ref.read(employeeAlertsProvider.future);
                   },
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
                     itemCount: alerts.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) => _AlertTile(
@@ -586,7 +586,7 @@ class SentMessagesScreen extends ConsumerWidget {
           }
           final items = byBroadcast.values.toList();
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, i) {

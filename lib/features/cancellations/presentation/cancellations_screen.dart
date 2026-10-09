@@ -138,7 +138,7 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
         children: [
           _SectionTitle(
             text: 'طلبات الإلغاء من الموظفين',

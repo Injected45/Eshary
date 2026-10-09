@@ -34,7 +34,7 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
         children: [
           _SettingsRow(
             icon: FontAwesomeIcons.user,

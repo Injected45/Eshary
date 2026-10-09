@@ -211,7 +211,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                       );
                     }
                     return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+                      padding: EdgeInsets.fromLTRB(16, 4, 16, contentBottomPadding(context)),
                       itemCount: rows.length,
                       separatorBuilder: (_, __) =>
                           const SizedBox(height: 10),

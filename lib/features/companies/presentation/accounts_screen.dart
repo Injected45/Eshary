@@ -61,7 +61,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
         backgroundColor: Colors.transparent,
         body: Padding(
           padding:
-              const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+              EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
           child: Center(
             child: GlassCard(
               padding: const EdgeInsets.symmetric(
@@ -85,9 +85,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     if (companiesAsync.isLoading ||
         exchangesAsync.isLoading ||
         exchangeCompaniesAsync.isLoading) {
-      return const Padding(
-        padding: EdgeInsets.only(top: kToolbarHeight + 24),
-        child: LinearProgressIndicator(),
+      return Padding(
+        padding: EdgeInsets.only(top: contentTopPadding(context)),
+        child: const LinearProgressIndicator(),
       );
     }
     if (companiesAsync.hasError) return _errorBody(companiesAsync.error);
@@ -122,7 +122,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final ecCount = ecsWithAccounts.length;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 24, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         // Wraps onto a second line on a narrow phone.
         Wrap(
@@ -227,7 +227,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   }
 
   Widget _errorBody(Object? e) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, kToolbarHeight + 40, 16, 16),
+        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
         child: Center(
           child: Text(
             '$e',

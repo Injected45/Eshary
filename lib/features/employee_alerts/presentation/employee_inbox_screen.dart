@@ -112,7 +112,7 @@ class _EmployeeInboxScreenState extends ConsumerState<EmployeeInboxScreen> {
               await ref.read(employeeInboxProvider.future);
             },
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
               itemCount: messages.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, i) {

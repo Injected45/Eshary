@@ -4,10 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
 
-/// Top padding for scrollable content that sits behind a transparent
-/// [AppBar] (`extendBodyBehindAppBar`): status-bar inset + toolbar + a gap.
-double contentTopPadding(BuildContext context, {double gap = 20}) =>
-    MediaQuery.paddingOf(context).top + kToolbarHeight + gap;
+/// Top padding for scrollable content. Behind a transparent [AppBar]
+/// (`extendBodyBehindAppBar`) the Scaffold already puts the status bar AND
+/// the app bar into `MediaQuery.padding.top`, so this is that plus a gap: the
+/// first line always starts fully visible under the app bar, on every phone.
+double contentTopPadding(BuildContext context, {double gap = 16}) =>
+    MediaQuery.paddingOf(context).top + gap;
+
+/// Bottom padding for scrollable content: the phone's own bottom inset (and,
+/// with `extendBody`, the floating bottom bar) plus a gap, so the last line is
+/// never hidden behind the navigation bar or the system buttons.
+double contentBottomPadding(BuildContext context, {double gap = 24}) =>
+    MediaQuery.paddingOf(context).bottom + gap;
 
 /// Frosted-glass surface — backdrop blur + translucent fill + hairline border.
 class GlassCard extends StatelessWidget {
