@@ -239,7 +239,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                           16, 4, 16, contentBottomPadding(context)),
                       itemCount: rows.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _UserCard(
+                      itemBuilder: (_, i) => AdminUserCard(
                         // Key on userId+status+isAdmin so the card rebuilds
                         // its chips immediately when those change.
                         key: ValueKey(
@@ -335,7 +335,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 }
 
-enum _AdminAction {
+enum AdminAction {
   trial,
   lifetime,
   block,
@@ -345,8 +345,8 @@ enum _AdminAction {
   delete,
 }
 
-class _UserCard extends StatelessWidget {
-  const _UserCard({
+class AdminUserCard extends StatelessWidget {
+  const AdminUserCard({
     super.key,
     required this.row,
     required this.isSelf,
@@ -390,74 +390,82 @@ class _UserCard extends StatelessWidget {
                   ),
                 ),
               ),
-              PopupMenuButton<_AdminAction>(
-                icon: const FaIcon(
-                  FontAwesomeIcons.ellipsisVertical,
-                  size: 16,
-                  color: AppColors.textLow,
+              // An administrator's account is permanent: no menu, nothing to
+              // change, block, delete or re-activate (the database refuses it too).
+              if (row.isAdmin)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: FaIcon(
+                    FontAwesomeIcons.lock,
+                    key: ValueKey('admin-locked'),
+                    size: 15,
+                    color: AppColors.textLow,
+                  ),
+                )
+              else
+                PopupMenuButton<AdminAction>(
+                  icon: const FaIcon(
+                    FontAwesomeIcons.ellipsisVertical,
+                    size: 16,
+                    color: AppColors.textLow,
+                  ),
+                  onSelected: (a) {
+                    switch (a) {
+                      case AdminAction.trial:
+                        onActivateTrial();
+                      case AdminAction.lifetime:
+                        onActivateLifetime();
+                      case AdminAction.block:
+                        onBlock();
+                      case AdminAction.pending:
+                        onSetPending();
+                      case AdminAction.grantAdmin:
+                        onGrantAdmin();
+                      case AdminAction.revokeAdmin:
+                        onRevokeAdmin();
+                      case AdminAction.delete:
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: AdminAction.trial,
+                      child: Text('تفعيل تجريبي 3 أيام'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.lifetime,
+                      child: Text('تفعيل دائم'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.pending,
+                      child: Text('إعادة لبانتظار التفعيل'),
+                    ),
+                    if (!row.isAdmin)
+                      const PopupMenuItem(
+                        value: AdminAction.grantAdmin,
+                        child: Text(
+                          'تعيين كمشرف',
+                          style: TextStyle(color: AppColors.accent),
+                        ),
+                      ),
+                    if (!isSelf && !row.isAdmin)
+                      const PopupMenuItem(
+                        value: AdminAction.delete,
+                        child: Text(
+                          'حذف الحساب',
+                          style: TextStyle(color: AppColors.negative),
+                        ),
+                      ),
+                    if (!isSelf && !row.isAdmin)
+                      const PopupMenuItem(
+                        value: AdminAction.block,
+                        child: Text(
+                          'حظر',
+                          style: TextStyle(color: AppColors.negative),
+                        ),
+                      ),
+                  ],
                 ),
-                onSelected: (a) {
-                  switch (a) {
-                    case _AdminAction.trial:
-                      onActivateTrial();
-                    case _AdminAction.lifetime:
-                      onActivateLifetime();
-                    case _AdminAction.block:
-                      onBlock();
-                    case _AdminAction.pending:
-                      onSetPending();
-                    case _AdminAction.grantAdmin:
-                      onGrantAdmin();
-                    case _AdminAction.revokeAdmin:
-                      onRevokeAdmin();
-                    case _AdminAction.delete:
-                      onDelete();
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: _AdminAction.trial,
-                    child: Text('تفعيل تجريبي 3 أيام'),
-                  ),
-                  const PopupMenuItem(
-                    value: _AdminAction.lifetime,
-                    child: Text('تفعيل دائم'),
-                  ),
-                  const PopupMenuItem(
-                    value: _AdminAction.pending,
-                    child: Text('إعادة لبانتظار التفعيل'),
-                  ),
-                  if (!row.isAdmin)
-                    const PopupMenuItem(
-                      value: _AdminAction.grantAdmin,
-                      child: Text(
-                        'تعيين كمشرف',
-                        style: TextStyle(color: AppColors.accent),
-                      ),
-                    ),
-                  if (row.isAdmin && !isSelf)
-                    const PopupMenuItem(
-                      value: _AdminAction.revokeAdmin,
-                      child: Text('إزالة صلاحيات المشرف'),
-                    ),
-                  if (!isSelf && !row.isAdmin)
-                    const PopupMenuItem(
-                      value: _AdminAction.delete,
-                      child: Text(
-                        'حذف الحساب',
-                        style: TextStyle(color: AppColors.negative),
-                      ),
-                    ),
-                  if (!isSelf && !row.isAdmin)
-                    const PopupMenuItem(
-                      value: _AdminAction.block,
-                      child: Text(
-                        'حظر',
-                        style: TextStyle(color: AppColors.negative),
-                      ),
-                    ),
-                ],
-              ),
             ],
           ),
           if ((row.phone ?? '').isNotEmpty) ...[

@@ -114,6 +114,17 @@ class AppLogger {
   }
 }
 
+/// The Google Play status code inside a `sign_in_failed` PlatformException,
+/// e.g. `PlatformException(sign_in_failed, F1.d: 10: , null, null)` → 10.
+/// Null when the text is not that error.
+int? googleSignInStatusCode(String text) {
+  final at = text.indexOf('sign_in_failed');
+  if (at < 0) return null;
+  // "<class>: <code>: <message>" — the class name may hold digits (F1.d).
+  final m = RegExp(r':\s*(\d+):').firstMatch(text.substring(at));
+  return m == null ? null : int.tryParse(m.group(1)!);
+}
+
 /// Translate a raw exception into a short Arabic user-facing message.
 String friendlyError(Object e) {
   final s = e.toString();
@@ -200,6 +211,9 @@ String friendlyError(Object e) {
   if (s.contains('user_has_operations')) {
     return 'لا يمكن حذف هذا الحساب: له عمليات مالية مسجّلة. استخدم الحظر بدلاً من الحذف.';
   }
+  if (s.contains('admin_license_locked')) {
+    return 'ترخيص المدير دائم ولا يمكن تعديله أو حذفه.';
+  }
   if (s.contains('cannot_delete_self')) {
     return 'لا يمكنك حذف حسابك أنت.';
   }
@@ -251,6 +265,12 @@ String friendlyError(Object e) {
   if (s.contains('busy')) {
     return 'الخدمة مشغولة حالياً. حاول بعد قليل.';
   }
+  // The Edge Function that completes the sign-in is not deployed (or has
+  // another name): Supabase answers NOT_FOUND.
+  if (s.trim().endsWith('NOT_FOUND') ||
+      s.contains('Requested function was not found')) {
+    return 'خدمة تسجيل الدخول غير منشورة على الخادم. انشر الدالة member-session ثم أعد المحاولة.';
+  }
   if (s.contains('create_failed') ||
       s.contains('link_failed') ||
       s.contains('server_error')) {
@@ -295,11 +315,78 @@ String friendlyError(Object e) {
   if (s.contains('device_id_required')) {
     return 'تعذّر التعرف على الجهاز.';
   }
+  // Sign-in with Google: the Android status code. In a release build the
+  // class name is shortened ("F1.d: 10: " instead of "ApiException: 10: "),
+  // so only the number is read.
+  final google = googleSignInStatusCode(s);
+  if (google != null) {
+    switch (google) {
+      case 10:
+        return 'إعداد تسجيل Google غير مكتمل: بصمة التطبيق غير مسجّلة لدى جوجل (رمز 10).';
+      case 12500:
+        return 'تعذّر تسجيل الدخول بجوجل. حدّث خدمات Google Play وأعد المحاولة (رمز 12500).';
+      case 12501:
+        return 'أُغلقت نافذة اختيار الحساب.';
+      case 7:
+        return 'لا يوجد اتصال بالإنترنت. تحقق من الاتصال وأعد المحاولة.';
+      case 8:
+      case 16:
+        return 'خدمات Google مشغولة الآن. أعد المحاولة بعد قليل.';
+      default:
+        return 'تعذّر تسجيل الدخول بجوجل (رمز $google). أعد المحاولة.';
+    }
+  }
+  if (s.contains('network_error')) {
+    return 'لا يوجد اتصال بالإنترنت. تحقق من الاتصال وأعد المحاولة.';
+  }
+  if (s.contains('لم يتم استلام رمز Google')) {
+    return 'لم ترسل جوجل رمز التحقق. أعد المحاولة، وإن تكرر فمعرّف التطبيق في جوجل غير صحيح.';
+  }
+  if (s.contains('audience') || s.contains('invalid_client')) {
+    return 'إعداد Google في الخادم غير مكتمل (معرّف العميل غير مضاف).';
+  }
+  if (s.contains('provider is not enabled') ||
+      s.contains('Unsupported provider') ||
+      s.contains('provider_disabled')) {
+    return 'تسجيل Google غير مفعّل في الخادم.';
+  }
+  if (s.contains('Database error saving new user')) {
+    return 'تعذّر إنشاء الحساب في قاعدة البيانات. أعد المحاولة، وإن تكرر تواصل مع الدعم.';
+  }
+  if (s.contains('nonce')) {
+    return 'رفضت جوجل الطلب. حدّث التطبيق وأعد المحاولة.';
+  }
   if (s.contains('not_authenticated')) {
     return 'فشل بدء الجلسة. أعد المحاولة.';
   }
   if (s.contains('Anonymous sign-ins are disabled')) {
     return 'تسجيل الدخول كموظف غير مُفعّل في إعدادات Supabase.';
   }
-  return 'حدث خطأ غير متوقع. تم تسجيل الحدث.';
+  // Unknown: say so, and show the reason itself (short) so it can be reported
+  // instead of hiding behind a generic line.
+  final reason = compactReason(e);
+  return reason.isEmpty
+      ? 'حدث خطأ غير متوقع. تم تسجيل الحدث.'
+      : 'حدث خطأ غير متوقع. تم تسجيل الحدث.\n$reason';
+}
+
+/// The raw error in one short line: wrappers such as "PostgrestException("
+/// and "message:" are stripped and the text is cut to 140 characters.
+String compactReason(Object e) {
+  var s = e.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  // Wrappers nest ("Exception: PostgrestException(message: …"): peel them
+  // one after the other.
+  final wrapper = RegExp(
+    r'^(Postgrest|Auth|AuthApi|Function|Platform)?Exception\s*[:(]\s*',
+  );
+  for (var i = 0; i < 3 && wrapper.hasMatch(s); i++) {
+    s = s.replaceFirst(wrapper, '');
+  }
+  s = s
+      .replaceFirst(RegExp(r'^message:\s*'), '')
+      .replaceAll(RegExp(r',\s*(details|hint):\s*null'), '')
+      .replaceFirst(RegExp(r'\)$'), '')
+      .trim();
+  if (s.length > 140) s = '${s.substring(0, 140)}…';
+  return s;
 }

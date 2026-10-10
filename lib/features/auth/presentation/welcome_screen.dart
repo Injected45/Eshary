@@ -1,49 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
-import '../../../shared/google_button.dart';
-import '../../../shared/logger.dart';
-import '../data/auth_repository.dart';
 
 /// First screen for signed-out users:
-///   - التسجيل باستخدام Google  -> a NEW account: the person picks a Google
-///     account on the phone (which proves the e-mail), then confirms the phone
-///     with one WhatsApp code (the link-phone screen)
-///   - لدي حساب                 -> a returning member: e-mail + phone + WhatsApp
-///     code (member-auth)
+///   - إنشاء حساب جديد / دخول  -> e-mail picked from the phone's accounts +
+///     phone + ONE WhatsApp code (member-auth). The same door creates a new
+///     account and signs a returning member in.
 ///   - تسجيل دخول موظف          -> temporary code or QR
-/// The platform administrator's e-mail / password / Google sign-in lives
-/// behind the small "دخول المدير" link, so it is not shown to employees.
-class WelcomeScreen extends ConsumerStatefulWidget {
+/// The platform administrator's e-mail / password sign-in lives behind the
+/// small "دخول المدير" link, so it is not shown to employees.
+class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  @override
-  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
-}
-
-class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
-  bool _busy = false;
-  String? _error;
-
-  Future<void> _signUpWithGoogle() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      // The session that follows moves the router (link phone / pending).
-      await ref.read(authRepositoryProvider).signInWithGoogle();
-    } catch (e, st) {
-      AppLogger.error('welcome.google', e, st);
-      if (mounted) setState(() => _error = friendlyError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,36 +94,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 28),
-                        const Text(
-                          'إنشاء حساب جديد',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textMid,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GoogleSignInButton(
-                          onPressed: _signUpWithGoogle,
-                          busy: _busy,
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppColors.negative,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
                         FilledButton.icon(
-                          onPressed: _busy ? null : () => context.go('/member-auth'),
-                          icon: const FaIcon(FontAwesomeIcons.rightToBracket, size: 16),
-                          label: const Text('لدي حساب'),
+                          key: const ValueKey('welcome-member'),
+                          onPressed: () => context.go('/member-auth'),
+                          icon: const FaIcon(FontAwesomeIcons.userPlus, size: 16),
+                          label: const Text('إنشاء حساب جديد / دخول'),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),

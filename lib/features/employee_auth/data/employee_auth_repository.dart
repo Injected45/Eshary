@@ -108,10 +108,6 @@ class OtpRefused implements Exception {
 class EmployeeAuthRepository {
   EmployeeAuthRepository(this._client, this._deviceIdService);
 
-  /// Same value as AuthRepository._googleWebClientId.
-  static const _googleWebClientId =
-      '711418304779-tt2dh9equsbqu6ckrnlgv8m95s6ca0q6.apps.googleusercontent.com';
-
   final SupabaseClient _client;
   final DeviceIdService _deviceIdService;
 

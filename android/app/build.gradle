@@ -5,6 +5,12 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.rahala.eshary"
     compileSdk = flutter.compileSdkVersion
@@ -41,11 +47,29 @@ android {
         versionName = flutter.versionName
     }
 
+    // Release builds are signed with the app's own permanent key, so an
+    // update always installs over the previous version and Google sign-in
+    // keeps the same fingerprint. The keystore and its passwords live outside
+    // the repo (android/key.properties points at them; both are gitignored).
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            if (!keystorePropertiesFile.exists()) {
+                throw new GradleException(
+                    "android/key.properties is missing: restore it (and the keystore) " +
+                    "from the backup of D:/ai/Eshary-keystore before building a release APK.")
+            }
+            signingConfig = signingConfigs.release
         }
     }
 }

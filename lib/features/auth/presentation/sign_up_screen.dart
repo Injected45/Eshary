@@ -47,22 +47,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
-  Future<void> _googleSignIn() async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final ok = await ref.read(authRepositoryProvider).signInWithGoogle();
-      if (ok && mounted) context.go('/');
-    } catch (e, st) {
-      AppLogger.error('auth.signUp.google', e, st);
-      setState(() => _error = friendlyError(e));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -185,49 +169,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                               ),
                             )
                           : const Text('إنشاء'),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(children: [
-                      Expanded(
-                        child: Container(
-                          height: 1,
-                          color: AppColors.glassBorder,
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          'أو',
-                          style: TextStyle(
-                            color: AppColors.textLow,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          height: 1,
-                          color: AppColors.glassBorder,
-                        ),
-                      ),
-                    ]),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _googleSignIn,
-                      icon: const FaIcon(
-                        FontAwesomeIcons.google,
-                        size: 16,
-                        color: AppColors.textHigh,
-                      ),
-                      label: const Text('متابعة بـ Google'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textHigh,
-                        side: const BorderSide(
-                          color: AppColors.glassBorderStrong,
-                        ),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 14),
-                      ),
                     ),
                     const SizedBox(height: 8),
                     TextButton(

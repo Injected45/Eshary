@@ -20,6 +20,7 @@ import '../../employee_alerts/presentation/employee_alerts_providers.dart';
 import '../../employee_alerts/presentation/employee_alerts_screen.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
 import '../../license/presentation/license_provider.dart';
+import '../../logs/presentation/logs_screen.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../sub_users/presentation/sub_users_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
@@ -62,6 +63,15 @@ class SettingsScreen extends ConsumerWidget {
               title: 'النسخ الاحتياطي',
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const BackupScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // What the app logged when something failed ("تم تسجيل الحدث").
+            _SettingsRow(
+              icon: FontAwesomeIcons.fileLines,
+              title: 'سجل الأخطاء',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const LogsScreen()),
               ),
             ),
           ],

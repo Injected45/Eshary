@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
@@ -11,13 +11,6 @@ class AuthRepository {
 
   final SupabaseClient _client;
   final LicenseRepository _licenseRepo;
-
-  /// Web client ID from Google Cloud Console — required by google_sign_in
-  /// as `serverClientId` so the ID token's audience matches what Supabase
-  /// validates against. The Android client ID configured in GCC stays
-  /// in the dashboard; the SDK doesn't take it as a parameter.
-  static const _googleWebClientId =
-      '711418304779-tt2dh9equsbqu6ckrnlgv8m95s6ca0q6.apps.googleusercontent.com';
 
   Future<void> signIn({required String email, required String password}) async {
     // Wipe any cached license from a previous user/session before signing
@@ -32,46 +25,6 @@ class AuthRepository {
     await _licenseRepo.clearCache();
     await _client.auth.signUp(email: email, password: password);
     await ensureProfile();
-  }
-
-  /// Returns true if a session was established. Returns false if the user
-  /// cancelled the Google account picker — the caller should treat that as
-  /// a non-error and stop showing the busy spinner.
-  Future<bool> signInWithGoogle() async {
-    await _licenseRepo.clearCache();
-    if (kIsWeb) {
-      await _client.auth.signInWithOAuth(OAuthProvider.google);
-      // Web uses redirect flow — control returns to the app via URL hash;
-      // the auth state listener picks up the new session and the router
-      // redirects automatically. Treat as success here.
-      return true;
-    }
-
-    final googleSignIn = GoogleSignIn(serverClientId: _googleWebClientId);
-    // Forget the last account so the chooser always lists the phone's Google
-    // accounts and the person picks the one they mean.
-    try {
-      await googleSignIn.signOut();
-    } catch (_) {
-      // nothing was signed in
-    }
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) return false; // user cancelled the picker
-
-    final googleAuth = await googleUser.authentication;
-    final idToken = googleAuth.idToken;
-    final accessToken = googleAuth.accessToken;
-    if (idToken == null) {
-      throw const AuthException('لم يتم استلام رمز Google');
-    }
-
-    await _client.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: accessToken,
-    );
-    await ensureProfile();
-    return true;
   }
 
   Future<void> signOut() async {

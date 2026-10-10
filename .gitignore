@@ -83,3 +83,7 @@ android/gradle.properties
 android/settings.gradle
 android/app/build.gradle
 android/gradle/wrapper/gradle-wrapper.properties
+
+# Release signing: the keystore lives outside the repo (D:/ai/Eshary-keystore);
+# key.properties holds its passwords and must never be committed.
+android/key.properties

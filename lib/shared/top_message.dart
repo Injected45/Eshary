@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
@@ -118,9 +119,23 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    final color = widget.bar.backgroundColor;
-    final isError = color != null;
-    final fill = color ?? const Color(0xFF1E293B);
+    // The app's glass look: translucent white over a slightly dark base (so it
+    // is light but never a flat bright white). An error / warning keeps the
+    // same glass with a tint of its colour.
+    final tint = widget.bar.backgroundColor;
+    final fill = tint == null
+        ? Color.alphaBlend(
+            Colors.white.withValues(alpha: 0.27),
+            AppColors.bgPanel.withValues(alpha: 0.45),
+          )
+        : Color.alphaBlend(
+            tint.withValues(alpha: 0.42),
+            Color.alphaBlend(
+              Colors.white.withValues(alpha: 0.14),
+              AppColors.bgPanel.withValues(alpha: 0.45),
+            ),
+          );
+    final border = Colors.white.withValues(alpha: tint == null ? 0.38 : 0.45);
     final curve = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
     return Positioned(
       top: top + 8,
@@ -142,34 +157,40 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
                 onTap: close,
-                child: Container(
-                  key: const ValueKey('top-message'),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: fill,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isError
-                          ? Colors.white.withValues(alpha: 0.25)
-                          : AppColors.glassBorderStrong,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x66000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 6),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  // frosted glass: the screen behind blurs, so the text stays
+                  // readable over any content
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: Container(
+                      key: const ValueKey('top-message'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                    ],
-                  ),
-                  child: DefaultTextStyle.merge(
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                      fontWeight: FontWeight.w600,
+                      decoration: BoxDecoration(
+                        color: fill,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: border),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x55000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: DefaultTextStyle.merge(
+                        style: const TextStyle(
+                          color: AppColors.textHigh,
+                          fontSize: 14,
+                          height: 1.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        child: widget.bar.content,
+                      ),
                     ),
-                    child: widget.bar.content,
                   ),
                 ),
               ),

@@ -12,11 +12,11 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 
 - `run-android.bat` — auto-boots `Medium_Phone_API_36` emulator if no device is connected, then `flutter run` in debug.
 - `run-web.bat` — `flutter run -d chrome --web-port=3001`. Hot reload (`r`) is unsupported on Flutter web; use `R` for hot restart.
-- `build-apk.bat` — `flutter build apk --release` then copies the universal APK to `Eshary.apk` at the repo root.
+- `build-apk.bat` — builds the 64-bit and 32-bit release APKs into `APK/`. Release builds are signed with the app's permanent keystore, which lives **outside the repo** in `D:\ai\Eshary-keystore\` (`android/key.properties` points at it; both are gitignored and must never be committed). Without `key.properties` the release build fails on purpose instead of falling back to the debug key.
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0054) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0057) in order.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0054    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0057    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.

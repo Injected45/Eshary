@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:eshary/core/supabase_provider.dart';
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/auth/data/auth_repository.dart';
@@ -7,12 +5,8 @@ import 'package:eshary/features/auth/data/member_auth_repository.dart'
     show MemberRefused;
 import 'package:eshary/features/auth/data/phone_link_repository.dart';
 import 'package:eshary/features/auth/presentation/link_phone_screen.dart';
-import 'package:eshary/features/auth/presentation/welcome_screen.dart';
-import 'package:eshary/shared/google_button.dart';
-import 'package:eshary/shared/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -38,14 +32,7 @@ class _Link implements PhoneLinkRepository {
 }
 
 class _Auth implements AuthRepository {
-  int googleCalls = 0;
   bool signedOut = false;
-
-  @override
-  Future<bool> signInWithGoogle() async {
-    googleCalls++;
-    return true;
-  }
 
   @override
   Future<void> signOut() async => signedOut = true;
@@ -86,61 +73,6 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
-
-  group('welcome: التسجيل باستخدام Google', () {
-    testWidgets('a Google button starts the sign-up, no typed e-mail',
-        (tester) async {
-      final auth = _Auth();
-      await pumpScreen(
-        tester,
-        const WelcomeScreen(),
-        overrides: [authRepositoryProvider.overrideWithValue(auth)],
-      );
-      expect(find.text('التسجيل باستخدام Google'), findsOneWidget);
-      expect(find.byType(TextField), findsNothing);
-      await tester.tap(find.byType(GoogleSignInButton));
-      await tester.pumpAndSettle();
-      expect(auth.googleCalls, 1);
-    });
-
-    testWidgets('returning members keep "لدي حساب"', (tester) async {
-      await pumpScreen(
-        tester,
-        const WelcomeScreen(),
-        overrides: [authRepositoryProvider.overrideWithValue(_Auth())],
-      );
-      expect(find.text('لدي حساب'), findsOneWidget);
-      expect(find.text('تسجيل دخول موظف'), findsOneWidget);
-    });
-  });
-
-  group('Google branding', () {
-    testWidgets('the standard four-colour G on a light button', (tester) async {
-      await pumpScreen(
-        tester,
-        Center(child: GoogleSignInButton(onPressed: () {})),
-      );
-      expect(find.byType(SvgPicture), findsOneWidget);
-      final button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-      final bg = button.style!.backgroundColor!.resolve({});
-      expect(bg, Colors.white);
-    });
-
-    test('the logo keeps the four Google colours, unmodified', () {
-      final src = File('lib/shared/google_button.dart').readAsStringSync();
-      for (final c in ['#4285F4', '#34A853', '#FBBC05', '#EA4335']) {
-        expect(src, contains(c));
-      }
-    });
-
-    test('every Google sign-in forgets the last account so the chooser shows',
-        () {
-      final src =
-          File('lib/features/auth/data/auth_repository.dart').readAsStringSync();
-      expect(src, contains('await googleSignIn.signOut();'));
-      expect(src, contains('signInWithIdToken'));
-    });
-  });
 
   group('link phone: the last step', () {
     Future<_Link> open(WidgetTester tester) async {
@@ -218,46 +150,4 @@ void main() {
     });
   });
 
-  group('wiring', () {
-    test('the router sends a new account to /link-phone, only on a clear answer',
-        () {
-      final src = File('lib/core/router.dart').readAsStringSync();
-      expect(src, contains("path: '/link-phone'"));
-      expect(src, contains("needsPhone == true && loc != '/link-phone'"));
-      expect(src, contains("needsPhone == false && loc == '/link-phone'"));
-      expect(src, contains('ref.listen(needsPhoneProvider'));
-      // the phone gate comes before the licence gate
-      expect(
-        src.indexOf('needsPhoneProvider).valueOrNull'),
-        lessThan(src.indexOf('License gate')),
-      );
-    });
-
-    test('the database side: e-mail from the session, never anonymous', () {
-      final sql = File('supabase/migrations/0050_google_signup_phone_link.sql')
-          .readAsStringSync();
-      expect(sql, contains('auth.uid()'));
-      expect(sql, contains('email_confirmed_at is not null'));
-      expect(sql, contains("'code', 'use_google'"));
-      expect(
-        sql,
-        contains(
-          'grant execute on function member_confirm_phone(text, text) to authenticated',
-        ),
-      );
-      expect(sql, isNot(contains('to anon')));
-    });
-
-    test('new messages read in Arabic', () {
-      for (final code in [
-        'use_google',
-        'already_linked',
-        'email_not_confirmed',
-      ]) {
-        final msg = friendlyError(MemberRefused(code));
-        expect(msg, isNot(contains(code)));
-        expect(RegExp('[؀-ۿ]').hasMatch(msg), isTrue);
-      }
-    });
-  });
 }

@@ -74,11 +74,28 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
     final box = tester.widget<Container>(find.byKey(const ValueKey('top-message')));
-    expect((box.decoration! as BoxDecoration).color, AppColors.negative);
+    final fill = (box.decoration! as BoxDecoration).color!;
+    expect(fill.r, greaterThan(fill.b), reason: 'an error keeps a red tint');
     await tester.tap(find.text('خطأ'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(find.text('خطأ'), findsNothing);
+  });
+
+  testWidgets('the normal message is translucent white glass, not a flat white',
+      (tester) async {
+    final ctx = await open(tester);
+    showTopSnackBar(ctx, const SnackBar(content: Text('تم')));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final box = tester.widget<Container>(find.byKey(const ValueKey('top-message')));
+    final fill = (box.decoration! as BoxDecoration).color!;
+    expect(fill.a, lessThan(1), reason: 'translucent');
+    expect(fill.r, lessThan(0.75), reason: 'never a flat bright white');
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
   });
 
   test('no screen shows a bottom snackbar any more', () {

@@ -116,11 +116,11 @@ void main() {
     test('the card offers the deletion, never for yourself or an admin', () {
       final src = File('lib/features/admin/presentation/admin_screen.dart')
           .readAsStringSync();
-      expect(src, contains('_AdminAction.delete'));
+      expect(src, contains('AdminAction.delete'));
       expect(src, contains("'حذف الحساب'"));
       expect(src, contains('.deleteUser(rows[i].userId)'));
       // shown only inside the same condition as الحظر
-      final at = src.indexOf('value: _AdminAction.delete');
+      final at = src.indexOf('value: AdminAction.delete');
       expect(src.lastIndexOf('if (!isSelf && !row.isAdmin)', at), greaterThan(0));
       // the confirmation shows the e-mail and the phone
       expect(src, contains("'البريد: \${rows[i].email}"));
