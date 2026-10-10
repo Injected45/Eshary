@@ -53,6 +53,10 @@ class LicenseRepository {
       // Belt-and-suspenders: if cached data is somehow non-valid, fall
       // through to missing rather than honouring it.
       if (!parsed.isValid) return LicenseStatus.missing;
+      // Offline, only a platform administrator is honoured from the cache:
+      // a subscriber's trial is judged by the server's clock alone, so
+      // protected operations stop until the connection is back.
+      if (!parsed.isAdmin) return LicenseStatus.missing;
       return parsed;
     }
   }

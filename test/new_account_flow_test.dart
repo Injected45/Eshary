@@ -2,42 +2,107 @@ import 'dart:io';
 
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/auth/presentation/welcome_screen.dart';
+import 'package:eshary/features/trial/data/trial_repository.dart';
+import 'package:eshary/features/trial/presentation/demo_tour_screen.dart';
+import 'package:eshary/features/trial/presentation/phone_input.dart';
+import 'package:eshary/features/trial/presentation/trial_request_screen.dart';
+import 'package:eshary/shared/cache.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// New accounts: the e-mail is picked from the phone's accounts, the phone is
-/// confirmed with one WhatsApp code. No Google sign-in anywhere.
+/// New subscribers come in through a trial request: no e-mail sign-up, no
+/// invitation QR, no SMS, no Google.
 void main() {
-  testWidgets('the welcome screen has one entry for a new account / sign-in',
-      (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 900));
+  Future<ProviderContainer> pump(
+    WidgetTester tester,
+    Widget screen, {
+    Map<String, Object> prefs = const {},
+  }) async {
+    SharedPreferences.setMockInitialValues(prefs);
+    final sp = await SharedPreferences.getInstance();
+    await tester.binding.setSurfaceSize(const Size(400, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final container = ProviderContainer(
+      overrides: [sharedPreferencesProvider.overrideWithValue(sp)],
+    );
+    addTearDown(container.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAppTheme(),
-        home: const Directionality(
-          textDirection: TextDirection.rtl,
-          child: WelcomeScreen(),
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: Directionality(textDirection: TextDirection.rtl, child: screen),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('welcome-member')), findsOneWidget);
-    expect(find.text('إنشاء حساب بالبريد / دخول'), findsOneWidget);
-    expect(find.byKey(const ValueKey('welcome-invite')), findsOneWidget);
-    expect(find.byKey(const ValueKey('welcome-phone')), findsOneWidget);
+    return container;
+  }
+
+  testWidgets('welcome: start a trial / sign in / tour, nothing else',
+      (tester) async {
+    await pump(tester, const WelcomeScreen());
+    expect(find.text('ابدأ تجربتك'), findsOneWidget);
+    expect(find.text('دخول حسابي'), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-demo')), findsOneWidget);
     expect(find.text('تسجيل دخول موظف'), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-invite')), findsNothing);
+    expect(find.byKey(const ValueKey('welcome-member')), findsNothing);
     expect(find.textContaining('Google'), findsNothing);
   });
 
-  test('Google is gone from the app', () {
+  testWidgets('welcome offers to follow a request already sent',
+      (tester) async {
+    await pump(
+      tester,
+      const WelcomeScreen(),
+      prefs: {'trial:follow-token': 'abc'},
+    );
+    expect(find.text('متابعة طلب التجربة'), findsOneWidget);
+    expect(find.text('ابدأ تجربتك'), findsNothing);
+  });
+
+  testWidgets('the request form asks for name, business, phone and consent',
+      (tester) async {
+    await pump(tester, const TrialRequestScreen());
+    expect(find.byKey(const ValueKey('trial-manager')), findsOneWidget);
+    expect(find.byKey(const ValueKey('trial-business')), findsOneWidget);
+    expect(find.byKey(const ValueKey('country-code')), findsOneWidget);
+    expect(find.byKey(const ValueKey('trial-consent')), findsOneWidget);
+    // Nothing is sent without the consent / a valid phone.
+    await tester.tap(find.byKey(const ValueKey('trial-submit')));
+    await tester.pump();
+    expect(find.text('اكتب اسم المدير واسم النشاط.'), findsOneWidget);
+  });
+
+  test('phone numbers are composed in international form', () {
+    expect(composePhone('+218', '0912345678'), '+218912345678');
+    expect(composePhone('+218', '91 234 5678'), '+218912345678');
+    expect(composePhone('+20', '01012345678'), '+201012345678');
+    expect(composePhone('+218', ''), '');
+  });
+
+  testWidgets('the tour uses invented data and no server', (tester) async {
+    await pump(tester, const DemoTourScreen());
+    expect(find.text('بيانات تجريبية للعرض فقط'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('demo-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('شراء دولار'), findsOneWidget);
+  });
+
+  test('Google, invitations and SMS are gone from the app', () {
     final offenders = <String>[];
     for (final f in Directory('lib').listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
       final src = f.readAsStringSync();
       if (src.contains('google_sign_in') ||
           src.contains('signInWithGoogle') ||
-          src.contains('GoogleSignIn')) {
+          src.contains('GoogleSignIn') ||
+          src.contains('member_invite') ||
+          src.contains('signInWithOtp') ||
+          src.contains('signInWithPhone')) {
         offenders.add(f.path);
       }
     }
@@ -46,20 +111,23 @@ void main() {
     expect(pub, isNot(contains('google_sign_in')));
   });
 
-  test('the database: a new e-mail needs only the WhatsApp code', () {
-    final sql = File('supabase/migrations/0057_new_account_by_phone_email.sql')
-        .readAsStringSync();
-    expect(sql, contains("'userId', null, 'needsEmail', false"));
-    expect(sql, contains("'userId', v_user, 'needsEmail', true"));
-    expect(sql, isNot(contains("'code', 'use_google'")));
+  test('the app calls the deployed name of the sign-in function', () {
+    final repo =
+        File('lib/features/trial/data/trial_repository.dart').readAsStringSync();
+    expect(repo, contains("const kMemberSessionFunction = 'super-handler';"));
+    expect(
+      RegExp(r'functions\.invoke\(\s*kMemberSessionFunction').hasMatch(repo),
+      isTrue,
+    );
+    expect(kMemberSessionFunction, 'super-handler');
   });
 
-  test('the app calls the deployed name of the sign-in function', () {
-    final repo = File('lib/features/auth/data/member_auth_repository.dart')
+  test('the database: activation starts the clock, only on the server', () {
+    final sql = File('supabase/migrations/0059_trial_onboarding.sql')
         .readAsStringSync();
-    expect(repo, contains("const kMemberSessionFunction = 'super-handler';"));
-    // exactly one place invokes it, through the constant
-    expect(RegExp(r"functions\.invoke\(\s*kMemberSessionFunction").hasMatch(repo), isTrue);
-    expect(repo, isNot(contains("invoke(\n        'member-session'")));
+    expect(sql, contains('create or replace function trial_activate'));
+    expect(sql, contains('_server_now()'));
+    // no SMS anywhere in the flow
+    expect(sql.toLowerCase(), isNot(contains('sms_send')));
   });
 }

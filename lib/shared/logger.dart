@@ -226,6 +226,79 @@ String friendlyError(Object e) {
   if (s.contains('keep_one_backup')) {
     return 'لا يمكن حذف كل النسخ الاحتياطية؛ يجب أن تبقى نسخة واحدة على الأقل.';
   }
+  // Trial requests, WhatsApp codes and the subscription clock (0059).
+  if (s.contains('consent_required')) {
+    return 'يجب الموافقة على التواصل عبر واتساب.';
+  }
+  if (s.contains('invalid_phone')) {
+    return 'رقم الهاتف غير صحيح. اختر رمز الدولة واكتب الرقم (الرقم الليبي يبدأ بـ 9 بعد الصفر).';
+  }
+  if (s.contains('request_exists')) {
+    return 'لهذا الرقم طلب مفتوح بالفعل. تابع طلبك أو انتظر قرار الإدارة.';
+  }
+  if (s.contains('trial_used')) {
+    return 'استُخدمت التجربة المجانية لهذا الرقم سابقاً. تواصل مع الإدارة للاشتراك.';
+  }
+  if (s.contains('account_exists')) {
+    return 'لهذا الرقم حساب قائم. استخدم «دخول حسابي».';
+  }
+  if (s.contains('too_many_requests')) {
+    return 'محاولات كثيرة. حاول لاحقاً.';
+  }
+  if (s.contains('not_approved')) {
+    return 'الطلب ليس في حالة موافقة بعد.';
+  }
+  if (s.contains('approval_expired')) {
+    return 'انتهت صلاحية الموافقة (7 أيام). تواصل مع الإدارة لتجديدها.';
+  }
+  if (s.contains('already_activated')) {
+    return 'فُعّل هذا الطلب سابقاً. ادخل من «دخول حسابي».';
+  }
+  if (s.contains('not_editable')) {
+    return 'لا يمكن تعديل الرقم بعد قرار الإدارة. تواصل مع الدعم.';
+  }
+  if (s.contains('code_expired')) {
+    return 'انتهت صلاحية الرمز أو استُخدم. اطلب رمزاً جديداً.';
+  }
+  if (s.contains('invalid_code')) {
+    return 'رمز التحقق غير صحيح.';
+  }
+  if (s.contains('locked')) {
+    return 'تم إيقاف المحاولات مؤقتاً لكثرة الأخطاء. حاول بعد ساعة.';
+  }
+  if (s.contains('time_untrusted')) {
+    return 'تعذّر التحقق من الوقت على الخادم حالياً، وتوقفت العمليات مؤقتاً. تواصل مع الدعم.';
+  }
+  if (s.contains('reason_required')) {
+    return 'اكتب السبب.';
+  }
+  if (s.contains('reference_required')) {
+    return 'اكتب رقم مرجع الدفع.';
+  }
+  if (s.contains('note_required')) {
+    return 'اكتب ملاحظة للمتقدّم.';
+  }
+  if (s.contains('already_approved') || s.contains('request_closed')) {
+    return 'الطلب مغلق أو موافَق عليه مسبقاً. حدّث القائمة.';
+  }
+  if (s.contains('request_not_found')) {
+    return 'الطلب لم يعد قائماً. حدّث القائمة.';
+  }
+  if (s.contains('account_suspended') || s.contains('not_suspended')) {
+    return 'حالة الحساب لا تسمح بهذا الإجراء. حدّث القائمة.';
+  }
+  if (s.contains('same_phone')) {
+    return 'هذا هو رقمك الحالي بالفعل.';
+  }
+  if (s.contains('phone_taken')) {
+    return 'هذا الرقم مستخدم أو له طلب قائم. اختر رقماً آخر.';
+  }
+  if (s.contains('change_too_soon')) {
+    return 'يُسمح بتغيير واحد للرقم كل 30 يوماً.';
+  }
+  if (s.contains('invalid_hours') || s.contains('invalid_days')) {
+    return 'المدة غير صحيحة.';
+  }
   // Invitations and phone sign-in (0058).
   if (s.contains('invite_invalid')) {
     return 'هذه الدعوة غير صالحة: استُخدمت أو انتهت أو أُلغيت. اطلب من المدير دعوة جديدة.';
@@ -234,7 +307,7 @@ String friendlyError(Object e) {
     return 'هذا الرقم غير مطابق للرقم المسجّل في الدعوة.';
   }
   if (s.contains('phone_not_found')) {
-    return 'هذا الرقم غير مسجّل لدينا. ادخل بالدعوة (QR) إن كنت مشتركاً جديداً.';
+    return 'هذا الرقم غير مسجّل لدينا. إن كنت مشتركاً جديداً فاضغط «ابدأ تجربتك».';
   }
   if (s.contains('invalid_name')) {
     return 'اكتب اسم المشترك.';
@@ -302,16 +375,16 @@ String friendlyError(Object e) {
     return 'انتهت صلاحية رمز التحقق. اطلب رمزاً جديداً.';
   }
   if (s.contains('too_many_attempts')) {
-    return 'تجاوزت عدد المحاولات. انتظر قليلاً أو اطلب من المدير كوداً أو QR جديداً.';
+    return 'تجاوزت عدد المحاولات لهذا الرمز. اطلب رمزاً جديداً.';
   }
   if (s.contains('too_many_sends')) {
-    return 'تم إرسال عدد كبير من الرموز. اطلب من المدير إصدار QR جديد أو حاول لاحقاً.';
+    return 'تم إرسال عدد كبير من الرموز. حاول بعد ساعة أو تواصل مع الدعم.';
   }
   if (s.contains('too_soon')) {
     return 'انتظر قليلاً قبل طلب رمز جديد.';
   }
   if (s.contains('send_failed')) {
-    return 'تعذّر إرسال الرمز عبر واتساب. أعد المحاولة بعد قليل.';
+    return 'تعذّر إرسال كود واتساب، حاول مجددًا أو تواصل مع الدعم';
   }
   if (s.contains('sms_not_configured')) {
     return 'خدمة إرسال الرموز غير مُعدّة بعد. تواصل مع المدير.';

@@ -10,7 +10,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/trial/presentation/subscription_banner.dart';
 import 'features/license/presentation/license_provider.dart';
+import 'shared/app_lock.dart';
 import 'shared/background_alerts.dart';
 import 'shared/cache.dart';
 import 'shared/liquid_background.dart';
@@ -114,7 +116,14 @@ class _EsharyAppState extends ConsumerState<EsharyApp> {
       ],
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
-        child: LiquidBackground(child: child ?? const SizedBox.shrink()),
+        child: LiquidBackground(
+          child: AppLockGate(
+            child: SubscriptionBanner(
+              onOpen: () => router.push('/subscription'),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
       ),
     );
   }

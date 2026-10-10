@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/cache.dart';
+import '../../trial/data/trial_repository.dart';
 
 /// First screen for signed-out users:
-///   - لدي دعوة (QR)           -> a new subscriber: scans the administrator's QR,
-///     types the phone the administrator registered, enters the WhatsApp code
-///   - دخول برقم الهاتف         -> a member already in: phone + WhatsApp code
-///   - إنشاء حساب بالبريد / دخول -> e-mail picked from the phone's accounts +
-///     phone + ONE WhatsApp code (member-auth)
-///   - تسجيل دخول موظف          -> temporary code or QR
+///   - ابدأ تجربتك     -> asks for a trial; the administrator decides and a
+///     WhatsApp code starts it (no e-mail, no invitation, no SMS)
+///   - دخول حسابي      -> a subscriber already in: phone + WhatsApp code
+///   - جولة تعريفية    -> a tour with invented data
+///   - تسجيل دخول موظف -> temporary code or QR
 /// The platform administrator's e-mail / password sign-in lives behind the
 /// small "دخول المدير" link, so it is not shown to employees.
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasRequest = savedFollowToken(ref.watch(jsonCacheProvider)) != null;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -96,36 +99,36 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 28),
-                        // An invitation from the administrator (QR): the way in for
-                        // a new subscriber.
                         FilledButton.icon(
-                          key: const ValueKey('welcome-invite'),
-                          onPressed: () => context.go('/invite'),
-                          icon: const FaIcon(FontAwesomeIcons.qrcode, size: 16),
-                          label: const Text('لدي دعوة (QR)'),
+                          key: const ValueKey('welcome-trial'),
+                          onPressed: () => context.go(hasRequest
+                              ? '/trial-follow'
+                              : '/trial-request'),
+                          icon: const FaIcon(FontAwesomeIcons.rocket, size: 16),
+                          label: Text(
+                            hasRequest ? 'متابعة طلب التجربة' : 'ابدأ تجربتك',
+                          ),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        // A member who already came in: phone number + WhatsApp code.
                         FilledButton.icon(
                           key: const ValueKey('welcome-phone'),
                           onPressed: () => context.go('/phone-login'),
                           icon:
                               const FaIcon(FontAwesomeIcons.whatsapp, size: 16),
-                          label: const Text('دخول برقم الهاتف'),
+                          label: const Text('دخول حسابي'),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
-                          key: const ValueKey('welcome-member'),
-                          onPressed: () => context.go('/member-auth'),
-                          icon:
-                              const FaIcon(FontAwesomeIcons.userPlus, size: 16),
-                          label: const Text('إنشاء حساب بالبريد / دخول'),
+                          key: const ValueKey('welcome-demo'),
+                          onPressed: () => context.go('/demo'),
+                          icon: const FaIcon(FontAwesomeIcons.play, size: 14),
+                          label: const Text('جولة تعريفية'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textHigh,
                             side: const BorderSide(

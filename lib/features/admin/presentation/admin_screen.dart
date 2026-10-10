@@ -8,7 +8,8 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
-import '../../members/presentation/member_invites_screen.dart';
+import '../../trial/data/trial_admin_repository.dart';
+import '../../trial/presentation/trial_requests_screen.dart';
 import 'deleted_accounts_screen.dart';
 import '../../../shared/top_message.dart';
 
@@ -60,6 +61,101 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       );
     } catch (e, st) {
       AppLogger.error('admin.action', e, st);
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        SnackBar(
+          backgroundColor: AppColors.negative.withValues(alpha: 0.85),
+          content: Text(
+            friendlyError(e),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Subscription decisions that need typed input (hours, days, a payment
+  /// reference or a reason). The rules themselves are in the database.
+  Future<void> _subscription(AdminUserRow row, AdminAction kind) async {
+    final hours = TextEditingController(text: '24');
+    final days = TextEditingController(text: '30');
+    final reference = TextEditingController();
+    final reason = TextEditingController();
+    final (title, fields) = switch (kind) {
+      AdminAction.extend => ('تمديد التجربة', [hours, reason]),
+      AdminAction.payment => ('تأكيد دفع الاشتراك', [days, reference]),
+      AdminAction.suspend => ('إيقاف الحساب', [reason]),
+      _ => ('إعادة تفعيل الحساب', <TextEditingController>[]),
+    };
+    String label(TextEditingController c) => c == hours
+        ? 'عدد ساعات التمديد'
+        : c == days
+            ? 'مدة الاشتراك بالأيام'
+            : c == reference
+                ? 'رقم مرجع الدفع (إلزامي)'
+                : 'السبب (إلزامي)';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(row.email, style: const TextStyle(fontSize: 12)),
+              for (final c in fields)
+                TextField(
+                  controller: c,
+                  keyboardType: (c == hours || c == days)
+                      ? TextInputType.number
+                      : TextInputType.text,
+                  decoration: InputDecoration(labelText: label(c)),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('تأكيد'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final repo = ref.read(trialAdminRepositoryProvider);
+    try {
+      await switch (kind) {
+        AdminAction.extend => repo.subscriptionAction(
+            row.userId,
+            'extend_trial',
+            hours: int.tryParse(hours.text.trim()),
+            reason: reason.text,
+          ),
+        AdminAction.payment => repo.subscriptionAction(
+            row.userId,
+            'confirm_payment',
+            days: int.tryParse(days.text.trim()),
+            reference: reference.text,
+          ),
+        AdminAction.suspend => repo.subscriptionAction(
+            row.userId,
+            'suspend',
+            reason: reason.text,
+          ),
+        _ => repo.subscriptionAction(row.userId, 'reactivate'),
+      };
+      ref.invalidate(adminUsersListProvider);
+      if (!mounted) return;
+      showTopSnackBar(context, const SnackBar(content: Text('تم التنفيذ')));
+    } catch (e, st) {
+      AppLogger.error('admin.subscription', e, st);
       if (!mounted) return;
       showTopSnackBar(
         context,
@@ -145,12 +241,12 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
         title: const Text('إدارة الحسابات'),
         actions: [
           IconButton(
-            key: const ValueKey('member-invites'),
-            tooltip: 'دعوات المشتركين (QR)',
-            icon: const FaIcon(FontAwesomeIcons.qrcode, size: 15),
+            key: const ValueKey('trial-requests'),
+            tooltip: 'طلبات التجربة',
+            icon: const FaIcon(FontAwesomeIcons.inbox, size: 15),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const MemberInvitesScreen(),
+                builder: (_) => const TrialRequestsScreen(),
               ),
             ),
           ),
@@ -311,6 +407,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                               .grantAdmin(rows[i].email),
                           successMessage: 'تم تعيين المشرف',
                         ),
+                        onSubscription: (a) => _subscription(rows[i], a),
                         onDelete: () => _runAction(
                           row: rows[i],
                           confirmTitle: 'حذف الحساب نهائياً',
@@ -354,6 +451,10 @@ enum AdminAction {
   grantAdmin,
   revokeAdmin,
   delete,
+  extend,
+  payment,
+  suspend,
+  reactivate,
 }
 
 class AdminUserCard extends StatelessWidget {
@@ -368,6 +469,7 @@ class AdminUserCard extends StatelessWidget {
     required this.onGrantAdmin,
     required this.onRevokeAdmin,
     required this.onDelete,
+    required this.onSubscription,
   });
 
   final AdminUserRow row;
@@ -379,6 +481,7 @@ class AdminUserCard extends StatelessWidget {
   final VoidCallback onGrantAdmin;
   final VoidCallback onRevokeAdmin;
   final VoidCallback onDelete;
+  final void Function(AdminAction) onSubscription;
 
   @override
   Widget build(BuildContext context) {
@@ -436,6 +539,11 @@ class AdminUserCard extends StatelessWidget {
                         onRevokeAdmin();
                       case AdminAction.delete:
                         onDelete();
+                      case AdminAction.extend:
+                      case AdminAction.payment:
+                      case AdminAction.suspend:
+                      case AdminAction.reactivate:
+                        onSubscription(a);
                     }
                   },
                   itemBuilder: (_) => [
@@ -446,6 +554,22 @@ class AdminUserCard extends StatelessWidget {
                     const PopupMenuItem(
                       value: AdminAction.lifetime,
                       child: Text('تفعيل دائم'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.extend,
+                      child: Text('تمديد التجربة'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.payment,
+                      child: Text('تأكيد دفع اشتراك'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.suspend,
+                      child: Text('إيقاف الحساب (بسبب)'),
+                    ),
+                    const PopupMenuItem(
+                      value: AdminAction.reactivate,
+                      child: Text('إعادة تفعيل بعد الإيقاف'),
                     ),
                     const PopupMenuItem(
                       value: AdminAction.pending,

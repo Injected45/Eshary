@@ -28,6 +28,10 @@ class LicenseStatus {
 
   bool get isPending => status == 'pending';
   bool get isBlocked => status == 'blocked';
+  /// Over (or paused by the server clock) but not blocked or waiting: the
+  /// data stays readable and exportable, nothing can be written.
+  bool get isReadOnly =>
+      !isValid && !isAdmin && (status == 'trial' || status == 'active' || status == 'expired');
   bool get isExpiredTrial =>
       status == 'expired' || (status == 'trial' && !isValid);
 

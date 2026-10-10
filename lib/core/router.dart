@@ -4,10 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/auth/data/phone_link_repository.dart';
-import '../features/auth/presentation/link_phone_screen.dart';
-import '../features/auth/presentation/member_auth_screen.dart';
-import '../features/auth/presentation/phone_login_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
@@ -15,10 +11,15 @@ import '../features/employee_auth/presentation/employee_home_shell.dart';
 import '../features/employee_auth/presentation/employee_login_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/license/presentation/license_provider.dart';
-import '../features/members/presentation/invite_redeem_screen.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
+import '../features/trial/presentation/demo_tour_screen.dart';
+import '../features/trial/presentation/phone_change_screen.dart';
+import '../features/trial/presentation/subscription_screen.dart';
+import '../features/trial/presentation/trial_follow_screen.dart';
+import '../features/trial/presentation/trial_login_screen.dart';
+import '../features/trial/presentation/trial_request_screen.dart';
 import '../shared/messages_dispatch_screen.dart';
 import 'supabase_provider.dart';
 
@@ -30,8 +31,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Re-evaluate redirects whenever the license result transitions
   // (loading → data, or data → data with a different is_valid).
   ref.listen(licenseStatusProvider, (_, __) => refresh.bump());
-  // A new account (Google) must link its phone before anything else.
-  ref.listen(needsPhoneProvider, (_, __) => refresh.bump());
 
   return GoRouter(
     initialLocation: '/splash',
@@ -48,9 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final atAdminAuth = loc == '/sign-in' ||
           loc == '/sign-up' ||
           loc == '/admin-sign-in' ||
-          loc == '/member-auth' ||
-          loc == '/invite' ||
-          loc == '/phone-login';
+          loc == '/phone-login' ||
+          loc == '/trial-request' ||
+          loc == '/trial-follow' ||
+          loc == '/demo';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -80,13 +80,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       // without signing out first).
       if (atAuth || loc == '/employee-home') return '/';
 
-      // A new account has chosen its Google account; its phone (WhatsApp code)
-      // is the last thing to prove. Only a definite answer moves the user, so a
-      // slow or failed check never traps anyone.
-      final needsPhone = ref.read(needsPhoneProvider).valueOrNull;
-      if (needsPhone == true && loc != '/link-phone') return '/link-phone';
-      if (needsPhone == false && loc == '/link-phone') return '/';
-
       // License gate — admin only.
       final license = ref.read(licenseStatusProvider);
       final status = license.maybeWhen(
@@ -94,10 +87,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         orElse: () => null,
       );
       if (status != null) {
-        if (!status.isValid && loc != '/pending-activation') {
+        // An expired subscriber still reaches the data (read only); the
+        // server refuses every write. Pending / blocked stay on the gate.
+        final canEnter = status.isValid || status.isReadOnly;
+        if (!canEnter && loc != '/pending-activation') {
           return '/pending-activation';
         }
-        if (status.isValid && loc == '/pending-activation') {
+        if (canEnter && loc == '/pending-activation') {
           return '/';
         }
       }
@@ -118,21 +114,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const SignInScreen(),
       ),
       GoRoute(
-        path: '/invite',
-        builder: (_, __) => const InviteRedeemScreen(),
-      ),
-      GoRoute(
         path: '/phone-login',
-        builder: (_, __) => const PhoneLoginScreen(),
+        builder: (_, __) => const TrialLoginScreen(),
       ),
       GoRoute(
-        path: '/member-auth',
-        builder: (_, __) => const MemberAuthScreen(),
+        path: '/trial-request',
+        builder: (_, __) => const TrialRequestScreen(),
       ),
       GoRoute(
-        path: '/link-phone',
-        builder: (_, __) => const LinkPhoneScreen(),
+        path: '/trial-follow',
+        builder: (_, __) => const TrialFollowScreen(),
       ),
+      GoRoute(
+        path: '/phone-change',
+        builder: (_, __) => const PhoneChangeScreen(),
+      ),
+      GoRoute(
+        path: '/subscription',
+        builder: (_, __) => const SubscriptionScreen(),
+      ),
+      GoRoute(path: '/demo', builder: (_, __) => const DemoTourScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
       GoRoute(
         path: '/employee-sign-in',

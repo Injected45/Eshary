@@ -349,24 +349,32 @@ end;
 $$;
 
 -- The permissive side of the read-only window.
+drop policy if exists companies_select_readonly on companies;
 create policy companies_select_readonly on companies
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists exchanges_select_readonly on exchanges;
 create policy exchanges_select_readonly on exchanges
   for select to authenticated using (
     exists (select 1 from companies c
              where c.id = exchanges.company_id
                and c.owner_id = (select _readonly_admin_id()))
   );
+drop policy if exists clients_select_readonly on clients;
 create policy clients_select_readonly on clients
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists transfers_select_readonly on transfers;
 create policy transfers_select_readonly on transfers
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists currency_buys_select_readonly on currency_buys;
 create policy currency_buys_select_readonly on currency_buys
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists beneficiaries_select_readonly on beneficiaries;
 create policy beneficiaries_select_readonly on beneficiaries
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists ec_select_readonly on exchange_companies;
 create policy ec_select_readonly on exchange_companies
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
+drop policy if exists countries_select_readonly on countries;
 create policy countries_select_readonly on countries
   for select to authenticated using (owner_id = (select _readonly_admin_id()));
 
@@ -583,6 +591,7 @@ create table if not exists subscriber_accounts (
   user_id       uuid primary key references auth.users (id) on delete cascade,
   request_id    uuid,
   phone         text not null unique check (phone ~ '^\+[1-9][0-9]{7,14}$'),
+  auth_email    text not null,
   manager_name  text not null,
   business_name text not null,
   created_at    timestamptz not null default now()
@@ -592,7 +601,7 @@ revoke all on subscriber_accounts from anon, authenticated;
 
 create table if not exists wa_challenges (
   id            uuid primary key default gen_random_uuid(),
-  purpose       text not null check (purpose in ('activation', 'login')),
+  purpose       text not null check (purpose in ('activation', 'login', 'phone_change')),
   request_id    uuid references trial_requests (id) on delete cascade,
   user_id       uuid,
   phone         text not null,
@@ -611,6 +620,17 @@ create table if not exists wa_challenges (
 create index if not exists wa_challenges_phone_idx on wa_challenges (purpose, phone, created_at desc);
 alter table wa_challenges enable row level security;
 revoke all on wa_challenges from anon, authenticated;
+
+-- A previous run may have created these tables in an older shape: bring them
+-- up to date (all of this is a no-op on a fresh database).
+alter table subscriber_accounts add column if not exists auth_email text;
+update subscriber_accounts
+   set auth_email = 't' || regexp_replace(phone, '\D', '', 'g') || '@subscribers.eshary.invalid'
+ where auth_email is null;
+alter table subscriber_accounts alter column auth_email set not null;
+alter table wa_challenges drop constraint if exists wa_challenges_purpose_check;
+alter table wa_challenges add constraint wa_challenges_purpose_check
+  check (purpose in ('activation', 'login', 'phone_change'));
 
 -- =========================================================================
 -- 7) WhatsApp: send, status, challenges
@@ -1211,8 +1231,8 @@ begin
      set status = 'activated', phone_verified_at = v_now, activated_at = v_now,
          trial_ends_at = v_end, user_id = p_user, updated_at = v_now
    where id = r.id;
-  insert into subscriber_accounts (user_id, request_id, phone, manager_name, business_name)
-  values (p_user, r.id, r.phone, r.manager_name, r.business_name);
+  insert into subscriber_accounts (user_id, request_id, phone, auth_email, manager_name, business_name)
+  values (p_user, r.id, r.phone, _subscriber_email(r.phone), r.manager_name, r.business_name);
   insert into account_licenses (user_id, status, license_type, trial_ends_at,
                                 activated_at, activated_by, trial_hours)
   values (p_user, 'trial', 'trial', v_end, v_now, r.approved_by, r.trial_hours)
@@ -1258,7 +1278,7 @@ begin
   update wa_challenges set consumed_at = now() where id = (chk ->> 'challengeId')::uuid;
   perform _audit('login', 'account', a.user_id::text, null, null, null, v_ip);
   return jsonb_build_object('ok', true, 'userId', a.user_id,
-                            'email', _subscriber_email(a.phone));
+                            'email', a.auth_email);
 end;
 $$;
 revoke all on function login_verify(text, text, text) from public, anon, authenticated;
@@ -1880,6 +1900,279 @@ end;
 $$;
 revoke all on function admin_list_users() from public, anon;
 grant execute on function admin_list_users() to authenticated;
+
+-- =========================================================================
+-- 12b) Changing the WhatsApp number of an account that already exists
+-- =========================================================================
+-- The subscriber asks; a code sent to the NEW number proves it is theirs; an
+-- administrator approves. One change per 30 days. The old number gets a notice
+-- and keeps its place in trial_history, and so does the new one, so changing
+-- numbers never earns another trial. The internal sign-in address never
+-- changes (subscriber_accounts.auth_email).
+create table if not exists phone_change_requests (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  old_phone   text not null,
+  new_phone   text not null check (new_phone ~ '^\+[1-9][0-9]{7,14}$'),
+  status      text not null default 'pending_verify'
+              check (status in ('pending_verify', 'pending_admin', 'approved', 'rejected', 'cancelled')),
+  created_at  timestamptz not null default now(),
+  verified_at timestamptz,
+  decided_at  timestamptz,
+  decided_by  uuid,
+  note        text
+);
+create unique index if not exists phone_change_open_idx
+  on phone_change_requests (user_id) where status in ('pending_verify', 'pending_admin');
+alter table phone_change_requests enable row level security;
+revoke all on phone_change_requests from anon, authenticated;
+
+create or replace function _subscriber_uid()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select a.user_id from subscriber_accounts a where a.user_id = auth.uid()
+$$;
+revoke all on function _subscriber_uid() from public, anon, authenticated;
+
+create or replace function phone_change_start(p_new text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_uid   uuid := _subscriber_uid();
+  a       subscriber_accounts;
+  v_phone text := _e164_clean(p_new);
+  v_id    uuid;
+  v_res   jsonb;
+begin
+  if v_uid is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+  if not _license_valid(v_uid) then
+    return jsonb_build_object('ok', false, 'code', 'license_inactive');
+  end if;
+  select * into a from subscriber_accounts where user_id = v_uid;
+  if not _e164_ok(v_phone) then
+    return jsonb_build_object('ok', false, 'code', 'invalid_phone');
+  end if;
+  if v_phone = a.phone then
+    return jsonb_build_object('ok', false, 'code', 'same_phone');
+  end if;
+  if exists (select 1 from subscriber_accounts s where s.phone = v_phone)
+     or exists (select 1 from trial_history h where h.phone = v_phone)
+     or exists (select 1 from trial_requests r where r.phone = v_phone
+                 and r.status in ('pending_review', 'needs_info', 'approved')) then
+    return jsonb_build_object('ok', false, 'code', 'phone_taken');
+  end if;
+  if exists (select 1 from phone_change_requests c
+              where c.user_id = v_uid and c.status = 'approved'
+                and c.decided_at > _server_now() - interval '30 days') then
+    return jsonb_build_object('ok', false, 'code', 'change_too_soon');
+  end if;
+  if not _rate_ok('phone_change', v_uid::text, 5, interval '1 day') then
+    return jsonb_build_object('ok', false, 'code', 'too_many_requests');
+  end if;
+  update phone_change_requests set status = 'cancelled'
+   where user_id = v_uid and status in ('pending_verify', 'pending_admin');
+  insert into phone_change_requests (user_id, old_phone, new_phone, created_at)
+  values (v_uid, a.phone, v_phone, _server_now())
+  returning id into v_id;
+  v_res := _issue_challenge('phone_change', null, v_uid, v_phone, null,
+                            'طلب تغيير رقم حسابك في إشاري.' || E'\n', _ip_hash(null));
+  perform _audit('phone_change_requested', 'account', v_uid::text,
+                 jsonb_build_object('phone', a.phone), jsonb_build_object('phone', v_phone));
+  return v_res || jsonb_build_object('requestId', v_id);
+end;
+$$;
+revoke all on function phone_change_start(text) from public, anon;
+grant execute on function phone_change_start(text) to authenticated;
+
+create or replace function phone_change_resend()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_uid uuid := _subscriber_uid();
+  c     phone_change_requests;
+begin
+  if v_uid is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+  select * into c from phone_change_requests
+   where user_id = v_uid and status = 'pending_verify';
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'not_found');
+  end if;
+  return _issue_challenge('phone_change', null, v_uid, c.new_phone, null,
+                          'طلب تغيير رقم حسابك في إشاري.' || E'\n', _ip_hash(null));
+end;
+$$;
+revoke all on function phone_change_resend() from public, anon;
+grant execute on function phone_change_resend() to authenticated;
+
+create or replace function phone_change_verify(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_uid uuid := _subscriber_uid();
+  c     phone_change_requests;
+  chk   jsonb;
+begin
+  if v_uid is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+  select * into c from phone_change_requests
+   where user_id = v_uid and status = 'pending_verify' for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'not_found');
+  end if;
+  chk := _check_challenge('phone_change', c.new_phone, p_code, 'chg:' || v_uid::text, null);
+  if (chk ->> 'ok')::boolean is not true then
+    return chk;
+  end if;
+  update wa_challenges set consumed_at = now() where id = (chk ->> 'challengeId')::uuid;
+  update phone_change_requests set status = 'pending_admin', verified_at = _server_now()
+   where id = c.id;
+  perform _alert('phone_change', c.id::text,
+                 'طلب تغيير رقم بعد تحقق الرقم الجديد: ' ||
+                 (select business_name from subscriber_accounts where user_id = v_uid));
+  perform _audit('phone_change_verified', 'account', v_uid::text, null,
+                 jsonb_build_object('phone', c.new_phone));
+  return jsonb_build_object('ok', true, 'status', 'pending_admin');
+end;
+$$;
+revoke all on function phone_change_verify(text) from public, anon;
+grant execute on function phone_change_verify(text) to authenticated;
+
+create or replace function phone_change_status()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_uid uuid := _subscriber_uid();
+  c     phone_change_requests;
+  a     subscriber_accounts;
+begin
+  if v_uid is null then
+    raise exception 'not_authenticated' using errcode = 'P0001';
+  end if;
+  select * into a from subscriber_accounts where user_id = v_uid;
+  select * into c from phone_change_requests
+   where user_id = v_uid order by created_at desc limit 1;
+  return jsonb_build_object(
+    'phone', _mask_e164(a.phone),
+    'status', c.status,
+    'newPhone', case when c.id is not null then _mask_e164(c.new_phone) end,
+    'note', c.note,
+    'nextChangeAfter', (select max(x.decided_at) + interval '30 days'
+                          from phone_change_requests x
+                         where x.user_id = v_uid and x.status = 'approved')
+  );
+end;
+$$;
+revoke all on function phone_change_status() from public, anon;
+grant execute on function phone_change_status() to authenticated;
+
+create or replace function phone_change_cancel()
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  update phone_change_requests set status = 'cancelled'
+   where user_id = _subscriber_uid() and status in ('pending_verify', 'pending_admin');
+end;
+$$;
+revoke all on function phone_change_cancel() from public, anon;
+grant execute on function phone_change_cancel() to authenticated;
+
+create or replace function admin_list_phone_changes()
+returns table (
+  id uuid, business_name text, manager_name text, old_phone text, new_phone text,
+  status text, created_at timestamptz, verified_at timestamptz, note text
+)
+language plpgsql
+stable
+security definer
+set search_path = public, extensions
+as $$
+begin
+  perform _admin_only();
+  return query
+  select c.id, a.business_name, a.manager_name, c.old_phone, c.new_phone,
+         c.status, c.created_at, c.verified_at, c.note
+    from phone_change_requests c
+    join subscriber_accounts a on a.user_id = c.user_id
+   order by c.created_at desc limit 200;
+end;
+$$;
+revoke all on function admin_list_phone_changes() from public, anon;
+grant execute on function admin_list_phone_changes() to authenticated;
+
+create or replace function admin_phone_change_decide(p_id uuid, p_approve boolean, p_note text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  c      phone_change_requests;
+  v_note text := nullif(btrim(coalesce(p_note, '')), '');
+  v_now  timestamptz := _server_now();
+begin
+  perform _admin_only();
+  select * into c from phone_change_requests where id = p_id for update;
+  if not found then
+    raise exception 'request_not_found' using errcode = 'P0001';
+  end if;
+  if c.status <> 'pending_admin' then
+    raise exception 'request_closed' using errcode = 'P0001';
+  end if;
+  if p_approve then
+    if exists (select 1 from subscriber_accounts s where s.phone = c.new_phone) then
+      raise exception 'phone_taken' using errcode = 'P0001';
+    end if;
+    update subscriber_accounts set phone = c.new_phone where user_id = c.user_id;
+    insert into trial_history (phone, first_activated_at, user_id)
+    values (c.new_phone, v_now, c.user_id)
+    on conflict (phone) do nothing;
+    update phone_change_requests
+       set status = 'approved', decided_at = v_now, decided_by = auth.uid(), note = v_note
+     where id = c.id;
+    perform _wa_send(c.old_phone,
+      'تنبيه من إشاري: تم تغيير رقم واتساب المرتبط بحسابك إلى رقم جديد. إن لم تكن أنت من طلب ذلك فتواصل مع الدعم فوراً.');
+    perform _wa_send(c.new_phone,
+      'تم اعتماد هذا الرقم لحسابك في إشاري. ادخل به من «دخول حسابي».');
+    perform _audit('phone_change_approved', 'account', c.user_id::text,
+                   jsonb_build_object('phone', c.old_phone),
+                   jsonb_build_object('phone', c.new_phone), v_note);
+  else
+    if v_note is null then
+      raise exception 'note_required' using errcode = 'P0001';
+    end if;
+    update phone_change_requests
+       set status = 'rejected', decided_at = v_now, decided_by = auth.uid(), note = v_note
+     where id = c.id;
+    perform _audit('phone_change_rejected', 'account', c.user_id::text, null, null, v_note);
+  end if;
+end;
+$$;
+revoke all on function admin_phone_change_decide(uuid, boolean, text) from public, anon;
+grant execute on function admin_phone_change_decide(uuid, boolean, text) to authenticated;
 
 -- =========================================================================
 -- 13) Close the old self-service doors

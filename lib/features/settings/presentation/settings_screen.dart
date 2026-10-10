@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
+import '../../../shared/app_lock.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
@@ -48,6 +51,17 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute(builder: (_) => const ProfileDetailsScreen()),
             ),
           ),
+          if (!isAdmin &&
+              Supabase.instance.client.auth.currentUser?.isAnonymous != true) ...[
+            const SizedBox(height: 12),
+            _SettingsRow(
+              icon: FontAwesomeIcons.crown,
+              title: 'اشتراكي',
+              onTap: () => context.push('/subscription'),
+            ),
+          ],
+          const SizedBox(height: 12),
+          const _AppLockRow(),
           if (isAdmin) ...[
             const SizedBox(height: 12),
             _SettingsRow(
@@ -303,6 +317,54 @@ Future<void> _confirmAndWipeEntries(
       ),
     ),
   );
+}
+
+/// "القفل بالبصمة": asks for the fingerprint / face / screen lock when the app
+/// opens and after a minute in the background. Off by default.
+class _AppLockRow extends ConsumerWidget {
+  const _AppLockRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(appLockEnabledProvider);
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: SwitchListTile(
+        key: const ValueKey('app-lock-switch'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const FaIcon(
+          FontAwesomeIcons.fingerprint,
+          size: 18,
+          color: AppColors.accent,
+        ),
+        title: const Text('القفل بالبصمة'),
+        subtitle: const Text(
+          'يُطلب عند فتح التطبيق وبعد دقيقة في الخلفية',
+          style: TextStyle(fontSize: 11.5, color: AppColors.textLow),
+        ),
+        value: on,
+        onChanged: (v) async {
+          final auth = ref.read(deviceAuthProvider);
+          if (v) {
+            if (!await auth.isAvailable()) {
+              if (context.mounted) {
+                showTopSnackBar(
+                  context,
+                  const SnackBar(
+                    content: Text('فعّل بصمة أو قفل شاشة في إعدادات الهاتف أولاً.'),
+                  ),
+                );
+              }
+              return;
+            }
+            // Proves it works before turning it on, so nobody is locked out.
+            if (!await auth.authenticate('أكّد لتفعيل القفل')) return;
+          }
+          await ref.read(appLockEnabledProvider.notifier).set(v);
+        },
+      ),
+    );
+  }
 }
 
 class _SettingsRow extends StatelessWidget {

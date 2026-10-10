@@ -36,6 +36,7 @@ void main() {
               onGrantAdmin: noop,
               onRevokeAdmin: noop,
               onDelete: noop,
+              onSubscription: (_) {},
             ),
           ),
         ),

@@ -12,6 +12,8 @@ import '../../auth/data/auth_repository.dart';
 import '../domain/license_status.dart';
 import 'license_provider.dart';
 import '../../../shared/top_message.dart';
+import '../../trial/data/trial_repository.dart';
+import '../../trial/domain/trial_models.dart';
 
 class PendingActivationScreen extends ConsumerStatefulWidget {
   const PendingActivationScreen({super.key});
@@ -32,7 +34,10 @@ class _PendingActivationScreenState
     // Auto-refresh while the screen is mounted so admin activation in
     // Supabase Studio is reflected without the user mashing the button.
     _poll = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) ref.invalidate(licenseStatusProvider);
+      if (mounted) {
+        ref.invalidate(licenseStatusProvider);
+        ref.invalidate(subscriptionStateProvider);
+      }
     });
   }
 
@@ -232,9 +237,13 @@ class _PendingActivationScreenState
             ),
           ),
         ],
+        ..._serverSection(),
         const SizedBox(height: 22),
         FilledButton.icon(
-          onPressed: () => ref.invalidate(licenseStatusProvider),
+          onPressed: () {
+            ref.invalidate(licenseStatusProvider);
+            ref.invalidate(subscriptionStateProvider);
+          },
           icon: const FaIcon(FontAwesomeIcons.arrowsRotate, size: 14),
           label: const Text('تحديث الحالة'),
         ),
@@ -251,6 +260,79 @@ class _PendingActivationScreenState
         ),
       ],
     );
+  }
+
+  /// What the server says about the subscription (its clock, not the phone's):
+  /// offline notice, "your data is kept", and the subscription / extension
+  /// requests.
+  List<Widget> _serverSection() {
+    final async = ref.watch(subscriptionStateProvider);
+    return async.when(
+      skipLoadingOnReload: true,
+      skipError: true,
+      loading: () => const [],
+      error: (e, _) => const [
+        SizedBox(height: 14),
+        GlassPanel(
+          child: Text(
+            'لا يوجد اتصال بالإنترنت. العمليات المحمية متوقفة حتى يعود الاتصال بالخادم.',
+            key: ValueKey('offline-notice'),
+            style: TextStyle(color: AppColors.warning, fontSize: 13),
+          ),
+        ),
+      ],
+      data: (SubscriptionState st) {
+        if (st.status == 'time_untrusted') {
+          return const [
+            SizedBox(height: 14),
+            GlassPanel(
+              child: Text(
+                'تعذّر التحقق من الوقت على الخادم، وتوقفت العمليات مؤقتاً. تواصل مع الدعم.',
+                style: TextStyle(color: AppColors.warning, fontSize: 13),
+              ),
+            ),
+          ];
+        }
+        if (st.status != 'expired') return const [];
+        return [
+          const SizedBox(height: 14),
+          const GlassPanel(
+            child: Text(
+              'بياناتك محفوظة ولن تُحذف. يمكنك طلب الاشتراك أو تمديد التجربة وستراجع الإدارة طلبك.',
+              style: TextStyle(color: AppColors.textMid, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            key: const ValueKey('request-subscribe'),
+            onPressed: () => _request('subscribe'),
+            child: const Text('طلب اشتراك'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const ValueKey('request-extend'),
+            onPressed: () => _request('extend'),
+            child: const Text('طلب تمديد التجربة'),
+          ),
+        ];
+      },
+    );
+  }
+
+  Future<void> _request(String kind) async {
+    try {
+      await ref.read(trialRepositoryProvider).subscriptionRequest(kind);
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        const SnackBar(content: Text('أُرسل طلبك إلى الإدارة.')),
+      );
+    } catch (e, st) {
+      AppLogger.error('license.request', e, st);
+      if (mounted) {
+        showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
+      }
+    }
   }
 
   String _headlineFor(LicenseStatus s) {
