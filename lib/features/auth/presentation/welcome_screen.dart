@@ -6,9 +6,11 @@ import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 
 /// First screen for signed-out users:
-///   - إنشاء حساب جديد / دخول  -> e-mail picked from the phone's accounts +
-///     phone + ONE WhatsApp code (member-auth). The same door creates a new
-///     account and signs a returning member in.
+///   - لدي دعوة (QR)           -> a new subscriber: scans the administrator's QR,
+///     types the phone the administrator registered, enters the WhatsApp code
+///   - دخول برقم الهاتف         -> a member already in: phone + WhatsApp code
+///   - إنشاء حساب بالبريد / دخول -> e-mail picked from the phone's accounts +
+///     phone + ONE WhatsApp code (member-auth)
 ///   - تسجيل دخول موظف          -> temporary code or QR
 /// The platform administrator's e-mail / password sign-in lives behind the
 /// small "دخول المدير" link, so it is not shown to employees.
@@ -94,12 +96,40 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 28),
+                        // An invitation from the administrator (QR): the way in for
+                        // a new subscriber.
                         FilledButton.icon(
+                          key: const ValueKey('welcome-invite'),
+                          onPressed: () => context.go('/invite'),
+                          icon: const FaIcon(FontAwesomeIcons.qrcode, size: 16),
+                          label: const Text('لدي دعوة (QR)'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // A member who already came in: phone number + WhatsApp code.
+                        FilledButton.icon(
+                          key: const ValueKey('welcome-phone'),
+                          onPressed: () => context.go('/phone-login'),
+                          icon:
+                              const FaIcon(FontAwesomeIcons.whatsapp, size: 16),
+                          label: const Text('دخول برقم الهاتف'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
                           key: const ValueKey('welcome-member'),
                           onPressed: () => context.go('/member-auth'),
-                          icon: const FaIcon(FontAwesomeIcons.userPlus, size: 16),
-                          label: const Text('إنشاء حساب جديد / دخول'),
-                          style: FilledButton.styleFrom(
+                          icon:
+                              const FaIcon(FontAwesomeIcons.userPlus, size: 16),
+                          label: const Text('إنشاء حساب بالبريد / دخول'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textHigh,
+                            side: const BorderSide(
+                                color: AppColors.glassBorderStrong),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),

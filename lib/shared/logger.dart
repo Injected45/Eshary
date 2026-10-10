@@ -226,6 +226,25 @@ String friendlyError(Object e) {
   if (s.contains('keep_one_backup')) {
     return 'لا يمكن حذف كل النسخ الاحتياطية؛ يجب أن تبقى نسخة واحدة على الأقل.';
   }
+  // Invitations and phone sign-in (0058).
+  if (s.contains('invite_invalid')) {
+    return 'هذه الدعوة غير صالحة: استُخدمت أو انتهت أو أُلغيت. اطلب من المدير دعوة جديدة.';
+  }
+  if (s.contains('phone_mismatch')) {
+    return 'هذا الرقم غير مطابق للرقم المسجّل في الدعوة.';
+  }
+  if (s.contains('phone_not_found')) {
+    return 'هذا الرقم غير مسجّل لدينا. ادخل بالدعوة (QR) إن كنت مشتركاً جديداً.';
+  }
+  if (s.contains('invalid_name')) {
+    return 'اكتب اسم المشترك.';
+  }
+  if (s.contains('invalid_license') || s.contains('invalid_hours')) {
+    return 'بيانات الدعوة غير صحيحة.';
+  }
+  if (s.contains('invite_not_found')) {
+    return 'الدعوة لم تعد قائمة. حدّث القائمة.';
+  }
   if (s.contains('use_google')) {
     return 'هذا البريد غير مسجَّل. أنشئ حساباً جديداً بالتسجيل باستخدام Google.';
   }
@@ -269,7 +288,7 @@ String friendlyError(Object e) {
   // another name): Supabase answers NOT_FOUND.
   if (s.trim().endsWith('NOT_FOUND') ||
       s.contains('Requested function was not found')) {
-    return 'خدمة تسجيل الدخول غير منشورة على الخادم. انشر الدالة member-session ثم أعد المحاولة.';
+    return 'خدمة تسجيل الدخول غير منشورة على الخادم. انشر دالة تسجيل الدخول (member-session) ثم أعد المحاولة.';
   }
   if (s.contains('create_failed') ||
       s.contains('link_failed') ||

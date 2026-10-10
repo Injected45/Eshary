@@ -8,6 +8,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
+import '../../members/presentation/member_invites_screen.dart';
 import 'deleted_accounts_screen.dart';
 import '../../../shared/top_message.dart';
 
@@ -143,6 +144,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       appBar: GlassAppBar(
         title: const Text('إدارة الحسابات'),
         actions: [
+          IconButton(
+            key: const ValueKey('member-invites'),
+            tooltip: 'دعوات المشتركين (QR)',
+            icon: const FaIcon(FontAwesomeIcons.qrcode, size: 15),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const MemberInvitesScreen(),
+              ),
+            ),
+          ),
           IconButton(
             key: const ValueKey('deleted-accounts-log'),
             tooltip: 'سجل الحسابات المحذوفة',

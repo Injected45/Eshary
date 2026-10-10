@@ -4,6 +4,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase_provider.dart';
 import '../../license/data/license_repository.dart';
 
+/// The name the Edge Function (supabase/functions/member-session/index.ts) is
+/// deployed under on the Supabase project. The dashboard editor named the
+/// deployment "super-handler" and the name cannot be changed there, so the app
+/// calls it by that name. Change this one line if it is ever redeployed as
+/// "member-session" (or any other name).
+const kMemberSessionFunction = 'super-handler';
+
 /// The server refused a step of the e-mail + phone + WhatsApp-code sign-in.
 /// [code] is machine-readable (the words `friendlyError` maps to Arabic).
 class MemberRefused implements Exception {
@@ -21,6 +28,13 @@ class MemberRefused implements Exception {
   String toString() => code;
 }
 
+/// Who an invitation is for.
+class InvitePreview {
+  const InvitePreview({required this.name, required this.phoneMasked});
+  final String name;
+  final String phoneMasked;
+}
+
 /// Result of a successful code request.
 class MemberOtpSent {
   const MemberOtpSent({
@@ -36,9 +50,11 @@ class MemberOtpSent {
   final bool needsEmail;
 }
 
-/// Password-less sign-in / sign-up for subscribers: e-mail + phone + a code
-/// sent by WhatsApp to that phone. The code is checked only by the
-/// `member-session` Edge Function, which also issues the session.
+/// Password-less sign-in for subscribers by e-mail + phone, by phone alone, or
+/// with an invitation QR, always confirmed by a code sent by WhatsApp to the
+/// phone. The code is checked only by the
+/// member-session Edge Function (deployed under the name in
+/// [kMemberSessionFunction]), which also issues the session.
 class MemberAuthRepository {
   MemberAuthRepository(this._client, this._licenseRepo);
 
@@ -85,23 +101,97 @@ class MemberAuthRepository {
     String phone,
     String otp, {
     String? emailCode,
-  }) async {
+  }) =>
+      _exchange({
+        'email': email.trim(),
+        'phone': phone.trim(),
+        'otp': otp.trim(),
+        if (emailCode != null) 'emailCode': emailCode.trim(),
+      });
+
+  // ---- sign-in by phone number (a member whose phone is linked) -----------
+
+  /// Sends the WhatsApp code to a linked phone. Returns the masked phone.
+  Future<String> phoneLoginRequest(String phone) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'member_phone_login_request',
+      params: {'p_phone': phone.trim()},
+    );
+    return _sentOrThrow(res);
+  }
+
+  Future<void> phoneLogin(String phone, String otp) => _exchange({
+        'action': 'phone',
+        'phone': phone.trim(),
+        'otp': otp.trim(),
+      });
+
+  // ---- invitation (QR from the administrator) ------------------------------
+
+  /// Who the invitation is for (name + masked phone), or throws
+  /// [MemberRefused] ('invite_invalid') when it is used, expired or revoked.
+  Future<InvitePreview> invitePreview(String token) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'member_invite_preview',
+      params: {'p_token': token},
+    );
+    if (res['ok'] != true) {
+      throw MemberRefused((res['code'] as String?) ?? 'invite_invalid');
+    }
+    return InvitePreview(
+      name: (res['name'] as String?) ?? '',
+      phoneMasked: (res['phone'] as String?) ?? '',
+    );
+  }
+
+  /// Sends the WhatsApp code to the phone the administrator registered; the
+  /// typed [phone] must be that phone (5 wrong ones burn the invitation).
+  Future<String> inviteRequestOtp(String token, String phone) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'member_invite_request_otp',
+      params: {'p_token': token, 'p_phone': phone.trim()},
+    );
+    return _sentOrThrow(res);
+  }
+
+  /// Checks the code, creates the account with the licence the administrator
+  /// chose, and signs in.
+  Future<void> redeemInvite(String token, String phone, String otp) =>
+      _exchange({
+        'action': 'invite',
+        'token': token,
+        'phone': phone.trim(),
+        'otp': otp.trim(),
+      });
+
+  // ---- shared ---------------------------------------------------------------
+
+  String _sentOrThrow(Map<String, dynamic> res) {
+    if (res['ok'] == true) return (res['phone'] as String?) ?? '';
+    throw MemberRefused(
+      (res['code'] as String?) ?? 'send_failed',
+      wait: (res['wait'] as num?)?.toInt(),
+      left: (res['left'] as num?)?.toInt(),
+    );
+  }
+
+  /// Sends the proofs to the Edge Function and signs in with the one-time
+  /// token it returns.
+  Future<void> _exchange(Map<String, dynamic> body) async {
     final Map<String, dynamic> data;
     try {
       final res = await _client.functions.invoke(
-        'member-session',
-        body: {
-          'email': email.trim(),
-          'phone': phone.trim(),
-          'otp': otp.trim(),
-          if (emailCode != null) 'emailCode': emailCode.trim(),
-        },
+        kMemberSessionFunction,
+        body: body,
       );
       data = (res.data as Map).cast<String, dynamic>();
     } on FunctionException catch (e) {
       final details = e.details;
       final code = details is Map ? details['code'] as String? : null;
-      throw MemberRefused(code ?? 'server_error');
+      final detail = details is Map ? details['detail'] as String? : null;
+      throw MemberRefused(
+        detail == null ? (code ?? 'server_error') : '${code ?? 'server_error'}: $detail',
+      );
     }
 
     if (data['ok'] != true) {

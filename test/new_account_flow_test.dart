@@ -23,7 +23,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('welcome-member')), findsOneWidget);
-    expect(find.text('إنشاء حساب جديد / دخول'), findsOneWidget);
+    expect(find.text('إنشاء حساب بالبريد / دخول'), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-invite')), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-phone')), findsOneWidget);
     expect(find.text('تسجيل دخول موظف'), findsOneWidget);
     expect(find.textContaining('Google'), findsNothing);
   });
@@ -50,5 +52,14 @@ void main() {
     expect(sql, contains("'userId', null, 'needsEmail', false"));
     expect(sql, contains("'userId', v_user, 'needsEmail', true"));
     expect(sql, isNot(contains("'code', 'use_google'")));
+  });
+
+  test('the app calls the deployed name of the sign-in function', () {
+    final repo = File('lib/features/auth/data/member_auth_repository.dart')
+        .readAsStringSync();
+    expect(repo, contains("const kMemberSessionFunction = 'super-handler';"));
+    // exactly one place invokes it, through the constant
+    expect(RegExp(r"functions\.invoke\(\s*kMemberSessionFunction").hasMatch(repo), isTrue);
+    expect(repo, isNot(contains("invoke(\n        'member-session'")));
   });
 }

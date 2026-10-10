@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/data/phone_link_repository.dart';
 import '../features/auth/presentation/link_phone_screen.dart';
 import '../features/auth/presentation/member_auth_screen.dart';
+import '../features/auth/presentation/phone_login_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart';
 import '../features/auth/presentation/welcome_screen.dart';
@@ -14,6 +15,7 @@ import '../features/employee_auth/presentation/employee_home_shell.dart';
 import '../features/employee_auth/presentation/employee_login_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/license/presentation/license_provider.dart';
+import '../features/members/presentation/invite_redeem_screen.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
@@ -46,7 +48,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final atAdminAuth = loc == '/sign-in' ||
           loc == '/sign-up' ||
           loc == '/admin-sign-in' ||
-          loc == '/member-auth';
+          loc == '/member-auth' ||
+          loc == '/invite' ||
+          loc == '/phone-login';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -112,6 +116,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin-sign-in',
         builder: (_, __) => const SignInScreen(),
+      ),
+      GoRoute(
+        path: '/invite',
+        builder: (_, __) => const InviteRedeemScreen(),
+      ),
+      GoRoute(
+        path: '/phone-login',
+        builder: (_, __) => const PhoneLoginScreen(),
       ),
       GoRoute(
         path: '/member-auth',
