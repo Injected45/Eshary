@@ -45,13 +45,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Splash and onboarding manage their own navigation.
       if (loc == '/splash' || loc == '/onboarding') return null;
 
+      // The privacy policy and the terms are open to everyone, signed in or not:
+      // they are not sign-in screens, so a signed-in user is never sent away.
+      if (loc == '/privacy' || loc == '/terms') return null;
+
       final atAdminAuth = loc == '/sign-in' ||
           loc == '/sign-up' ||
           loc == '/admin-sign-in' ||
           loc == '/phone-login' ||
           loc == '/trial-request' ||
-          loc == '/trial-follow' ||
-          loc == '/privacy';
+          loc == '/trial-follow';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -125,6 +128,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/trial-follow',
         builder: (_, __) => const TrialFollowScreen(),
+      ),
+      GoRoute(
+        path: '/terms',
+        builder: (_, __) => const TermsOfUseScreen(),
       ),
       GoRoute(
         path: '/privacy',

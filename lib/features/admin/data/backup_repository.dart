@@ -32,10 +32,7 @@ class BackupRepository {
 
   Future<List<BackupInfo>> list() async {
     final res = await _client.rpc<List<dynamic>>('admin_list_backups');
-    return res
-        .cast<Map<String, dynamic>>()
-        .map(BackupInfo.fromJson)
-        .toList();
+    return res.cast<Map<String, dynamic>>().map(BackupInfo.fromJson).toList();
   }
 
   /// Stores a manual snapshot server-side and returns its id.

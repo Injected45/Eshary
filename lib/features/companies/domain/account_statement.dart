@@ -44,7 +44,7 @@ class StatementEntry {
   final String exchangeId;
 
   /// A cancelled operation, or the reversing entry that cancelled it. Both
-  /// stay in the statement (drawn in purple) and cancel each other out.
+  /// stay in the statement (drawn in yellow) and cancel each other out.
   final bool cancelled;
 
   /// The reversing entry (قيد عكسي) posted when the operation was cancelled.

@@ -4,29 +4,33 @@ class AppColors {
   AppColors._();
 
   // OLED-friendly base.
-  static const bgDeep = Color(0xFF020617);   // slate-950 — the "deep" mode
-  static const bgCalm = Color(0xFF1E293B);   // slate-800 — the "calm" mode
-  static const bgPanel = Color(0xFF0B1220);  // slightly lighter for stacking
+  static const bgDeep = Color(0xFF020617); // slate-950 — the "deep" mode
+  static const bgCalm = Color(0xFF1E293B); // slate-800 — the "calm" mode
+  static const bgPanel = Color(0xFF0B1220); // slightly lighter for stacking
 
   // Glass overlay tones.
-  static const glassFill = Color(0x14FFFFFF);   // 8% white
+  static const glassFill = Color(0x14FFFFFF); // 8% white
   static const glassFillStrong = Color(0x1FFFFFFF); // 12%
-  static const glassBorder = Color(0x1FFFFFFF);  // 12% white
+  static const glassBorder = Color(0x1FFFFFFF); // 12% white
   static const glassBorderStrong = Color(0x33FFFFFF); // 20%
 
   // Accents.
-  static const accent = Color(0xFF22D3EE);   // cyan-400, primary brand glow
+  static const accent = Color(0xFF22D3EE); // cyan-400, primary brand glow
   static const accentDim = Color(0xFF0E7490); // cyan-700
-  static const positive = Color(0xFF22C55E); // green-500 — currency buy / income
+  static const positive =
+      Color(0xFF22C55E); // green-500 — currency buy / income
   static const negative = Color(0xFFEF4444); // red-500 — transfers / outflow
-  static const warning = Color(0xFFF59E0B);  // amber-500 — pending
-  static const cancelled = Color(0xFFA855F7); // purple-500 — a cancelled operation and its reversal
+  static const warning = Color(0xFFF59E0B); // amber-500 — pending
+
+  // Golden yellow leaning to orange (softer than yellow-400): everything about a
+  // cancellation (button, word, number, value).
+  static const cancelled = Color(0xFFE9A80B);
 
   // Text.
-  static const textHigh = Color(0xFFF8FAFC);   // slate-50
-  static const textMid = Color(0xFFCBD5E1);    // slate-300
-  static const textLow = Color(0xFF94A3B8);    // slate-400
-  static const textDim = Color(0xFF64748B);    // slate-500
+  static const textHigh = Color(0xFFF8FAFC); // slate-50
+  static const textMid = Color(0xFFCBD5E1); // slate-300
+  static const textLow = Color(0xFF94A3B8); // slate-400
+  static const textDim = Color(0xFF64748B); // slate-500
 }
 
 ThemeData buildAppTheme() {

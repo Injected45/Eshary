@@ -139,8 +139,7 @@ class TrialRepository {
   }
 
   Future<int> phoneChangeResend() async {
-    final res =
-        await _client.rpc<Map<String, dynamic>>('phone_change_resend');
+    final res = await _client.rpc<Map<String, dynamic>>('phone_change_resend');
     _throwIfRefused(res);
     return (res['wait'] as num?)?.toInt() ?? 60;
   }

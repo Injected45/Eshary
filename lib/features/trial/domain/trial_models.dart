@@ -172,3 +172,32 @@ class TrialRequestRow {
         repeatHint: (j['repeat_hint'] as num?)?.toInt() ?? 0,
       );
 }
+
+/// What waits for the administrator's decision (the badge and the banner).
+class PendingCounts {
+  const PendingCounts({
+    required this.requests,
+    required this.phoneChanges,
+    required this.failedMessages,
+  });
+
+  static const zero =
+      PendingCounts(requests: 0, phoneChanges: 0, failedMessages: 0);
+
+  /// New trial requests nobody has decided yet.
+  final int requests;
+
+  /// Number changes whose new number was already proven by a code.
+  final int phoneChanges;
+
+  /// Approvals whose WhatsApp message did not go through.
+  final int failedMessages;
+
+  int get total => requests + phoneChanges + failedMessages;
+
+  factory PendingCounts.fromJson(Map<String, dynamic> j) => PendingCounts(
+        requests: (j['requests'] as num?)?.toInt() ?? 0,
+        phoneChanges: (j['phoneChanges'] as num?)?.toInt() ?? 0,
+        failedMessages: (j['failedMessages'] as num?)?.toInt() ?? 0,
+      );
+}

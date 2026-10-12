@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -27,39 +29,51 @@ class TrialRequestsScreen extends ConsumerStatefulWidget {
 /// Five groups instead of eleven states. The exact state of each request
 /// (message failed, approval expired, ending soon ...) stays on its card.
 const _filters = <(String, String, Set<String>)>[
-  ('', 'الكل', <String>{}),
-  (
-    'decide',
-    'تنتظر قراري',
-    {'pending_review', 'needs_info'},
-  ),
+  ('decide', 'تنتظر قراري', {'pending_review', 'needs_info'}),
   (
     'activate',
     'بانتظار التفعيل',
     {'approved_waiting', 'message_failed', 'approval_expired'},
   ),
-  (
-    'active',
-    'فعّالة',
-    {'active_trial', 'ending_soon', 'paid'},
-  ),
-  (
-    'closed',
-    'منتهية أو مغلقة',
-    {'expired_trial', 'rejected_or_suspended'},
-  ),
+  ('active', 'فعّالة', {'active_trial', 'ending_soon', 'paid'}),
+  ('closed', 'منتهية أو مغلقة', {'expired_trial', 'rejected_or_suspended'}),
+  ('', 'الكل', <String>{}),
 ];
 
 class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
-  String _filter = '';
+  /// It opens on what needs a decision, the one thing the administrator came for.
+  String _filter = 'decide';
+  Timer? _refresh;
 
-  Future<void> _run(Future<void> Function() action, String done) async {
+  @override
+  void initState() {
+    super.initState();
+    // a new request appears by itself while the screen is open
+    _refresh = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) _reload();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
+
+  void _reload() {
+    ref.invalidate(trialRequestsProvider);
+    ref.invalidate(trialStatsProvider);
+    ref.invalidate(adminPendingCountsProvider);
+  }
+
+  /// Runs an action; its result is a message for the administrator (or null for
+  /// the default one).
+  Future<void> _run(Future<String?> Function() action, String done) async {
     try {
-      await action();
-      ref.invalidate(trialRequestsProvider);
-      ref.invalidate(trialStatsProvider);
+      final custom = await action();
+      _reload();
       if (!mounted) return;
-      showTopSnackBar(context, SnackBar(content: Text(done)));
+      showTopSnackBar(context, SnackBar(content: Text(custom ?? done)));
     } catch (e, st) {
       AppLogger.error('admin.trial', e, st);
       if (!mounted) return;
@@ -114,14 +128,39 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
       note = await _ask('سبب الرفض', 'يظهر للمتقدّم');
       if (note == null || note.isEmpty) return;
     }
-    await _run(
-      () => ref.read(trialAdminRepositoryProvider).decide(
-            r.id,
-            decision,
-            note: note,
-          ),
-      'تم تنفيذ القرار',
-    );
+    await _run(() async {
+      final res = await ref
+          .read(trialAdminRepositoryProvider)
+          .decide(r.id, decision, note: note);
+      return _decisionMessage(r, decision, res);
+    }, 'تم تنفيذ القرار');
+  }
+
+  /// What the administrator reads after pressing a decision: what happened and
+  /// what the applicant has been told.
+  String _decisionMessage(
+    TrialRequestRow r,
+    String decision,
+    Map<String, dynamic> res,
+  ) {
+    switch (decision) {
+      case 'approve_72':
+      case 'approve_168':
+      case 'renew_approval':
+        final m = res['message'];
+        final sent = m is Map && m['ok'] == true;
+        return sent
+            ? 'تمت الموافقة وأُرسل رمز التفعيل إلى واتساب ${r.managerName}.'
+            : 'تمت الموافقة، لكن تعذّر إرسال الرمز الآن. اضغط «إعادة إرسال الرمز» على بطاقته.';
+      case 'request_info':
+        return 'أُرسل طلب المعلومات إلى ${r.managerName} على واتساب وسيراه في التطبيق.';
+      case 'reject':
+        return 'تم رفض الطلب وسيرى المتقدّم السبب.';
+      case 'withdraw':
+        return 'سُحبت الموافقة وعاد الطلب إلى المراجعة.';
+      default:
+        return 'تم تنفيذ القرار';
+    }
   }
 
   Future<void> _fixPhone(TrialRequestRow r) async {
@@ -147,10 +186,10 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
       ),
     );
     if (ok != true) return;
-    await _run(
-      () => ref.read(trialAdminRepositoryProvider).fixPhone(r.id, phone),
-      'تم تصحيح الرقم وسُجّل التغيير',
-    );
+    await _run(() async {
+      await ref.read(trialAdminRepositoryProvider).fixPhone(r.id, phone);
+      return null;
+    }, 'تم تصحيح الرقم وسُجّل التغيير');
   }
 
   @override
@@ -246,12 +285,15 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
                             .toList();
                     if (rows.isEmpty) {
                       return ListView(
-                        children: const [
-                          SizedBox(height: 40),
+                        children: [
+                          const SizedBox(height: 40),
                           Center(
                             child: Text(
-                              'لا توجد طلبات',
-                              style: TextStyle(color: AppColors.textLow),
+                              _filter == 'decide'
+                                  ? 'لا توجد طلبات تنتظر قرارك ✓'
+                                  : 'لا توجد طلبات',
+                              key: const ValueKey('requests-empty'),
+                              style: const TextStyle(color: AppColors.textLow),
                             ),
                           ),
                         ],
@@ -270,12 +312,12 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
                         row: rows[i],
                         onDecide: (d) => _decide(rows[i], d),
                         onFixPhone: () => _fixPhone(rows[i]),
-                        onResend: () => _run(
-                          () => ref
+                        onResend: () => _run(() async {
+                          await ref
                               .read(trialAdminRepositoryProvider)
-                              .resendCode(rows[i].id),
-                          'أُرسل رمز جديد',
-                        ),
+                              .resendCode(rows[i].id);
+                          return null;
+                        }, 'أُرسل رمز جديد إلى واتساب المتقدّم'),
                       ),
                     );
                   },
@@ -348,11 +390,47 @@ class _RequestCard extends StatelessWidget {
   final VoidCallback onFixPhone;
   final VoidCallback onResend;
 
-  String _fmt(DateTime? t) {
-    if (t == null) return '—';
-    final l = t.toUtc().add(const Duration(hours: 2)); // Africa/Tripoli
-    String p(int n) => n.toString().padLeft(2, '0');
-    return '${l.year}-${p(l.month)}-${p(l.day)} ${p(l.hour)}:${p(l.minute)}';
+  /// "قبل 5 دقائق" instead of a date to decode.
+  String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inMinutes < 1) return 'الآن';
+    if (d.inMinutes < 60) return 'قبل ${d.inMinutes} دقيقة';
+    if (d.inHours < 24) return 'قبل ${d.inHours} ساعة';
+    return 'قبل ${d.inDays} يوم';
+  }
+
+  /// The state of the request in one sentence, with its colour.
+  (String, Color) _statusLine() {
+    final r = row;
+    switch (r.bucket) {
+      case 'pending_review':
+        return ('طلب جديد ينتظر قرارك', AppColors.warning);
+      case 'needs_info':
+        return ('بانتظار ردّ المتقدّم على طلب المعلومات', AppColors.textMid);
+      case 'message_failed':
+        return ('تمت الموافقة لكن لم يصل الرمز', AppColors.negative);
+      case 'approval_expired':
+        return ('انتهت صلاحية الموافقة', AppColors.negative);
+      case 'approved_waiting':
+        return (
+          'تمت الموافقة، بانتظار أن يُدخل المتقدّم الرمز',
+          AppColors.accent
+        );
+      case 'active_trial':
+      case 'ending_soon':
+        final left = r.remainingSeconds;
+        final days = left == null ? null : (left / 86400).ceil();
+        return (
+          days == null ? 'تجربة فعّالة' : 'تجربة فعّالة، متبقي $days يوم',
+          AppColors.positive,
+        );
+      case 'paid':
+        return ('مشترك', AppColors.positive);
+      case 'expired_trial':
+        return ('انتهت التجربة', AppColors.negative);
+      default:
+        return (r.status == 'rejected' ? 'مرفوض' : 'موقوف', AppColors.negative);
+    }
   }
 
   @override
@@ -360,18 +438,30 @@ class _RequestCard extends StatelessWidget {
     final r = row;
     final open = r.status == 'pending_review' || r.status == 'needs_info';
     final approved = r.status == 'approved';
+    final (status, statusColor) = _statusLine();
     return GlassCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            r.businessName,
-            style: const TextStyle(
-              color: AppColors.textHigh,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  r.businessName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textHigh,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Text(
+                _ago(r.requestedAt),
+                style: const TextStyle(color: AppColors.textLow, fontSize: 11),
+              ),
+            ],
           ),
           Text(
             r.managerName,
@@ -391,98 +481,109 @@ class _RequestCard extends StatelessWidget {
                 textDirection: TextDirection.ltr,
                 style: const TextStyle(color: AppColors.textMid, fontSize: 13),
               ),
-              const SizedBox(width: 8),
-              Text(
-                r.phoneVerified ? 'مؤكَّد' : 'غير مؤكَّد',
-                style: TextStyle(
-                  fontSize: 11,
-                  color:
-                      r.phoneVerified ? AppColors.positive : AppColors.warning,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _chip('الطلب: ${_requestLabel(r.status)}', AppColors.accent),
-              if (r.messageStatus != null)
-                _chip(
-                  'الرسالة: ${_msgLabel(r.messageStatus!)}',
-                  r.messageStatus == 'failed'
-                      ? AppColors.negative
-                      : AppColors.positive,
-                ),
-              if (r.userId != null)
-                _chip('الاشتراك: ${_bucketLabel(r.bucket)}', AppColors.warning),
-              if (r.repeatHint > 0)
-                _chip('تشابه مع ${r.repeatHint} طلب', AppColors.negative),
-            ],
-          ),
-          const SizedBox(height: 6),
           Text(
-            'قُدّم: ${_fmt(r.requestedAt)}'
-            '${r.approvalExpiresAt != null && approved ? '\nتنتهي الموافقة: ${_fmt(r.approvalExpiresAt)}' : ''}'
-            '${r.trialEndsAt != null ? '\nتنتهي التجربة: ${_fmt(r.trialEndsAt)}' : ''}',
-            style: const TextStyle(color: AppColors.textLow, fontSize: 11.5),
-          ),
-          if ((r.reviewNote ?? '').isNotEmpty)
-            Text(
-              'ملاحظة: ${r.reviewNote}',
-              style: const TextStyle(color: AppColors.textMid, fontSize: 12),
+            status,
+            key: const ValueKey('request-status'),
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
             ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              if (open) ...[
-                FilledButton(
-                  key: const ValueKey('approve-72'),
-                  onPressed: () => onDecide('approve_72'),
-                  child: const Text('موافقة 3 أيام'),
-                ),
-                FilledButton(
-                  key: const ValueKey('approve-168'),
-                  onPressed: () => onDecide('approve_168'),
-                  child: const Text('موافقة أسبوع'),
-                ),
-                OutlinedButton(
-                  onPressed: () => onDecide('request_info'),
-                  child: const Text('طلب معلومات'),
-                ),
-                OutlinedButton(
-                  onPressed: () => onDecide('reject'),
-                  child: const Text('رفض'),
-                ),
-                TextButton(
-                  onPressed: onFixPhone,
-                  child: const Text('تصحيح الرقم'),
-                ),
-              ],
-              if (approved) ...[
-                OutlinedButton(
-                  onPressed: onResend,
-                  child: const Text('إعادة إرسال الرمز'),
-                ),
-                if (r.bucket == 'approval_expired')
-                  FilledButton(
-                    onPressed: () => onDecide('renew_approval'),
-                    child: const Text('تجديد الموافقة'),
-                  ),
-                TextButton(
-                  onPressed: () => onDecide('withdraw'),
-                  child: const Text('سحب الموافقة'),
-                ),
-                TextButton(
-                  onPressed: onFixPhone,
-                  child: const Text('تصحيح الرقم'),
-                ),
-              ],
-            ],
           ),
+          if (r.repeatHint > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child:
+                  _chip('تشابه مع ${r.repeatHint} طلب آخر', AppColors.negative),
+            ),
+          if ((r.reviewNote ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'ملاحظتك: ${r.reviewNote}',
+                style: const TextStyle(color: AppColors.textMid, fontSize: 12),
+              ),
+            ),
+          if (open || approved) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (open) ...[
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('approve-72'),
+                      onPressed: () => onDecide('approve_72'),
+                      child: const Text('موافقة 3 أيام'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('approve-168'),
+                      onPressed: () => onDecide('approve_168'),
+                      child: const Text('موافقة أسبوع'),
+                    ),
+                  ),
+                ] else ...[
+                  Expanded(
+                    child: FilledButton(
+                      key: const ValueKey('resend-code'),
+                      onPressed: r.bucket == 'approval_expired'
+                          ? () => onDecide('renew_approval')
+                          : onResend,
+                      child: Text(
+                        r.bucket == 'approval_expired'
+                            ? 'تجديد الموافقة'
+                            : 'إعادة إرسال الرمز',
+                      ),
+                    ),
+                  ),
+                ],
+                PopupMenuButton<String>(
+                  key: const ValueKey('request-menu'),
+                  icon: const FaIcon(
+                    FontAwesomeIcons.ellipsisVertical,
+                    size: 16,
+                    color: AppColors.textLow,
+                  ),
+                  onSelected: (v) {
+                    if (v == 'fix_phone') {
+                      onFixPhone();
+                    } else {
+                      onDecide(v);
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (open) ...const [
+                      PopupMenuItem(
+                        value: 'request_info',
+                        child: Text('طلب معلومات'),
+                      ),
+                      PopupMenuItem(
+                        value: 'reject',
+                        child: Text(
+                          'رفض',
+                          style: TextStyle(color: AppColors.negative),
+                        ),
+                      ),
+                    ],
+                    if (approved)
+                      const PopupMenuItem(
+                        value: 'withdraw',
+                        child: Text('سحب الموافقة'),
+                      ),
+                    const PopupMenuItem(
+                      value: 'fix_phone',
+                      child: Text('تصحيح رقم الهاتف'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -497,29 +598,4 @@ class _RequestCard extends StatelessWidget {
         ),
         child: Text(text, style: TextStyle(color: color, fontSize: 11)),
       );
-
-  String _requestLabel(String s) => switch (s) {
-        'pending_review' => 'قيد المراجعة',
-        'needs_info' => 'تحتاج معلومات',
-        'approved' => 'موافَق عليه',
-        'rejected' => 'مرفوض',
-        'activated' => 'مُفعَّل',
-        _ => s,
-      };
-
-  String _msgLabel(String s) => switch (s) {
-        'queued' => 'في الانتظار',
-        'sent' => 'أُرسلت',
-        'failed' => 'فشلت',
-        _ => s,
-      };
-
-  String _bucketLabel(String s) => switch (s) {
-        'active_trial' => 'تجربة فعّالة',
-        'ending_soon' => 'تنتهي قريباً',
-        'expired_trial' => 'تجربة منتهية',
-        'paid' => 'مدفوع',
-        'rejected_or_suspended' => 'موقوف',
-        _ => s,
-      };
 }

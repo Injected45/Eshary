@@ -14,6 +14,7 @@ import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../admin/presentation/admin_screen.dart';
+import '../../trial/data/trial_admin_repository.dart';
 import '../../admin/presentation/backup_screen.dart';
 import '../../archive/presentation/archive_providers.dart';
 import '../../branches/presentation/branches_screen.dart';
@@ -75,6 +76,12 @@ class SettingsScreen extends ConsumerWidget {
             title: 'سياسة الخصوصية',
             onTap: () => context.push('/privacy'),
           ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.fileContract,
+            title: 'شروط الاستخدام',
+            onTap: () => context.push('/terms'),
+          ),
           // A subscriber can delete their own account (Google Play requires it
           // inside the app). The platform administrator's account is permanent
           // and an employee's account is removed by the owner.
@@ -93,6 +100,9 @@ class SettingsScreen extends ConsumerWidget {
             _SettingsRow(
               icon: FontAwesomeIcons.userShield,
               title: 'إدارة الحسابات',
+              // how many requests wait for a decision
+              badge:
+                  ref.watch(adminPendingCountsProvider).valueOrNull?.total ?? 0,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AdminScreen()),
               ),

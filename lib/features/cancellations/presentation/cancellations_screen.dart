@@ -36,6 +36,12 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
   DateTime? _to;
   bool _exporting = false;
 
+  /// The one open card (a request or a cancellation); opening another closes it.
+  String? _openKey;
+
+  void _toggle(String key) =>
+      setState(() => _openKey = _openKey == key ? null : key);
+
   bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
@@ -151,7 +157,12 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
             const _Empty(text: 'لا توجد طلبات بانتظارك.')
           else
             for (final req in pending) ...[
-              _RequestCard(request: req),
+              _RequestCard(
+                key: ValueKey('request-${req.id}'),
+                request: req,
+                expanded: _openKey == 'request-${req.id}',
+                onToggle: () => _toggle('request-${req.id}'),
+              ),
               const SizedBox(height: 10),
             ],
           const SizedBox(height: 16),
@@ -187,7 +198,13 @@ class _CancellationsScreenState extends ConsumerState<CancellationsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var i = 0; i < list.length; i++) ...[
-                        _CancellationCard(number: i + 1, c: list[i]),
+                        _CancellationCard(
+                          key: ValueKey('cancellation-${list[i].id}'),
+                          number: i + 1,
+                          c: list[i],
+                          expanded: _openKey == 'cancellation-${list[i].id}',
+                          onToggle: () => _toggle('cancellation-${list[i].id}'),
+                        ),
                         const SizedBox(height: 10),
                       ],
                     ],
@@ -234,6 +251,57 @@ class _Empty extends StatelessWidget {
   }
 }
 
+/// The single line a card shows while closed: its title and an arrow.
+class _CardHeader extends StatelessWidget {
+  const _CardHeader({
+    required this.headerKey,
+    required this.title,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final Key headerKey;
+  final String title;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: headerKey,
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.cancelled,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FaIcon(
+              expanded
+                  ? FontAwesomeIcons.chevronUp
+                  : FontAwesomeIcons.chevronDown,
+              size: 12,
+              color: AppColors.textLow,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One line of the card: label and value.
 class _Line extends StatelessWidget {
   const _Line(this.label, this.value, {this.color});
@@ -272,8 +340,15 @@ class _Line extends StatelessWidget {
 }
 
 class _RequestCard extends ConsumerStatefulWidget {
-  const _RequestCard({required this.request});
+  const _RequestCard({
+    super.key,
+    required this.request,
+    required this.expanded,
+    required this.onToggle,
+  });
   final CancellationRequest request;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   ConsumerState<_RequestCard> createState() => _RequestCardState();
@@ -336,50 +411,60 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Line('الموظف', req.employeeName),
-          _Line(
-            'العملية',
-            '${req.kindLabel} بقيمة \$${formatMoney(req.amount)}',
-            color: AppColors.cancelled,
+          _CardHeader(
+            headerKey: ValueKey('request-header-${req.id}'),
+            title:
+                'طلب إلغاء ${req.kindLabel} · \$${formatMoney(req.amount)} — ${req.employeeName}',
+            expanded: widget.expanded,
+            onToggle: widget.onToggle,
           ),
-          if ((req.partyName ?? '').trim().isNotEmpty)
+          if (widget.expanded) ...[
+            const SizedBox(height: 6),
+            _Line('الموظف', req.employeeName),
             _Line(
-              req.kind == OperationKind.transfer ? 'المستفيد' : 'العميل',
-              req.partyName!.trim(),
+              'العملية',
+              '${req.kindLabel} بقيمة \$${formatMoney(req.amount)}',
+              color: AppColors.cancelled,
             ),
-          _Line('السبب', req.reason),
-          _Line('وقت الطلب', _stampFmt.format(req.createdAt)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _busy ? null : _reject,
-                  child: const Text('رفض'),
-                ),
+            if ((req.partyName ?? '').trim().isNotEmpty)
+              _Line(
+                req.kind == OperationKind.transfer ? 'المستفيد' : 'العميل',
+                req.partyName!.trim(),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.cancelled,
+            _Line('السبب', req.reason),
+            _Line('وقت الطلب', _stampFmt.format(req.createdAt)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _reject,
+                    child: const Text('رفض'),
                   ),
-                  onPressed: _busy
-                      ? null
-                      : () => showAdminCancelDialog(
-                            context,
-                            kind: req.kind,
-                            operationId: req.operationId,
-                            amount: req.amount,
-                            partyName: req.partyName,
-                            requestId: req.id,
-                            initialReason: req.reason,
-                          ),
-                  child: const Text('موافقة وإلغاء'),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.cancelled,
+                    ),
+                    onPressed: _busy
+                        ? null
+                        : () => showAdminCancelDialog(
+                              context,
+                              kind: req.kind,
+                              operationId: req.operationId,
+                              amount: req.amount,
+                              partyName: req.partyName,
+                              requestId: req.id,
+                              initialReason: req.reason,
+                            ),
+                    child: const Text('موافقة وإلغاء'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -387,9 +472,17 @@ class _RequestCardState extends ConsumerState<_RequestCard> {
 }
 
 class _CancellationCard extends StatelessWidget {
-  const _CancellationCard({required this.number, required this.c});
+  const _CancellationCard({
+    super.key,
+    required this.number,
+    required this.c,
+    required this.expanded,
+    required this.onToggle,
+  });
   final int number;
   final OperationCancellation c;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -398,29 +491,30 @@ class _CancellationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '#$number  ${c.kindLabel} ملغى · \$${formatMoney(c.amount)}',
-            style: const TextStyle(
-              color: AppColors.cancelled,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
+          _CardHeader(
+            headerKey: ValueKey('cancellation-header-${c.id}'),
+            title: '#$number  ${c.kindLabel} ملغى · \$${formatMoney(c.amount)}',
+            expanded: expanded,
+            onToggle: onToggle,
+          ),
+          if (expanded) ...[
+            const SizedBox(height: 6),
+            _Line('وقت الإلغاء', _stampFmt.format(c.cancelledAt)),
+            _Line('الحساب', c.accountLabel),
+            if ((c.reference ?? '').isNotEmpty)
+              _Line('إشاري/كود', c.reference!),
+            if ((c.partyName ?? '').isNotEmpty) _Line('الجهة', c.partyName!),
+            _Line('وقت العملية', _stampFmt.format(c.operationCreatedAt)),
+            _Line('المنفذ', c.operationEmployeeName),
+            if (c.requestedByName != null)
+              _Line('طلب الإلغاء', c.requestedByName!),
+            _Line('ألغاها', c.cancelledByName),
+            _Line('السبب', c.reason),
+            _Line(
+              'الرصيد',
+              'قبل ${formatMoney(c.balanceBefore)} ← بعد ${formatMoney(c.balanceAfter)}',
             ),
-          ),
-          const SizedBox(height: 6),
-          _Line('وقت الإلغاء', _stampFmt.format(c.cancelledAt)),
-          _Line('الحساب', c.accountLabel),
-          if ((c.reference ?? '').isNotEmpty) _Line('إشاري/كود', c.reference!),
-          if ((c.partyName ?? '').isNotEmpty) _Line('الجهة', c.partyName!),
-          _Line('وقت العملية', _stampFmt.format(c.operationCreatedAt)),
-          _Line('المنفذ', c.operationEmployeeName),
-          if (c.requestedByName != null)
-            _Line('طلب الإلغاء', c.requestedByName!),
-          _Line('ألغاها', c.cancelledByName),
-          _Line('السبب', c.reason),
-          _Line(
-            'الرصيد',
-            'قبل ${formatMoney(c.balanceBefore)} ← بعد ${formatMoney(c.balanceAfter)}',
-          ),
+          ],
         ],
       ),
     );

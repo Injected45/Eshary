@@ -351,10 +351,12 @@ void main() {
       }
     });
 
-    test('purple for both sides, and cancelled rows left out of kind totals',
+    test(
+        'dark amber for both sides, and cancelled rows left out of kind totals',
         () {
       final src = File('lib/shared/pdf_export_period.dart').readAsStringSync();
-      expect(src, contains('const _cancelledColor = PdfColors.purple700;'));
+      expect(src,
+          contains('const _cancelledColor = PdfColor.fromInt(0xFFB45309);'));
       expect(src, contains('op.reversalAt('));
       expect(src, contains(".where((r) => !r.cancelled)"));
     });
@@ -417,7 +419,7 @@ void main() {
       expect(find.byType(OutlinedButton), findsNothing);
     });
 
-    testWidgets('cancelled: the purple banner, no button', (tester) async {
+    testWidgets('cancelled: the yellow banner, no button', (tester) async {
       await pump(tester, employee: false, cancelledAt: DateTime.now());
       expect(find.textContaining('عملية ملغاة'), findsOneWidget);
       expect(find.byType(FilledButton), findsNothing);

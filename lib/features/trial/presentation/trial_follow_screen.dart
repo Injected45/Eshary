@@ -333,7 +333,8 @@ class _TrialFollowScreenState extends ConsumerState<TrialFollowScreen> {
         children: [
           const Row(
             children: [
-              FaIcon(FontAwesomeIcons.triangleExclamation, size: 15, color: orange),
+              FaIcon(FontAwesomeIcons.triangleExclamation,
+                  size: 15, color: orange),
               SizedBox(width: 8),
               Text(
                 'رسالة من الإدارة',
@@ -376,6 +377,7 @@ class _TrialFollowScreenState extends ConsumerState<TrialFollowScreen> {
       const SizedBox(height: 12),
       CodeField(
         controller: _code,
+        autofocus: true,
         enabled: !_busy,
         onComplete: () {
           if (!_busy) _activate();

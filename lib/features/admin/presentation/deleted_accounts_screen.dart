@@ -96,9 +96,7 @@ class _DeletedAccountsScreenState extends ConsumerState<DeletedAccountsScreen> {
                   if (rows.isEmpty) {
                     return Center(
                       child: Text(
-                        all.isEmpty
-                            ? 'لم يُحذف أي حساب بعد.'
-                            : 'لا توجد نتائج',
+                        all.isEmpty ? 'لم يُحذف أي حساب بعد.' : 'لا توجد نتائج',
                         style: const TextStyle(color: AppColors.textLow),
                       ),
                     );
@@ -112,7 +110,8 @@ class _DeletedAccountsScreenState extends ConsumerState<DeletedAccountsScreen> {
                     ),
                     itemCount: rows.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _Card(number: rows.length - i, d: rows[i]),
+                    itemBuilder: (_, i) =>
+                        _Card(number: rows.length - i, d: rows[i]),
                   );
                 },
               ),
@@ -140,7 +139,8 @@ class _Card extends StatelessWidget {
                 width: 96,
                 child: Text(
                   label,
-                  style: const TextStyle(color: AppColors.textLow, fontSize: 12),
+                  style:
+                      const TextStyle(color: AppColors.textLow, fontSize: 12),
                 ),
               ),
               Expanded(
@@ -189,7 +189,8 @@ class _Card extends StatelessWidget {
             line('تاريخ التسجيل', _stamp.format(d.accountCreated!)),
           line('وقت الحذف', _stamp.format(d.deletedAt)),
           line('حذفه', d.deletedByEmail ?? '—', dir: TextDirection.ltr),
-          line('بيانات حُذفت معه', setup.isEmpty ? 'لا شيء' : setup.join(' · ')),
+          line(
+              'بيانات حُذفت معه', setup.isEmpty ? 'لا شيء' : setup.join(' · ')),
         ],
       ),
     );

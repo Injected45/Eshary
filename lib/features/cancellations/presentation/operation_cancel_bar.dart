@@ -9,7 +9,7 @@ import 'cancellations_providers.dart';
 import '../../../shared/libya_time.dart';
 
 /// The bottom of an operation's details page:
-///   * cancelled → a purple "عملية ملغاة" banner;
+///   * cancelled → a yellow "عملية ملغاة" banner;
 ///   * today, admin → "إلغاء العملية" (reason + password), showing an
 ///     employee's open request when there is one;
 ///   * today, employee → "طلب إلغاء", or "بانتظار المدير" once sent;

@@ -31,7 +31,8 @@ class WipeRepository {
   final SupabaseClient _client;
 
   Future<WipeResult> wipeOperations() async {
-    final res = await _client.rpc<Map<String, dynamic>>('owner_wipe_operations');
+    final res =
+        await _client.rpc<Map<String, dynamic>>('owner_wipe_operations');
     return WipeResult.fromJson(res);
   }
 }

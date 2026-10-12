@@ -1,4 +1,3 @@
-
 /// One entry of the log of deleted accounts (`admin_list_deleted_accounts`).
 class DeletedAccount {
   const DeletedAccount({

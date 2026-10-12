@@ -150,10 +150,19 @@ Future<T?> showGlassDialog<T>({
 
 /// AppBar that lets the liquid background show through, with a faint glass blur.
 class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const GlassAppBar({super.key, required this.title, this.actions});
+  const GlassAppBar({
+    super.key,
+    required this.title,
+    this.actions,
+    this.leading,
+  });
 
   final Widget title;
   final List<Widget>? actions;
+
+  /// Replaces the automatic back arrow (which only appears when there is a
+  /// screen to go back to).
+  final Widget? leading;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -166,6 +175,7 @@ class GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: AppBar(
           title: title,
           actions: actions,
+          leading: leading,
           backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
           elevation: 0,
         ),

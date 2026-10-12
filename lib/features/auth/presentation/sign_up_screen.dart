@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../../shared/password_field.dart';
 import '../data/auth_repository.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -80,107 +81,102 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: GlassCard(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.positive.withValues(alpha: 0.30),
-                            AppColors.accent.withValues(alpha: 0.20),
-                          ],
-                        ),
-                        border: Border.all(color: AppColors.glassBorderStrong),
-                      ),
-                      child: const FaIcon(
-                        FontAwesomeIcons.userPlus,
-                        size: 22,
-                        color: AppColors.positive,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'إنشاء حساب جديد',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'أدخل بياناتك للبدء في استخدام التطبيق',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textLow),
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _email,
-                      decoration: const InputDecoration(
-                        labelText: 'البريد الإلكتروني',
-                        prefixIcon: Icon(Icons.alternate_email,
-                            color: AppColors.textLow),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _password,
-                      decoration: const InputDecoration(
-                        labelText: 'كلمة المرور',
-                        prefixIcon: Icon(Icons.lock_outline,
-                            color: AppColors.textLow),
-                      ),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 20),
-                    if (_error != null)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.negative.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.negative.withValues(alpha: 0.4),
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.positive.withValues(alpha: 0.30),
+                                AppColors.accent.withValues(alpha: 0.20),
+                              ],
+                            ),
+                            border:
+                                Border.all(color: AppColors.glassBorderStrong),
+                          ),
+                          child: const FaIcon(
+                            FontAwesomeIcons.userPlus,
+                            size: 22,
+                            color: AppColors.positive,
                           ),
                         ),
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(color: AppColors.negative),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'إنشاء حساب جديد',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textHigh,
+                          ),
                         ),
-                      ),
-                    if (_error != null) const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.black,
+                        const SizedBox(height: 4),
+                        const Text(
+                          'أدخل بياناتك للبدء في استخدام التطبيق',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textLow),
+                        ),
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _email,
+                          decoration: const InputDecoration(
+                            labelText: 'البريد الإلكتروني',
+                            prefixIcon: Icon(Icons.alternate_email,
+                                color: AppColors.textLow),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                        ),
+                        const SizedBox(height: 14),
+                        PasswordField(controller: _password),
+                        const SizedBox(height: 20),
+                        if (_error != null)
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.negative.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color:
+                                    AppColors.negative.withValues(alpha: 0.4),
                               ),
-                            )
-                          : const Text('إنشاء'),
+                            ),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: AppColors.negative),
+                            ),
+                          ),
+                        if (_error != null) const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: _busy ? null : _submit,
+                          child: _busy
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Text('إنشاء'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed:
+                              _busy ? null : () => context.go('/admin-sign-in'),
+                          child: const Text('لدي حساب بالفعل'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _busy ? null : () => context.go('/admin-sign-in'),
-                      child: const Text('لدي حساب بالفعل'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
           ),
           const SafeArea(
             child: Align(

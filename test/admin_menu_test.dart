@@ -27,7 +27,6 @@ Future<void> _open(WidgetTester tester, AdminUserRow row) async {
           body: AdminUserCard(
             row: row,
             isSelf: false,
-            onActivateLifetime: () {},
             onDelete: () {},
             onSubscription: (_) {},
           ),
@@ -44,11 +43,10 @@ void main() {
   testWidgets('the account menu has only the essential actions',
       (tester) async {
     await _open(tester, _row('trial'));
-    expect(find.byType(PopupMenuItem<AdminAction>), findsNWidgets(5));
+    expect(find.byType(PopupMenuItem<AdminAction>), findsNWidgets(4));
     for (final t in [
       'تمديد التجربة',
-      'تأكيد دفع اشتراك',
-      'تفعيل دائم',
+      'تفعيل اشتراك',
       'إيقاف الحساب',
       'حذف الحساب',
     ]) {
@@ -59,6 +57,8 @@ void main() {
       'تفعيل تجريبي 3 أيام',
       'إعادة لبانتظار التفعيل',
       'تعيين كمشرف',
+      'تأكيد دفع اشتراك',
+      'تفعيل دائم',
       'حظر',
       'إعادة التفعيل',
     ]) {
@@ -71,7 +71,7 @@ void main() {
     await _open(tester, _row('blocked'));
     expect(find.text('إعادة التفعيل'), findsOneWidget);
     expect(find.text('إيقاف الحساب'), findsNothing);
-    expect(find.byType(PopupMenuItem<AdminAction>), findsNWidgets(5));
+    expect(find.byType(PopupMenuItem<AdminAction>), findsNWidgets(4));
   });
 
   test('the actions use the real sign-in address, not the display name', () {

@@ -22,11 +22,23 @@ class TrialAdminRepository {
 
   /// approve_72 | approve_168 | request_info | reject | withdraw |
   /// renew_approval
-  Future<void> decide(String id, String decision, {String? note}) async {
-    await _client.rpc<dynamic>(
+  /// Returns what the database answered (for an approval: whether the WhatsApp
+  /// code was queued).
+  Future<Map<String, dynamic>> decide(
+    String id,
+    String decision, {
+    String? note,
+  }) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
       'admin_trial_decide',
       params: {'p_id': id, 'p_decision': decision, 'p_note': note},
     );
+    return res;
+  }
+
+  Future<PendingCounts> pendingCounts() async {
+    final res = await _client.rpc<Map<String, dynamic>>('admin_pending_counts');
+    return PendingCounts.fromJson(res);
   }
 
   Future<void> fixPhone(String id, String phone) async {
@@ -77,7 +89,8 @@ class TrialAdminRepository {
     return res.cast<Map<String, dynamic>>();
   }
 
-  Future<void> decidePhoneChange(String id, bool approve, {String? note}) async {
+  Future<void> decidePhoneChange(String id, bool approve,
+      {String? note}) async {
     await _client.rpc<dynamic>(
       'admin_phone_change_decide',
       params: {'p_id': id, 'p_approve': approve, 'p_note': note},
@@ -114,4 +127,20 @@ final trialRequestsProvider =
 final trialStatsProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   return ref.watch(trialAdminRepositoryProvider).stats();
+});
+
+/// How many things wait for the administrator, re-read every 45 seconds while
+/// something is watching it (the badge in Settings, the banner in the accounts
+/// screen). A failed read counts as "nothing", never as an error on screen.
+final adminPendingCountsProvider =
+    StreamProvider.autoDispose<PendingCounts>((ref) async* {
+  final repo = ref.watch(trialAdminRepositoryProvider);
+  while (true) {
+    try {
+      yield await repo.pendingCounts();
+    } catch (_) {
+      yield PendingCounts.zero;
+    }
+    await Future<void>.delayed(const Duration(seconds: 45));
+  }
 });

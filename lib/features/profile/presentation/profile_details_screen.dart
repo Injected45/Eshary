@@ -122,7 +122,7 @@ class ProfileDetailsScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           const GlassCard(
             padding: EdgeInsets.all(18),
-            child: _ChangePasswordSection(),
+            child: ChangePasswordSection(),
           ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
@@ -353,23 +353,40 @@ class _PlanCard extends ConsumerWidget {
   }
 }
 
-class _ChangePasswordSection extends ConsumerStatefulWidget {
-  const _ChangePasswordSection();
+class ChangePasswordSection extends ConsumerStatefulWidget {
+  const ChangePasswordSection();
 
   @override
-  ConsumerState<_ChangePasswordSection> createState() =>
+  ConsumerState<ChangePasswordSection> createState() =>
       _ChangePasswordSectionState();
 }
 
-class _ChangePasswordSectionState
-    extends ConsumerState<_ChangePasswordSection> {
+class _ChangePasswordSectionState extends ConsumerState<ChangePasswordSection> {
   final _newPass = TextEditingController();
   final _confirmPass = TextEditingController();
   bool _busy = false;
   String? _error;
 
+  /// One eye for both fields: the two passwords are shown (or hidden) together
+  /// so they can be compared with the eyes before saving.
+  bool _show = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // the match message follows every key
+    _newPass.addListener(_changed);
+    _confirmPass.addListener(_changed);
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _newPass.removeListener(_changed);
+    _confirmPass.removeListener(_changed);
     _newPass.dispose();
     _confirmPass.dispose();
     super.dispose();
@@ -423,6 +440,44 @@ class _ChangePasswordSectionState
     }
   }
 
+  /// The eye (on the left): shows or hides what was typed, in both fields.
+  Widget _eye() => IconButton(
+        key: const ValueKey('password-eye'),
+        tooltip: _show ? 'إخفاء' : 'إظهار',
+        icon: Icon(
+          _show ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          color: _show ? AppColors.accent : AppColors.textLow,
+        ),
+        onPressed: () => setState(() => _show = !_show),
+      );
+
+  /// Tells, while typing, whether the two passwords are the same.
+  Widget _matchLine() {
+    if (_confirmPass.text.isEmpty) return const SizedBox.shrink();
+    final same = _newPass.text == _confirmPass.text;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        key: ValueKey(same ? 'passwords-match' : 'passwords-differ'),
+        children: [
+          Icon(
+            same ? Icons.check_circle : Icons.cancel,
+            size: 16,
+            color: same ? AppColors.positive : AppColors.negative,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            same ? 'متطابقتان' : 'غير متطابقتين',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: same ? AppColors.positive : AppColors.negative,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -460,22 +515,30 @@ class _ChangePasswordSectionState
           ),
         ),
         TextField(
+          key: const ValueKey('new-password'),
           controller: _newPass,
-          obscureText: true,
-          decoration: const InputDecoration(
+          obscureText: !_show,
+          decoration: InputDecoration(
             labelText: 'كلمة المرور الجديدة',
-            prefixIcon: Icon(Icons.lock_outline, color: AppColors.textLow),
+            helperText: 'يُفضَّل 12 حرفاً فأكثر مع أرقام ورموز',
+            prefixIcon:
+                const Icon(Icons.lock_outline, color: AppColors.textLow),
+            suffixIcon: _eye(),
           ),
         ),
         const SizedBox(height: 14),
         TextField(
+          key: const ValueKey('confirm-password'),
           controller: _confirmPass,
-          obscureText: true,
-          decoration: const InputDecoration(
+          obscureText: !_show,
+          decoration: InputDecoration(
             labelText: 'تأكيد كلمة المرور الجديدة',
-            prefixIcon: Icon(Icons.lock_outline, color: AppColors.textLow),
+            prefixIcon:
+                const Icon(Icons.lock_outline, color: AppColors.textLow),
+            suffixIcon: _eye(),
           ),
         ),
+        _matchLine(),
         if (_error != null) const SizedBox(height: 12),
         if (_error != null)
           Container(

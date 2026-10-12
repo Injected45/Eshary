@@ -236,8 +236,7 @@ pw.Widget _reportTable({
   );
 }
 
-pw.Widget _statTile(String label, String value, PdfColor color) =>
-    pw.Container(
+pw.Widget _statTile(String label, String value, PdfColor color) => pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: pw.BoxDecoration(
         color: const PdfColor.fromInt(0xFFF7F8FA),
@@ -363,7 +362,7 @@ class _DetailedOp {
   final String myAccount;
   final String party;
 
-  /// A cancelled operation or its reversing entry: both drawn in purple.
+  /// A cancelled operation or its reversing entry: both drawn in dark amber.
   final bool cancelled;
 
   /// The reversing entry of [this] at [at]: same details, other direction.
@@ -379,8 +378,10 @@ class _DetailedOp {
       );
 }
 
-/// Purple, for a cancelled operation and its reversing entry.
-const _cancelledColor = PdfColors.purple700;
+/// Dark amber (#B45309), for a cancelled operation and its reversing entry: the
+/// printed counterpart of the yellow used on screen (yellow itself is unreadable
+/// on white paper).
+const _cancelledColor = PdfColor.fromInt(0xFFB45309);
 
 /// One row of an entries-only or exits-only report.
 class _KindRow {
@@ -400,7 +401,7 @@ class _KindRow {
   final String party;
   final double amount;
 
-  /// Shown in purple, marked "ملغاة", and left out of the total.
+  /// Shown in dark amber, marked "ملغاة", and left out of the total.
   final bool cancelled;
 }
 
@@ -431,42 +432,43 @@ extension PeriodReports on PdfExport {
       final myCode = (myExchangeRow?.ourCode ?? '').trim();
       final client = b.clientId != null ? clientById[b.clientId!] : null;
       final op = _DetailedOp(
-          t: b.archivedAt ?? b.createdAt,
-          isIncome: true,
-          // For دخول: this column shows MY account code (وجهة الدخول); the
-          // sender column shows the reference that came from الجهة المرسلة.
-          reference: myCode.isEmpty ? '—' : myCode,
-          senderReference: b.reference.isEmpty ? '—' : b.reference,
-          amount: b.usdAmount,
-          myAccount: _slash(companyById[b.myCompanyId]?.name, myExchangeRow?.name),
-          party: _slash(
-            client?.company ?? '',
-            client?.name ?? b.clientFromAccount ?? '',
-          ),
-          cancelled: b.isCancelled,
-        );
+        t: b.archivedAt ?? b.createdAt,
+        isIncome: true,
+        // For دخول: this column shows MY account code (وجهة الدخول); the
+        // sender column shows the reference that came from الجهة المرسلة.
+        reference: myCode.isEmpty ? '—' : myCode,
+        senderReference: b.reference.isEmpty ? '—' : b.reference,
+        amount: b.usdAmount,
+        myAccount:
+            _slash(companyById[b.myCompanyId]?.name, myExchangeRow?.name),
+        party: _slash(
+          client?.company ?? '',
+          client?.name ?? b.clientFromAccount ?? '',
+        ),
+        cancelled: b.isCancelled,
+      );
       ops.add(op);
       if (b.cancelledAt != null) ops.add(op.reversalAt(b.cancelledAt!));
     }
     for (final t in transfers) {
       final op = _DetailedOp(
-          t: t.archivedAt ?? t.createdAt,
-          isIncome: false,
-          // For خروج: this column shows my transfer reference; the sender
-          // column shows the beneficiary's account code (كود المستلم).
-          reference: t.reference.isEmpty ? '—' : t.reference,
-          senderReference:
-              (t.beneficiaryCode == null || t.beneficiaryCode!.isEmpty)
-                  ? '—'
-                  : t.beneficiaryCode!,
-          amount: t.amount,
-          myAccount: _slash(
-            companyById[t.companyId]?.name,
-            exchangeById[t.exchangeId]?.name,
-          ),
-          party: _slash(t.beneficiaryAccountCompany, t.beneficiaryName),
-          cancelled: t.isCancelled,
-        );
+        t: t.archivedAt ?? t.createdAt,
+        isIncome: false,
+        // For خروج: this column shows my transfer reference; the sender
+        // column shows the beneficiary's account code (كود المستلم).
+        reference: t.reference.isEmpty ? '—' : t.reference,
+        senderReference:
+            (t.beneficiaryCode == null || t.beneficiaryCode!.isEmpty)
+                ? '—'
+                : t.beneficiaryCode!,
+        amount: t.amount,
+        myAccount: _slash(
+          companyById[t.companyId]?.name,
+          exchangeById[t.exchangeId]?.name,
+        ),
+        party: _slash(t.beneficiaryAccountCompany, t.beneficiaryName),
+        cancelled: t.isCancelled,
+      );
       ops.add(op);
       if (t.cancelledAt != null) ops.add(op.reversalAt(t.cancelledAt!));
     }
@@ -651,7 +653,16 @@ extension PeriodReports on PdfExport {
       'خروج',
       'الرصيد',
     ];
-    final widths = <double>[0.5, 1.4, 1.3, if (showAccount) 3.2, if (showWho) 2.6, 1.4, 1.4, 1.6];
+    final widths = <double>[
+      0.5,
+      1.4,
+      1.3,
+      if (showAccount) 3.2,
+      if (showWho) 2.6,
+      1.4,
+      1.4,
+      1.6
+    ];
     final incomeColumn = headers.indexOf('دخول');
     final outgoingColumn = headers.indexOf('خروج');
     final balanceColumn = headers.indexOf('الرصيد');
@@ -751,6 +762,7 @@ extension PeriodReports on PdfExport {
 
     return doc.save();
   }
+
   /// "حوالات الدخول إلى حساباتي": the entries of the period, same look as the
   /// movement statement.
   Future<Uint8List> buildIncomeDetailsReport({
@@ -898,7 +910,7 @@ extension PeriodReports on PdfExport {
     ];
     const widths = <double>[0.5, 0.9, 1.1, 1.3, 2.2, 1.4, 2.6, 1.5];
 
-    // A cancelled operation is listed (purple, "ملغاة") but not counted.
+    // A cancelled operation is listed (dark amber, "ملغاة") but not counted.
     final total = sorted
         .where((r) => !r.cancelled)
         .fold<double>(0, (s, r) => s + r.amount);
@@ -1016,7 +1028,20 @@ extension PeriodReports on PdfExport {
       'الرصيد بعد',
     ];
     const widths = <double>[
-      0.45, 1.2, 0.7, 2.0, 1.1, 1.1, 1.6, 1.2, 1.2, 1.1, 1.1, 2.2, 1.1, 1.1,
+      0.45,
+      1.2,
+      0.7,
+      2.0,
+      1.1,
+      1.1,
+      1.6,
+      1.2,
+      1.2,
+      1.1,
+      1.1,
+      2.2,
+      1.1,
+      1.1,
     ];
 
     final outTotal = sorted
@@ -1045,8 +1070,12 @@ extension PeriodReports on PdfExport {
                 sorted[i].kindLabel,
                 sorted[i].accountLabel,
                 '${formatMoney(sorted[i].amount)} \$',
-                (sorted[i].reference ?? '').isEmpty ? '—' : sorted[i].reference!,
-                (sorted[i].partyName ?? '').isEmpty ? '—' : sorted[i].partyName!,
+                (sorted[i].reference ?? '').isEmpty
+                    ? '—'
+                    : sorted[i].reference!,
+                (sorted[i].partyName ?? '').isEmpty
+                    ? '—'
+                    : sorted[i].partyName!,
                 stampFmt.format(sorted[i].operationCreatedAt),
                 sorted[i].operationEmployeeName,
                 sorted[i].requestedByName ?? '—',

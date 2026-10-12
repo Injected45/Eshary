@@ -40,7 +40,6 @@ class _HarnessState extends State<_Harness> {
               expanded: open == r.userId,
               onToggle: () =>
                   setState(() => open = open == r.userId ? null : r.userId),
-              onActivateLifetime: () {},
               onDelete: () {},
               onSubscription: (_) {},
             ),

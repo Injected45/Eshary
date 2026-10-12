@@ -927,7 +927,7 @@ class _OperationRow {
   final String reference;
   double runningDiff;
 
-  /// A cancelled operation or its reversing entry (purple).
+  /// A cancelled operation or its reversing entry (yellow).
   final bool cancelled;
 
   /// The reversing entry of this row, at [at].

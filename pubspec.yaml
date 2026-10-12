@@ -46,6 +46,7 @@ flutter:
     - assets/images/
     - assets/sounds/
     - docs/privacy-policy.md
+    - docs/terms-of-use.md
   fonts:
     - family: Almarai
       fonts:

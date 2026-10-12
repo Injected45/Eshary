@@ -122,11 +122,16 @@ class CodeField extends StatelessWidget {
     required this.controller,
     required this.onComplete,
     this.enabled = true,
+    this.autofocus = false,
   });
 
   final TextEditingController controller;
   final VoidCallback onComplete;
   final bool enabled;
+
+  /// Put the cursor in the field as soon as it appears (the applicant has just
+  /// been told the code is on its way).
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +139,7 @@ class CodeField extends StatelessWidget {
       key: const ValueKey('code-field'),
       controller: controller,
       enabled: enabled,
+      autofocus: autofocus,
       keyboardType: TextInputType.number,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,

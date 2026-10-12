@@ -739,7 +739,7 @@ class _RecordRow extends StatelessWidget {
   final double amount;
   final Color tint;
 
-  /// Cancelled: purple, marked, and left out of the total above.
+  /// Cancelled: yellow, marked, and left out of the total above.
   final bool cancelled;
 
   /// null → admin-authored; non-null → sub_user.id of the author.

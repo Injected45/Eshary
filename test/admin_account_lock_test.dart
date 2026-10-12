@@ -30,7 +30,6 @@ void main() {
             body: AdminUserCard(
               row: row,
               isSelf: self,
-              onActivateLifetime: noop,
               onDelete: noop,
               onSubscription: (_) {},
             ),
@@ -61,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final t in [
       'تمديد التجربة',
-      'تفعيل دائم',
+      'تفعيل اشتراك',
       'حذف الحساب',
       'إيقاف الحساب'
     ]) {

@@ -12,10 +12,7 @@ class AdminRepository {
 
   Future<List<AdminUserRow>> listUsers() async {
     final res = await _client.rpc<List<dynamic>>('admin_list_users');
-    return res
-        .cast<Map<String, dynamic>>()
-        .map(AdminUserRow.fromJson)
-        .toList();
+    return res.cast<Map<String, dynamic>>().map(AdminUserRow.fromJson).toList();
   }
 
   Future<void> activateTrial(String email) async {

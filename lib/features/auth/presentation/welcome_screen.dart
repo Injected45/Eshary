@@ -100,9 +100,8 @@ class WelcomeScreen extends ConsumerWidget {
                         const SizedBox(height: 28),
                         FilledButton.icon(
                           key: const ValueKey('welcome-trial'),
-                          onPressed: () => context.go(hasRequest
-                              ? '/trial-follow'
-                              : '/trial-request'),
+                          onPressed: () => context.go(
+                              hasRequest ? '/trial-follow' : '/trial-request'),
                           icon: const FaIcon(FontAwesomeIcons.rocket, size: 16),
                           label: Text(
                             hasRequest ? 'متابعة طلب التجربة' : 'ابدأ تجربتك',
@@ -150,16 +149,32 @@ class WelcomeScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
-                        TextButton(
-                          key: const ValueKey('welcome-privacy'),
-                          onPressed: () => context.go('/privacy'),
-                          child: const Text(
-                            'سياسة الخصوصية',
-                            style: TextStyle(
-                              color: AppColors.textLow,
-                              fontSize: 12,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          children: [
+                            TextButton(
+                              key: const ValueKey('welcome-privacy'),
+                              onPressed: () => context.push('/privacy'),
+                              child: const Text(
+                                'سياسة الخصوصية',
+                                style: TextStyle(
+                                  color: AppColors.textLow,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
-                          ),
+                            TextButton(
+                              key: const ValueKey('welcome-terms'),
+                              onPressed: () => context.push('/terms'),
+                              child: const Text(
+                                'شروط الاستخدام',
+                                style: TextStyle(
+                                  color: AppColors.textLow,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

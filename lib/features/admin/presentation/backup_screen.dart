@@ -121,7 +121,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   /// backup was taken. The database saves a safety copy of the CURRENT state
   /// first (kind "قبل استعادة"), so even a wrong press is one press to undo.
   Future<void> _restoreFromStored(BackupInfo b) async {
-    final when = LibyaDateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
+    final when =
+        LibyaDateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
     await _run(() async {
       final data = await ref.read(backupRepositoryProvider).get(b.id);
       await _applyRestore(
@@ -485,8 +486,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                   horizontal: 10,
                                 ),
                                 side: BorderSide(
-                                  color: AppColors.warning
-                                      .withValues(alpha: 0.5),
+                                  color:
+                                      AppColors.warning.withValues(alpha: 0.5),
                                 ),
                               ),
                             ),

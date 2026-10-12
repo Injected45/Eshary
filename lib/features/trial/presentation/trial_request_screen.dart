@@ -141,20 +141,29 @@ class _TrialRequestScreenState extends ConsumerState<TrialRequestScreen> {
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
             title: const Text(
-              'أوافق على أن تتواصل معي الإدارة عبر واتساب بخصوص طلبي.',
+              'أوافق على شروط الاستخدام وسياسة الخصوصية، وعلى أن تتواصل معي الإدارة عبر واتساب بخصوص طلبي.',
               style: TextStyle(fontSize: 12.5, color: AppColors.textMid),
             ),
           ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton(
-              key: const ValueKey('trial-privacy'),
-              onPressed: () => context.push('/privacy'),
-              child: const Text(
-                'اقرأ سياسة الخصوصية',
-                style: TextStyle(fontSize: 12, color: AppColors.accent),
+          Wrap(
+            children: [
+              TextButton(
+                key: const ValueKey('trial-terms'),
+                onPressed: () => context.push('/terms'),
+                child: const Text(
+                  'اقرأ شروط الاستخدام',
+                  style: TextStyle(fontSize: 12, color: AppColors.accent),
+                ),
               ),
-            ),
+              TextButton(
+                key: const ValueKey('trial-privacy'),
+                onPressed: () => context.push('/privacy'),
+                child: const Text(
+                  'اقرأ سياسة الخصوصية',
+                  style: TextStyle(fontSize: 12, color: AppColors.accent),
+                ),
+              ),
+            ],
           ),
           if (_error != null) ...[
             const SizedBox(height: 6),

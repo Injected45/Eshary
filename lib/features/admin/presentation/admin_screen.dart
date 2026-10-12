@@ -9,6 +9,9 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
 import '../../trial/data/trial_admin_repository.dart';
+import '../../trial/domain/trial_models.dart';
+import '../../trial/presentation/phone_changes_admin_screen.dart';
+import '../../trial/presentation/subscription_screen.dart' show formatRemaining;
 import '../../trial/presentation/trial_requests_screen.dart';
 import 'deleted_accounts_screen.dart';
 import '../../../shared/top_message.dart';
@@ -77,26 +80,124 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     }
   }
 
+  /// "تفعيل اشتراك": tap a plan (a month, three months, a year, or permanent),
+  /// type the payment reference (not needed for permanent) and confirm.
+  Future<void> _subscribe(AdminUserRow row) async {
+    var days = 30; // 0 = permanent
+    final reference = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: StatefulBuilder(
+          builder: (ctx, setLocal) => AlertDialog(
+            title: const Text('تفعيل اشتراك'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(row.email, style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final (d, label) in const [
+                      (30, 'شهر'),
+                      (90, '3 أشهر'),
+                      (365, 'سنة'),
+                      (0, 'دائم'),
+                    ])
+                      ChoiceChip(
+                        key: ValueKey('plan-$d'),
+                        label: Text(label),
+                        selected: days == d,
+                        onSelected: (_) => setLocal(() => days = d),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (days == 0)
+                  const Text(
+                    'اشتراك دائم بلا تاريخ انتهاء.',
+                    style: TextStyle(fontSize: 12),
+                  )
+                else
+                  TextField(
+                    key: const ValueKey('plan-reference'),
+                    controller: reference,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم مرجع الدفع (إلزامي)',
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('إلغاء'),
+              ),
+              FilledButton(
+                key: const ValueKey('plan-confirm'),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('تفعيل'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      if (days == 0) {
+        await ref
+            .read(adminRepositoryProvider)
+            .activateLifetime(row.loginEmail);
+      } else {
+        await ref.read(trialAdminRepositoryProvider).subscriptionAction(
+              row.userId,
+              'confirm_payment',
+              days: days,
+              reference: reference.text,
+            );
+      }
+      ref.invalidate(adminUsersListProvider);
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            days == 0 ? 'تم تفعيل الاشتراك الدائم' : 'تم تفعيل الاشتراك',
+          ),
+        ),
+      );
+    } catch (e, st) {
+      AppLogger.error('admin.subscribe', e, st);
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        SnackBar(
+          backgroundColor: AppColors.negative.withValues(alpha: 0.85),
+          content: Text(
+            friendlyError(e),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+  }
+
   /// Subscription decisions that need typed input (hours, days, a payment
   /// reference or a reason). The rules themselves are in the database.
   Future<void> _subscription(AdminUserRow row, AdminAction kind) async {
     final hours = TextEditingController(text: '24');
-    final days = TextEditingController(text: '30');
-    final reference = TextEditingController();
     final reason = TextEditingController();
     final (title, fields) = switch (kind) {
       AdminAction.extend => ('تمديد التجربة', [hours, reason]),
-      AdminAction.payment => ('تأكيد دفع الاشتراك', [days, reference]),
       AdminAction.suspend => ('إيقاف الحساب', [reason]),
       _ => ('إعادة تفعيل الحساب', <TextEditingController>[]),
     };
-    String label(TextEditingController c) => c == hours
-        ? 'عدد ساعات التمديد'
-        : c == days
-            ? 'مدة الاشتراك بالأيام'
-            : c == reference
-                ? 'رقم مرجع الدفع (إلزامي)'
-                : 'السبب (إلزامي)';
+    String label(TextEditingController c) =>
+        c == hours ? 'عدد ساعات التمديد' : 'السبب (إلزامي)';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => Directionality(
@@ -110,9 +211,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
               for (final c in fields)
                 TextField(
                   controller: c,
-                  keyboardType: (c == hours || c == days)
-                      ? TextInputType.number
-                      : TextInputType.text,
+                  keyboardType:
+                      c == hours ? TextInputType.number : TextInputType.text,
                   decoration: InputDecoration(labelText: label(c)),
                 ),
             ],
@@ -139,12 +239,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
             'extend_trial',
             hours: int.tryParse(hours.text.trim()),
             reason: reason.text,
-          ),
-        AdminAction.payment => repo.subscriptionAction(
-            row.userId,
-            'confirm_payment',
-            days: int.tryParse(days.text.trim()),
-            reference: reference.text,
           ),
         AdminAction.suspend => repo.subscriptionAction(
             row.userId,
@@ -267,6 +361,19 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            _PendingBanner(
+              counts: ref.watch(adminPendingCountsProvider).valueOrNull,
+              onOpen: (counts) async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => counts.requests + counts.failedMessages > 0
+                        ? const TrialRequestsScreen()
+                        : const PhoneChangesAdminScreen(),
+                  ),
+                );
+                ref.invalidate(adminPendingCountsProvider);
+              },
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: TextField(
@@ -345,7 +452,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                     }
                     return ListView.separated(
                       padding: EdgeInsets.fromLTRB(
-                          16, 4, 16, contentBottomPadding(context)),
+                        16,
+                        4,
+                        16,
+                        contentBottomPadding(context),
+                      ),
                       itemCount: rows.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => AdminUserCard(
@@ -364,17 +475,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                           () => _openId =
                               _openId == rows[i].userId ? null : rows[i].userId,
                         ),
-                        onActivateLifetime: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'تفعيل دائم',
-                          confirmBody:
-                              'سيتم تفعيل ${rows[i].email} بخطة دائمة بدون انتهاء.',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .activateLifetime(rows[i].loginEmail),
-                          successMessage: 'تم التفعيل الدائم',
-                        ),
-                        onSubscription: (a) => _subscription(rows[i], a),
+                        onSubscription: (a) => a == AdminAction.subscribe
+                            ? _subscribe(rows[i])
+                            : _subscription(rows[i], a),
                         onDelete: () => _runAction(
                           row: rows[i],
                           confirmTitle: 'حذف الحساب نهائياً',
@@ -400,11 +503,71 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 }
 
+/// "٢ طلبات تنتظر قرارك": the one thing the administrator needs to see first,
+/// one tap from the decision. Hidden when nothing waits.
+class _PendingBanner extends StatelessWidget {
+  const _PendingBanner({required this.counts, required this.onOpen});
+
+  final PendingCounts? counts;
+  final void Function(PendingCounts) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = counts;
+    if (c == null || c.total == 0) return const SizedBox.shrink();
+    final parts = <String>[
+      if (c.requests > 0) '${c.requests} طلب تجربة جديد',
+      if (c.failedMessages > 0) '${c.failedMessages} رمز لم يصل',
+      if (c.phoneChanges > 0) '${c.phoneChanges} تغيير رقم',
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: InkWell(
+        key: const ValueKey('pending-banner'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => onOpen(c),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.warning, width: 1.4),
+          ),
+          child: Row(
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.bell,
+                size: 16,
+                color: AppColors.warning,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${parts.join(' • ')} — اضغط للمراجعة',
+                  style: const TextStyle(
+                    color: AppColors.textHigh,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const FaIcon(
+                FontAwesomeIcons.chevronLeft,
+                size: 12,
+                color: AppColors.textLow,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The only actions left on an account card: fewer buttons, fewer mistakes.
 enum AdminAction {
-  lifetime,
   extend,
-  payment,
+  subscribe,
   suspend,
   reactivate,
   delete,
@@ -415,7 +578,6 @@ class AdminUserCard extends StatelessWidget {
     super.key,
     required this.row,
     required this.isSelf,
-    required this.onActivateLifetime,
     required this.onDelete,
     required this.onSubscription,
     this.expanded = true,
@@ -428,7 +590,6 @@ class AdminUserCard extends StatelessWidget {
   final VoidCallback? onToggle;
   final AdminUserRow row;
   final bool isSelf;
-  final VoidCallback onActivateLifetime;
   final VoidCallback onDelete;
   final void Function(AdminAction) onSubscription;
 
@@ -522,12 +683,10 @@ class AdminUserCard extends StatelessWidget {
                     ),
                     onSelected: (a) {
                       switch (a) {
-                        case AdminAction.lifetime:
-                          onActivateLifetime();
                         case AdminAction.delete:
                           onDelete();
                         case AdminAction.extend:
-                        case AdminAction.payment:
+                        case AdminAction.subscribe:
                         case AdminAction.suspend:
                         case AdminAction.reactivate:
                           onSubscription(a);
@@ -539,12 +698,8 @@ class AdminUserCard extends StatelessWidget {
                         child: Text('تمديد التجربة'),
                       ),
                       const PopupMenuItem(
-                        value: AdminAction.payment,
-                        child: Text('تأكيد دفع اشتراك'),
-                      ),
-                      const PopupMenuItem(
-                        value: AdminAction.lifetime,
-                        child: Text('تفعيل دائم'),
+                        value: AdminAction.subscribe,
+                        child: Text('تفعيل اشتراك'),
                       ),
                       // One button for stopping and one for resuming, never both.
                       if (row.status == 'blocked')
@@ -584,7 +739,7 @@ class AdminUserCard extends StatelessWidget {
                   const _Chip(label: 'دائمة', color: AppColors.positive),
                 if (row.trialEndsAt != null && row.status == 'trial')
                   _Chip(
-                    label: 'حتى ${dateOnly.format(row.trialEndsAt!.toLocal())}',
+                    label: _remainingLabel(row.trialEndsAt!),
                     color: AppColors.textMid,
                   ),
               ],
@@ -598,6 +753,12 @@ class AdminUserCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// "متبقي 2 يوم و5 ساعة": the time left, not a date to subtract in the head.
+  String _remainingLabel(DateTime endsAt) {
+    final left = endsAt.difference(DateTime.now());
+    return left.isNegative ? 'انتهت' : 'متبقي ${formatRemaining(left)}';
   }
 
   (String, Color) _statusStyle(AdminUserRow r) {
