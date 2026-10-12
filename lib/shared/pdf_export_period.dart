@@ -174,7 +174,7 @@ pw.Widget _reportCell(String text, {required bool header, PdfColor? color}) =>
       // others, and the rows would otherwise be uneven.
       constraints: pw.BoxConstraints(minHeight: header ? 0 : 22),
       alignment: pw.Alignment.center,
-      child: _ArText(
+      child: _clockText(
         text,
         style: pw.TextStyle(
           fontSize: header ? 9 : 8,
@@ -504,12 +504,12 @@ extension PeriodReports on PdfExport {
       'إشاري/كود',
       'حساباتي',
       'الجهة',
-      'إشاري المرسل',
+      'إشاري/كود-المستفيد',
       'دخول',
       'خروج',
       'الرصيد',
     ];
-    const widths = <double>[0.5, 0.9, 1.1, 1.4, 2.2, 2.4, 1.3, 1.4, 1.4, 1.5];
+    const widths = <double>[0.5, 0.9, 1.1, 1.4, 2.0, 2.1, 1.9, 1.4, 1.4, 1.5];
 
     final ledger = ledgerOf([
       for (final o in ops) (isIncome: o.isIncome, amount: o.amount),

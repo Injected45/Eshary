@@ -4,7 +4,8 @@ class AppColors {
   AppColors._();
 
   // OLED-friendly base.
-  static const bgDeep = Color(0xFF020617);   // slate-950
+  static const bgDeep = Color(0xFF020617);   // slate-950 — the "deep" mode
+  static const bgCalm = Color(0xFF1E293B);   // slate-800 — the "calm" mode
   static const bgPanel = Color(0xFF0B1220);  // slightly lighter for stacking
 
   // Glass overlay tones.
@@ -84,7 +85,8 @@ ThemeData buildAppTheme() {
       fillColor: AppColors.glassFill,
       isDense: true,
       labelStyle: const TextStyle(color: AppColors.textLow, fontSize: 13),
-      hintStyle: const TextStyle(color: AppColors.textDim, fontSize: 13),
+      // One size for every hint in the app (exit / entry, sender / receiver).
+      hintStyle: const TextStyle(color: AppColors.textDim, fontSize: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.glassBorder),

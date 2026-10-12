@@ -81,6 +81,8 @@ Future<void> _open(
   double width = 400,
   EmployeeIdentity? identity,
   List<Transfer> today = const <Transfer>[],
+  // The containers start closed; most tests need the first one open.
+  bool openFirst = true,
 }) async {
   await _loadFonts();
   _liveExchanges = exchanges;
@@ -112,9 +114,37 @@ Future<void> _open(
     ),
   );
   await tester.pumpAndSettle();
+  if (openFirst) {
+    final header = find.text('خروج من حسابي');
+    if (header.evaluate().isNotEmpty) {
+      await tester.tap(header.first);
+      await tester.pumpAndSettle();
+    }
+  }
 }
 
 void main() {
+  testWidgets('every container starts closed, even with a single account',
+      (tester) async {
+    await _open(
+      tester,
+      [_exchange('1', 'شركة الصرافة', 'X-100', 2500)],
+      openFirst: false,
+    );
+    // the headers are there, nothing inside them is
+    expect(find.text('خروج من حسابي'), findsOneWidget);
+    expect(find.text('الجهة المستفيدة'), findsOneWidget);
+    expect(find.text('X-100'), findsNothing);
+    expect(find.text('2,500.00'), findsNothing);
+    expect(find.text('REF-0001'), findsNothing);
+
+    // tapping opens it
+    await tester.tap(find.text('خروج من حسابي'));
+    await tester.pumpAndSettle();
+    expect(find.text('X-100'), findsOneWidget);
+    expect(find.text('REF-0001'), findsOneWidget);
+  });
+
   testWidgets('one account: everything is filled in, only the amount is left',
       (tester) async {
     await _open(tester, [_exchange('1', 'شركة الصرافة', 'X-100', 2500)]);
@@ -389,6 +419,92 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '2200');
       await tester.pumpAndSettle();
       expect(find.text('يتجاوز رصيد الحساب'), findsNothing);
+    });
+  });
+
+  group('auto-advance and the save button', () {
+    final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
+    const pause = Duration(milliseconds: 1500);
+    FilledButton save(WidgetTester t) =>
+        t.widget<FilledButton>(find.byKey(const ValueKey('save-transfer')));
+
+    testWidgets('the save button is dim until everything is filled',
+        (tester) async {
+      await _open(tester, one);
+      expect(save(tester).onPressed, isNull);
+    });
+
+    testWidgets(
+        'last field of "خروج من حسابي" filled: it closes and the beneficiary opens',
+        (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '100');
+      await tester.pump();
+      // not at once: the typing must never be cut off
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('الجهات المحفوظة'), findsNothing);
+      expect(find.text('X-100'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pumpAndSettle();
+      expect(find.text('الجهات المحفوظة'), findsOneWidget,
+          reason: 'beneficiary opened');
+      expect(find.text('X-100'), findsNothing, reason: 'account closed');
+    });
+
+    testWidgets('typing again restarts the pause', (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '1');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.enterText(find.byType(TextField).at(2), '10');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(find.text('الجهات المحفوظة'), findsNothing,
+          reason: 'still waiting: the last key restarted the pause');
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.text('الجهات المحفوظة'), findsOneWidget);
+    });
+
+    testWidgets('an amount above the balance never advances', (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '99999');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(find.text('الجهات المحفوظة'), findsNothing);
+      expect(find.text('X-100'), findsOneWidget, reason: 'still open');
+      expect(save(tester).onPressed, isNull);
+    });
+
+    testWidgets(
+        'beneficiary complete: it closes and the save button becomes ready',
+        (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '100');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(save(tester).onPressed, isNull, reason: 'beneficiary still empty');
+
+      await tester.enterText(
+          find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'اسم حساب المستفيد'), 'علي');
+      await tester.pump();
+      await tester.pump(pause);
+      expect(find.text('الجهات المحفوظة'), findsOneWidget,
+          reason: 'code still missing: stays open');
+      expect(save(tester).onPressed, isNull);
+
+      await tester.enterText(
+          find.widgetWithText(TextField, 'أدخل كود حساب المستفيد'), 'B-9');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(find.text('الجهات المحفوظة'), findsNothing,
+          reason: 'beneficiary closed by itself');
+      expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
     });
   });
 }

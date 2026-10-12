@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/app_lock.dart';
+import '../../../shared/visual_mode.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
@@ -62,6 +63,8 @@ class SettingsScreen extends ConsumerWidget {
           ],
           const SizedBox(height: 12),
           const _AppLockRow(),
+          const SizedBox(height: 12),
+          const _VisualModeRow(),
           if (isAdmin) ...[
             const SizedBox(height: 12),
             _SettingsRow(
@@ -362,6 +365,139 @@ class _AppLockRow extends ConsumerWidget {
           }
           await ref.read(appLockEnabledProvider.notifier).set(v);
         },
+      ),
+    );
+  }
+}
+
+/// "شكل التطبيق": two shades of dark. The current one (deep OLED black) and a
+/// softer navy that is easier on the eye in daylight. Nothing else changes;
+/// the glass bars and panels adapt by themselves.
+class _VisualModeRow extends ConsumerWidget {
+  const _VisualModeRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(visualModeProvider);
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.palette,
+                size: 18,
+                color: AppColors.accent,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'شكل التطبيق',
+                  style: TextStyle(
+                    color: AppColors.textHigh,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ModeChoice(
+                  key: const ValueKey('visual-mode-deep'),
+                  label: 'داكن',
+                  swatch: AppColors.bgDeep,
+                  selected: mode == AppVisualMode.deep,
+                  onTap: () => ref
+                      .read(visualModeProvider.notifier)
+                      .set(AppVisualMode.deep),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ModeChoice(
+                  key: const ValueKey('visual-mode-calm'),
+                  label: 'عادي',
+                  swatch: AppColors.bgCalm,
+                  selected: mode == AppVisualMode.calm,
+                  onTap: () => ref
+                      .read(visualModeProvider.notifier)
+                      .set(AppVisualMode.calm),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModeChoice extends StatelessWidget {
+  const _ModeChoice({
+    super.key,
+    required this.label,
+    required this.swatch,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color swatch;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = selected ? AppColors.accent : AppColors.glassBorder;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.12)
+              : Colors.transparent,
+          border: Border.all(color: border, width: selected ? 1.4 : 1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // The actual base colour of each mode, so the choice is visual.
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: swatch,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.glassBorderStrong),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? AppColors.accent : AppColors.textMid,
+                  fontWeight:
+                      selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
+            if (selected)
+              const FaIcon(
+                FontAwesomeIcons.check,
+                size: 13,
+                color: AppColors.accent,
+              ),
+          ],
+        ),
       ),
     );
   }

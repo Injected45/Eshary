@@ -67,6 +67,7 @@ Future<void> _open(
   WidgetTester tester,
   List<Exchange> exchanges, {
   EmployeeIdentity? identity,
+  List<Client> clients = const <Client>[],
 }) async {
   await _loadFonts();
   await tester.binding.setSurfaceSize(const Size(400, 1800));
@@ -82,7 +83,7 @@ Future<void> _open(
         exchangeCompaniesListProvider.overrideWith(
           (ref) async => [for (final e in exchanges) _ec(e.name)],
         ),
-        clientsListProvider.overrideWith((ref) async => const <Client>[]),
+        clientsListProvider.overrideWith((ref) async => clients),
         dailyBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
         pendingBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
         todayBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
@@ -109,11 +110,16 @@ void main() {
     _exchange('2', 'شركة ب', 'X-200'),
   ];
 
-  testWidgets('one account: filled in and the sender section opens at once',
+  testWidgets('one account: every container stays closed until tapped',
       (tester) async {
     await _open(tester, one);
+    expect(find.text(senderMarker), findsNothing, reason: 'sender closed');
+    expect(find.text('X-100'), findsNothing, reason: 'account closed');
+    // opening the sender container
+    await tester.tap(find.text('الجهة المرسلة'));
+    await tester.pumpAndSettle();
     expect(find.text(senderMarker), findsOneWidget, reason: 'sender open');
-    // The account section is folded; opening it shows everything filled in.
+    // and the account container shows everything filled in
     await tester.tap(find.text('دخول لحسابي'));
     await tester.pumpAndSettle();
     expect(find.text('X-100'), findsOneWidget, reason: 'account code');
@@ -143,6 +149,9 @@ void main() {
       branchId: null,
     );
     await _open(tester, one, identity: rafe);
+    expect(find.text(senderMarker), findsNothing);
+    await tester.tap(find.text('الجهة المرسلة'));
+    await tester.pumpAndSettle();
     expect(find.text(senderMarker), findsOneWidget);
     await tester.tap(find.text('دخول لحسابي'));
     await tester.pumpAndSettle();
@@ -158,6 +167,9 @@ void main() {
   testWidgets('reference and value: one row, two identical centred boxes',
       (tester) async {
     await _open(tester, one);
+    // the reference and value live in the sender container: open it
+    await tester.tap(find.text('الجهة المرسلة'));
+    await tester.pumpAndSettle();
     final fields = find.byType(TextField);
     final n = tester.widgetList(fields).length;
     final reference = fields.at(n - 2);
@@ -184,10 +196,77 @@ void main() {
     expect(find.descendant(of: value, matching: find.byType(FaIcon)),
         findsNothing);
 
+    // the hint is the short word, centred in the box
+    expect(find.text('الإشاري'), findsOneWidget);
+    expect(find.text('أدخل الرقم الإشاري'), findsNothing);
+    expect(
+        (tester.getCenter(find.text('الإشاري')).dx - r.center.dx).abs(), lessThan(2));
+    expect(
+        (tester.getCenter(find.text('الإشاري')).dy - r.center.dy).abs(), lessThan(2));
+
     // typed text is centred
     await tester.enterText(value, '250');
     await tester.pumpAndSettle();
     expect(
         (tester.getCenter(find.text('250')).dx - v.center.dx).abs(), lessThan(2));
+  });
+
+  group('auto-advance and the save button', () {
+    final client = Client(
+      id: 'c1',
+      ownerId: 'o',
+      name: 'أحمد',
+      company: 'شركة المرسل',
+      code: 'S-1',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const pause = Duration(milliseconds: 1500);
+    FilledButton save(WidgetTester t) =>
+        t.widget<FilledButton>(find.byKey(const ValueKey('save-buy')));
+
+    testWidgets('the save button is dim until everything is filled',
+        (tester) async {
+      await _open(tester, one, clients: [client]);
+      expect(save(tester).onPressed, isNull);
+    });
+
+    testWidgets(
+        '"دخول لحسابي" complete: it closes by itself and the sender opens; '
+        'sender complete: it closes and the save button is ready',
+        (tester) async {
+      await _open(tester, one, clients: [client]);
+      await tester.tap(find.text('دخول لحسابي'));
+      await tester.pumpAndSettle();
+      expect(find.text('X-100'), findsOneWidget, reason: 'account open');
+
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(find.text('X-100'), findsNothing, reason: 'account closed');
+      expect(find.text(senderMarker), findsOneWidget, reason: 'sender opened');
+      expect(save(tester).onPressed, isNull);
+
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('شركة المرسل').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أحمد').last);
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextField);
+      final n = tester.widgetList(fields).length;
+      await tester.enterText(fields.at(n - 2), 'R-1');
+      await tester.enterText(fields.at(n - 1), '250');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text(senderMarker), findsOneWidget,
+          reason: 'not at once: typing is never cut off');
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(find.text(senderMarker), findsNothing,
+          reason: 'sender closed by itself');
+      expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
+    });
   });
 }

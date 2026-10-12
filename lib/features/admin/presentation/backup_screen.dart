@@ -13,11 +13,13 @@ import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../archive/presentation/archive_providers.dart';
+import '../../branches/presentation/branches_providers.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../countries/presentation/countries_providers.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../sub_users/presentation/sub_users_providers.dart';
 import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../data/backup_repository.dart';
@@ -115,14 +117,18 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         await _saveFile(data, b.createdAt.toLocal());
       }, 'backup.download');
 
+  /// One press, no questions: the app goes back to what it was when this
+  /// backup was taken. The database saves a safety copy of the CURRENT state
+  /// first (kind "قبل استعادة"), so even a wrong press is one press to undo.
   Future<void> _restoreFromStored(BackupInfo b) async {
-    final ok = await _confirmRestore(
-      'نسخة ${DateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal())}',
-    );
-    if (ok != true) return;
+    final when = DateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
     await _run(() async {
       final data = await ref.read(backupRepositoryProvider).get(b.id);
-      await _applyRestore(data);
+      await _applyRestore(
+        data,
+        message: 'عاد التطبيق إلى نسخة $when. '
+            'حُفظت نسخة أمان بحالته السابقة.',
+      );
     }, 'backup.restoreStored');
   }
 
@@ -152,13 +158,16 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     await _run(() => _applyRestore(data), 'backup.restoreUpload');
   }
 
-  Future<void> _applyRestore(Map<String, dynamic> data) async {
+  Future<void> _applyRestore(
+    Map<String, dynamic> data, {
+    String message = 'تمت الاستعادة بنجاح',
+  }) async {
     await ref.read(backupRepositoryProvider).restore(data);
     await ref.read(jsonCacheProvider).clear();
     _refreshAppData();
     ref.invalidate(backupsListProvider);
     playAlert();
-    _snack('تمت الاستعادة بنجاح');
+    _snack(message);
   }
 
   void _refreshAppData() {
@@ -177,6 +186,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     ref.invalidate(archivedBuysProvider);
     ref.invalidate(archivedSoldTotalProvider);
     ref.invalidate(archivedBoughtTotalProvider);
+    // employees and branches are part of a backup too
+    ref.invalidate(subUsersListProvider);
+    ref.invalidate(branchesListProvider);
   }
 
   /// Double confirmation: restore replaces all operational data.
@@ -291,7 +303,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           children: [
             const Text(
               'يُنشأ نسخ احتياطي تلقائي كل 24 ساعة (منتصف الليل بتوقيت ليبيا) '
-              'ويُحتفظ به 30 يوماً. يمكنك حذف النسخ القديمة لتوفير المساحة.',
+              'ويُحتفظ به 30 يوماً. اضغط «استعادة» بجانب أي نسخة محفوظة ليعود '
+              'التطبيق فوراً إلى ما كان عليه وقت أخذها (تُحفظ نسخة أمان قبلها). '
+              'يمكنك حذف النسخ القديمة لتوفير المساحة.',
               style: TextStyle(color: AppColors.textLow, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -454,15 +468,25 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                 size: 15,
                               ),
                             ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              tooltip: 'استعادة',
+                            TextButton.icon(
+                              key: ValueKey('backup-restore-${b.id}'),
                               onPressed:
                                   _busy ? null : () => _restoreFromStored(b),
                               icon: const FaIcon(
                                 FontAwesomeIcons.clockRotateLeft,
-                                size: 15,
-                                color: AppColors.warning,
+                                size: 13,
+                              ),
+                              label: const Text('استعادة'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.warning,
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                side: BorderSide(
+                                  color: AppColors.warning
+                                      .withValues(alpha: 0.5),
+                                ),
                               ),
                             ),
                           ]),

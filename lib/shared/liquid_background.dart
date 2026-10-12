@@ -2,20 +2,25 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme.dart';
+import 'visual_mode.dart';
 
 /// Animated dark background with three slow-moving radial blobs that get
-/// blurred behind every screen, producing the "liquid glass" depth.
-class LiquidBackground extends StatefulWidget {
+/// blurred behind every screen, producing the "liquid glass" depth. The deep
+/// base colour comes from [visualModeProvider]: 'deep' is the original OLED
+/// black, 'calm' is a softer navy. The glass bars and panels drawn on top are
+/// transparent, so they adapt by themselves.
+class LiquidBackground extends ConsumerStatefulWidget {
   const LiquidBackground({super.key, required this.child});
   final Widget child;
 
   @override
-  State<LiquidBackground> createState() => _LiquidBackgroundState();
+  ConsumerState<LiquidBackground> createState() => _LiquidBackgroundState();
 }
 
-class _LiquidBackgroundState extends State<LiquidBackground>
+class _LiquidBackgroundState extends ConsumerState<LiquidBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
@@ -36,10 +41,12 @@ class _LiquidBackgroundState extends State<LiquidBackground>
 
   @override
   Widget build(BuildContext context) {
+    final mode = ref.watch(visualModeProvider);
+    final base = mode == AppVisualMode.calm ? AppColors.bgCalm : AppColors.bgDeep;
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ColoredBox(color: AppColors.bgDeep),
+        ColoredBox(key: const ValueKey('liquid-base'), color: base),
         AnimatedBuilder(
           animation: _ctrl,
           builder: (context, _) => CustomPaint(

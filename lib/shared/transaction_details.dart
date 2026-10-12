@@ -213,8 +213,10 @@ void showCurrencyBuyDetails(
   );
 }
 
-/// Full-screen details page: the whole record fits on one screen and only
-/// scrolls vertically when the phone is too short.
+/// Full-screen details page. The whole record is always on ONE screen:
+/// nothing scrolls, nothing is hidden under the app bar, and on a short or
+/// narrow phone the content is scaled down evenly (never cropped) to fit the
+/// space that is really available.
 class _DetailsPage extends StatelessWidget {
   const _DetailsPage({
     required this.title,
@@ -236,24 +238,40 @@ class _DetailsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
+      // The body starts BELOW the app bar: its top edge is never cut.
       appBar: GlassAppBar(title: Text(title)),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          contentTopPadding(context),
-          16,
-          MediaQuery.paddingOf(context).bottom + 24,
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final content = Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _DateLine(createdAt: createdAt, accent: accent),
+                  const SizedBox(height: 10),
+                  for (final s in sections) ...[
+                    s,
+                    const SizedBox(height: 10),
+                  ],
+                  if (footer != null) footer!,
+                ],
+              ),
+            );
+            // Natural size when it fits; otherwise scaled down to the space.
+            return Align(
+              alignment: Alignment.topCenter,
+              child: FittedBox(
+                key: const ValueKey('details-fit'),
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.topCenter,
+                child: SizedBox(width: box.maxWidth, child: content),
+              ),
+            );
+          },
         ),
-        children: [
-          _DateLine(createdAt: createdAt, accent: accent),
-          const SizedBox(height: 14),
-          for (final s in sections) ...[
-            s,
-            const SizedBox(height: 14),
-          ],
-          if (footer != null) footer!,
-        ],
       ),
     );
   }
@@ -326,7 +344,7 @@ class _DetailSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.glassBorder),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -344,7 +362,7 @@ class _DetailSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           for (var i = 0; i < rows.length; i++) ...[
             _DetailRow(
               label: rows[i].label,
@@ -380,7 +398,7 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           SizedBox(

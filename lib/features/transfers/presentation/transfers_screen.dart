@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -56,6 +58,15 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   String? _reference;
   String? _exchangeCompanyName;
   int? _activeSection;
+
+  // Auto-advance: when a container is completely and correctly filled it closes
+  // by itself and the next one opens, after a short pause (so typing is never
+  // cut off). Each container advances once per fill; it re-arms only after it
+  // has become incomplete again.
+  Timer? _advanceTimer;
+  bool _s1Advanced = false;
+  bool _s2Advanced = false;
+  static const _advanceDelay = Duration(milliseconds: 1400);
   bool _logExpanded = false;
   bool _autoPicked = false;
 
@@ -71,10 +82,71 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void initState() {
     super.initState();
     _amount.addListener(_onAmountChanged);
+    _beneficiaryName.addListener(_onFormTyped);
+    _beneficiaryAccount.addListener(_onFormTyped);
+    _beneficiaryCode.addListener(_onFormTyped);
   }
 
   void _onAmountChanged() {
+    _advanceTimer?.cancel();
     if (mounted) setState(() {});
+  }
+
+  void _onFormTyped() {
+    _advanceTimer?.cancel();
+    if (mounted) setState(() {});
+  }
+
+  /// Beneficiary data is complete: company, account and code all filled.
+  bool get _beneficiaryComplete =>
+      _beneficiaryAccount.text.trim().isNotEmpty &&
+      _beneficiaryName.text.trim().isNotEmpty &&
+      _beneficiaryCode.text.trim().isNotEmpty;
+
+  /// Everything needed to save: the transfer data (and the balance covering
+  /// it) and the beneficiary. Only then the save button is ready.
+  bool get _readyToSave =>
+      _exitFormComplete && !_overBalance && _beneficiaryComplete;
+
+  /// Closes a finished container and opens the next one, once, after a pause.
+  void _checkAutoAdvance() {
+    if (!mounted || _busy) return;
+    // 1 -> 2: "خروج من حسابي" is complete and the balance covers the amount
+    if (_exitFormComplete && !_overBalance) {
+      if (_activeSection == 1 &&
+          !_s1Advanced &&
+          !(_advanceTimer?.isActive ?? false)) {
+        _advanceTimer = Timer(_advanceDelay, () {
+          if (!mounted) return;
+          if (_activeSection == 1 && _exitFormComplete && !_overBalance) {
+            setState(() {
+              _activeSection = 2;
+              _s1Advanced = true;
+            });
+          }
+        });
+      }
+    } else {
+      _s1Advanced = false;
+    }
+    // 2 -> closed: the beneficiary is complete; the save button is then ready
+    if (_beneficiaryComplete) {
+      if (_activeSection == 2 &&
+          !_s2Advanced &&
+          !(_advanceTimer?.isActive ?? false)) {
+        _advanceTimer = Timer(_advanceDelay, () {
+          if (!mounted) return;
+          if (_activeSection == 2 && _beneficiaryComplete) {
+            setState(() {
+              _activeSection = null;
+              _s2Advanced = true;
+            });
+          }
+        });
+      }
+    } else {
+      _s2Advanced = false;
+    }
   }
 
   /// The selected account as it is now: the list is refreshed after every
@@ -100,6 +172,10 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   void dispose() {
+    _advanceTimer?.cancel();
+    _beneficiaryName.removeListener(_onFormTyped);
+    _beneficiaryAccount.removeListener(_onFormTyped);
+    _beneficiaryCode.removeListener(_onFormTyped);
     _amount.removeListener(_onAmountChanged);
     _amount.dispose();
     _beneficiaryName.dispose();
@@ -144,8 +220,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _exchange = null;
       _company = null;
       _activeSection = null;
+      _s1Advanced = false;
+      _s2Advanced = false;
       _autoPicked = false; // a single account is filled in again
     });
+    _advanceTimer?.cancel();
   }
 
   Future<void> _onExchangeChanged(Exchange? e) async {
@@ -461,6 +540,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // After every rebuild: see whether a finished container should advance.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoAdvance());
     final exchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(todayTransfersProvider);
     final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
@@ -487,7 +568,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             if (!mounted || _exchange != null) return;
             setState(() {
               _exchangeCompanyName = only.name;
-              _activeSection = 1;
+              // the containers stay closed: they open only when tapped
             });
             _onExchangeChanged(only);
           });
@@ -893,9 +974,23 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          onPressed: (_overBalance || _busy) ? null : _saveAndOpenMessages,
+          key: const ValueKey('save-transfer'),
+          // Active (bright) only when everything is filled and correct.
+          onPressed: (_readyToSave && !_busy) ? _saveAndOpenMessages : null,
           icon: const FaIcon(FontAwesomeIcons.paperPlane, size: 16),
           label: Text(_busy ? '...' : 'حفظ وفتح الرسائل'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.positive,
+            foregroundColor: Colors.black,
+            disabledBackgroundColor: AppColors.glassFillStrong,
+            disabledForegroundColor: AppColors.textDim,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(
+              fontFamily: 'Almarai',
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
         ),
         const SizedBox(height: 24),
         _CollapsibleSection(

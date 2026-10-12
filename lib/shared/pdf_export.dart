@@ -79,6 +79,47 @@ class _ArText extends pw.Text {
   }
 }
 
+/// A colon between digits (a clock: 02:14) is drawn bigger and bold, so it
+/// stays clear in the small table text. Anything else is an ordinary
+/// [_ArText]. Used by every report cell and by the export footer.
+pw.Widget _clockText(
+  String text, {
+  required pw.TextStyle style,
+  pw.TextDirection? textDirection,
+  pw.TextAlign? textAlign,
+  bool? softWrap,
+}) {
+  final clock = RegExp(r'(?<=\d):(?=\d)');
+  if (!clock.hasMatch(text)) {
+    return _ArText(
+      text,
+      style: style,
+      textDirection: textDirection,
+      textAlign: textAlign,
+      softWrap: softWrap,
+    );
+  }
+  final base = _ArText._withYehFont(style) ?? style;
+  final colon = base.copyWith(
+    fontSize: (style.fontSize ?? 8) + 4,
+    fontWeight: pw.FontWeight.bold,
+  );
+  final parts = text.split(clock);
+  return pw.RichText(
+    text: pw.TextSpan(
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[
+          pw.TextSpan(text: fixIsolatedYeh(parts[i]), style: base),
+          if (i < parts.length - 1) pw.TextSpan(text: ':', style: colon),
+        ],
+      ],
+    ),
+    textDirection: textDirection,
+    textAlign: textAlign ?? pw.TextAlign.start,
+    softWrap: softWrap ?? true,
+  );
+}
+
 /// The LAST line of every printed page: when the report was exported and by
 /// whom. Used as the `MultiPage` footer (the pdf package paints it on the
 /// page's bottom margin, so it sits at the very bottom whether the page is
@@ -95,7 +136,7 @@ pw.Widget _exportFooter({required DateTime at, String? by}) {
         top: pw.BorderSide(color: PdfColors.grey400, width: 0.5),
       ),
     ),
-    child: _ArText(
+    child: _clockText(
       'تاريخ التصدير: $when      |      تم التصدير بواسطة: $name',
       style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
       textDirection: pw.TextDirection.rtl,

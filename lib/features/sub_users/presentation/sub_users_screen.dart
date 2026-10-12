@@ -17,11 +17,19 @@ import 'qr_display_dialog.dart';
 import 'sub_users_providers.dart';
 import '../../../shared/top_message.dart';
 
-class SubUsersScreen extends ConsumerWidget {
+class SubUsersScreen extends ConsumerStatefulWidget {
   const SubUsersScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubUsersScreen> createState() => _SubUsersScreenState();
+}
+
+class _SubUsersScreenState extends ConsumerState<SubUsersScreen> {
+  /// The one employee whose details are open. Opening another closes this one.
+  String? _openId;
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(subUsersListProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -84,7 +92,16 @@ class SubUsersScreen extends ConsumerWidget {
                 ),
               )
             else
-              ...rows.map((u) => _SubUserCard(user: u)),
+              ...rows.map(
+                (u) => _SubUserCard(
+                  key: ValueKey('employee-${u.id}'),
+                  user: u,
+                  expanded: _openId == u.id,
+                  onToggle: () => setState(
+                    () => _openId = _openId == u.id ? null : u.id,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -110,8 +127,15 @@ class SubUsersScreen extends ConsumerWidget {
 }
 
 class _SubUserCard extends ConsumerWidget {
-  const _SubUserCard({required this.user});
+  const _SubUserCard({
+    super.key,
+    required this.user,
+    required this.expanded,
+    required this.onToggle,
+  });
   final SubUser user;
+  final bool expanded;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -122,259 +146,280 @@ class _SubUserCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accent.withValues(alpha: 0.15),
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4),
+            InkWell(
+              key: ValueKey('employee-header-${user.id}'),
+              onTap: onToggle,
+              borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: const FaIcon(
+                      FontAwesomeIcons.userTie,
+                      size: 16,
+                      color: AppColors.accent,
                     ),
                   ),
-                  child: const FaIcon(
-                    FontAwesomeIcons.userTie,
-                    size: 16,
-                    color: AppColors.accent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.employeeName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textHigh,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      user.employeeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textHigh,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 6),
-                      InkWell(
-                        onTap: () => _editPhone(context, ref),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              user.phoneNumber,
-                              style: const TextStyle(
+                    ),
+                  ),
+                  FaIcon(
+                    expanded
+                        ? FontAwesomeIcons.chevronUp
+                        : FontAwesomeIcons.chevronDown,
+                    size: 12,
+                    color: AppColors.textLow,
+                  ),
+                ],
+              ),
+            ),
+            if (expanded) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InkWell(
+                          onTap: () => _editPhone(context, ref),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                user.phoneNumber,
+                                style: const TextStyle(
+                                  color: AppColors.textLow,
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const FaIcon(
+                                FontAwesomeIcons.pen,
+                                size: 9,
                                 color: AppColors.textLow,
-                                fontSize: 12,
-                                fontFamily: 'monospace',
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (user.googleEmail != null &&
+                            user.googleEmail!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              user.googleEmail!,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.textMid,
+                                fontSize: 11,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            const FaIcon(
-                              FontAwesomeIcons.pen,
-                              size: 9,
-                              color: AppColors.textLow,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (user.googleEmail != null &&
-                          user.googleEmail!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            user.googleEmail!,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textMid,
-                              fontSize: 11,
+                          ),
+                        if (user.branchId != null && user.branchId!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Consumer(
+                              builder: (context, ref, _) {
+                                final branches =
+                                    ref.watch(branchesListProvider).value;
+                                final name = branches
+                                    ?.where((b) => b.id == user.branchId)
+                                    .map((b) => b.name)
+                                    .firstOrNull;
+                                if (name == null)
+                                  return const SizedBox.shrink();
+                                return Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: AppColors.textMid,
+                                    fontSize: 11,
+                                  ),
+                                );
+                              },
                             ),
                           ),
-                        ),
-                      if (user.branchId != null && user.branchId!.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Consumer(
-                            builder: (context, ref, _) {
-                              final branches =
-                                  ref.watch(branchesListProvider).value;
-                              final name = branches
-                                  ?.where((b) => b.id == user.branchId)
-                                  .map((b) => b.name)
-                                  .firstOrNull;
-                              if (name == null) return const SizedBox.shrink();
-                              return Text(
-                                name,
-                                style: const TextStyle(
-                                  color: AppColors.textMid,
-                                  fontSize: 11,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _StatusBadge(status: user.status),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Quick actions on their own line, so they no longer squeeze the
-            // name and the phone number above.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  onPressed: () => _openActivity(context),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.clockRotateLeft,
-                    size: 14,
-                    color: AppColors.textMid,
-                  ),
-                  tooltip: 'سجل النشاط',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  onPressed: () => _openPermissions(context),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.userShield,
-                    size: 14,
-                    color: AppColors.warning,
-                  ),
-                  tooltip: 'صلاحيات',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  onPressed: user.status == SubUserStatus.active
-                      ? () => _issueQr(context, ref)
-                      : null,
-                  icon: const FaIcon(
-                    FontAwesomeIcons.qrcode,
-                    size: 14,
-                    color: AppColors.positive,
-                  ),
-                  tooltip: 'إصدار QR للدخول',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  onPressed: () => _regenerateCode(context, ref),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.key,
-                    size: 14,
-                    color: AppColors.accent,
-                  ),
-                  tooltip: 'إظهار / توليد كود جديد',
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                _PermissionsSummary(permissions: user.permissions),
-                const Spacer(),
-                if (!user.loginCodeUsed)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: AppColors.warning.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: const Text(
-                      'لم يسجّل دخوله بعد',
-                      style: TextStyle(
-                        color: AppColors.warning,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      ],
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(color: AppColors.glassBorder, height: 1),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _regenerateCode(context, ref),
-                    icon: const FaIcon(
-                      FontAwesomeIcons.arrowsRotate,
-                      size: 12,
-                    ),
-                    label: const Text(
-                      'كود جديد',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(
-                        color: AppColors.accent.withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _toggleStatus(context, ref),
-                    icon: FaIcon(
-                      user.status == SubUserStatus.active
-                          ? FontAwesomeIcons.userSlash
-                          : FontAwesomeIcons.userCheck,
-                      size: 12,
-                    ),
-                    label: Text(
-                      user.status == SubUserStatus.active ? 'تعطيل' : 'تفعيل',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: user.status == SubUserStatus.active
-                          ? AppColors.negative
-                          : AppColors.positive,
-                      side: BorderSide(
-                        color: (user.status == SubUserStatus.active
-                                ? AppColors.negative
-                                : AppColors.positive)
-                            .withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (user.deviceId != null && user.deviceId!.isNotEmpty)
+                  const SizedBox(width: 8),
+                  _StatusBadge(status: user.status),
+                ],
+              ),
+              const SizedBox(height: 10),
+              // Quick actions on their own line, so they no longer squeeze the
+              // name and the phone number above.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
                   IconButton(
-                    onPressed: () => _resetDevice(context, ref),
+                    onPressed: () => _openActivity(context),
                     icon: const FaIcon(
-                      FontAwesomeIcons.mobileScreen,
+                      FontAwesomeIcons.clockRotateLeft,
+                      size: 14,
+                      color: AppColors.textMid,
+                    ),
+                    tooltip: 'سجل النشاط',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    onPressed: () => _openPermissions(context),
+                    icon: const FaIcon(
+                      FontAwesomeIcons.userShield,
                       size: 14,
                       color: AppColors.warning,
                     ),
-                    tooltip: 'إعادة ضبط الجهاز',
+                    tooltip: 'صلاحيات',
+                    visualDensity: VisualDensity.compact,
                   ),
-                IconButton(
-                  onPressed: () => _delete(context, ref),
-                  icon: const FaIcon(
-                    FontAwesomeIcons.trashCan,
-                    size: 14,
-                    color: AppColors.negative,
+                  IconButton(
+                    onPressed: user.status == SubUserStatus.active
+                        ? () => _issueQr(context, ref)
+                        : null,
+                    icon: const FaIcon(
+                      FontAwesomeIcons.qrcode,
+                      size: 14,
+                      color: AppColors.positive,
+                    ),
+                    tooltip: 'إصدار QR للدخول',
+                    visualDensity: VisualDensity.compact,
                   ),
-                  tooltip: 'حذف',
-                ),
-              ],
-            ),
+                  IconButton(
+                    onPressed: () => _regenerateCode(context, ref),
+                    icon: const FaIcon(
+                      FontAwesomeIcons.key,
+                      size: 14,
+                      color: AppColors.accent,
+                    ),
+                    tooltip: 'إظهار / توليد كود جديد',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _PermissionsSummary(permissions: user.permissions),
+                  const Spacer(),
+                  if (!user.loginCodeUsed)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: AppColors.warning.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Text(
+                        'لم يسجّل دخوله بعد',
+                        style: TextStyle(
+                          color: AppColors.warning,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Divider(color: AppColors.glassBorder, height: 1),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _regenerateCode(context, ref),
+                      icon: const FaIcon(
+                        FontAwesomeIcons.arrowsRotate,
+                        size: 12,
+                      ),
+                      label: const Text(
+                        'كود جديد',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: BorderSide(
+                          color: AppColors.accent.withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _toggleStatus(context, ref),
+                      icon: FaIcon(
+                        user.status == SubUserStatus.active
+                            ? FontAwesomeIcons.userSlash
+                            : FontAwesomeIcons.userCheck,
+                        size: 12,
+                      ),
+                      label: Text(
+                        user.status == SubUserStatus.active ? 'تعطيل' : 'تفعيل',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: user.status == SubUserStatus.active
+                            ? AppColors.negative
+                            : AppColors.positive,
+                        side: BorderSide(
+                          color: (user.status == SubUserStatus.active
+                                  ? AppColors.negative
+                                  : AppColors.positive)
+                              .withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (user.deviceId != null && user.deviceId!.isNotEmpty)
+                    IconButton(
+                      onPressed: () => _resetDevice(context, ref),
+                      icon: const FaIcon(
+                        FontAwesomeIcons.mobileScreen,
+                        size: 14,
+                        color: AppColors.warning,
+                      ),
+                      tooltip: 'إعادة ضبط الجهاز',
+                    ),
+                  IconButton(
+                    onPressed: () => _delete(context, ref),
+                    icon: const FaIcon(
+                      FontAwesomeIcons.trashCan,
+                      size: 14,
+                      color: AppColors.negative,
+                    ),
+                    tooltip: 'حذف',
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

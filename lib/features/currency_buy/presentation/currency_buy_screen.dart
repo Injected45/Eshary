@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -71,15 +73,86 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   bool _autoPicked = false;
   bool _executedExpanded = false;
 
+  // Auto-advance (see the exit screen): a finished container closes and the
+  // next opens after a short pause, once per fill.
+  Timer? _advanceTimer;
+  bool _s1Advanced = false;
+  bool _s2Advanced = false;
+  static const _advanceDelay = Duration(milliseconds: 1400);
+
   @override
   void initState() {
     super.initState();
     _usd.addListener(_recomputeLyd);
     _rate.addListener(_recomputeLyd);
+    _usd.addListener(_onFormTyped);
+    _reference.addListener(_onFormTyped);
+  }
+
+  void _onFormTyped() {
+    _advanceTimer?.cancel();
+    if (mounted) setState(() {});
+  }
+
+  /// The sender is complete: company, account name, its code, the reference and
+  /// the dollar value.
+  bool get _senderComplete =>
+      _senderCompany != null &&
+      _client != null &&
+      (_senderCodeStored || _senderCodeTyped.trim().isNotEmpty) &&
+      _reference.text.trim().isNotEmpty &&
+      parseMoney(_usd.text) > 0;
+
+  /// Everything needed to save: my account and the sender. Only then the save
+  /// button is ready.
+  bool get _readyToSave => _accountComplete && _senderComplete;
+
+  /// Closes a finished container and opens the next one, once, after a pause.
+  void _checkAutoAdvance() {
+    if (!mounted || _busy) return;
+    // 1 -> 2: "دخول لحسابي" is complete
+    if (_accountComplete) {
+      if (_activeSection == 1 &&
+          !_s1Advanced &&
+          !(_advanceTimer?.isActive ?? false)) {
+        _advanceTimer = Timer(_advanceDelay, () {
+          if (!mounted) return;
+          if (_activeSection == 1 && _accountComplete) {
+            setState(() {
+              _activeSection = 2;
+              _s1Advanced = true;
+            });
+          }
+        });
+      }
+    } else {
+      _s1Advanced = false;
+    }
+    // 2 -> closed: the sender is complete; the save button is then ready
+    if (_accountComplete && _senderComplete) {
+      if (_activeSection == 2 &&
+          !_s2Advanced &&
+          !(_advanceTimer?.isActive ?? false)) {
+        _advanceTimer = Timer(_advanceDelay, () {
+          if (!mounted) return;
+          if (_activeSection == 2 && _accountComplete && _senderComplete) {
+            setState(() {
+              _activeSection = null;
+              _s2Advanced = true;
+            });
+          }
+        });
+      }
+    } else {
+      _s2Advanced = false;
+    }
   }
 
   @override
   void dispose() {
+    _advanceTimer?.cancel();
+    _usd.removeListener(_onFormTyped);
+    _reference.removeListener(_onFormTyped);
     _usd.dispose();
     _rate.dispose();
     _lyd.dispose();
@@ -106,6 +179,9 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _lyd.text = '0.00';
     _reference.clear();
     _activeSection = null;
+    _s1Advanced = false;
+    _s2Advanced = false;
+    _advanceTimer?.cancel();
     _autoPicked = false; // a single account is filled in again
   }
 
@@ -567,6 +643,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     // Exactly one account in total: fill the company, account and code as
     // soon as the screen opens (and again after each save) and go straight
     // to the sender section. With several accounts nothing is chosen for me.
+    // After every rebuild: see whether a finished container should advance.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoAdvance());
     final loadedExchanges = allExchangesAsync.value;
     final loadedCompanies = companiesAsync.value;
     final loadedExchangeCompanies = exchangeCompaniesAsync.value;
@@ -596,7 +674,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 _exchangeCompanyName = only.name;
                 _myCompany = company;
                 _exchange = only;
-                _activeSection = 2;
+                // the containers stay closed: they open only when tapped
               });
             });
           }
@@ -949,8 +1027,11 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                   initialValue: _client?.code ?? '',
                   readOnly: _client == null || _senderCodeStored,
                   onChanged: (v) {
-                    _senderCodeTyped = v;
-                    _senderCodeFor = _client?.id;
+                    _advanceTimer?.cancel();
+                    setState(() {
+                      _senderCodeTyped = v;
+                      _senderCodeFor = _client?.id;
+                    });
                   },
                   decoration: InputDecoration(
                     hintText: _client == null
@@ -987,7 +1068,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                           textAlignVertical: TextAlignVertical.center,
                           style: _kFieldTextStyle,
                           decoration: const InputDecoration(
-                            hintText: 'أدخل الرقم الإشاري',
+                            hintText: 'الإشاري',
+                            hintMaxLines: 1,
                           ),
                         ),
                       ),
@@ -1026,14 +1108,25 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: _busy ? null : _confirmExecuteBuy,
+            key: const ValueKey('save-buy'),
+            // Active (bright) only when my account and the sender are filled.
+            onPressed: (_readyToSave && !_busy) ? _confirmExecuteBuy : null,
             icon: const FaIcon(
               FontAwesomeIcons.paperPlane,
               size: 14,
             ),
             label: Text(_busy ? '...' : 'حفظ'),
             style: FilledButton.styleFrom(
+              backgroundColor: AppColors.positive,
+              foregroundColor: Colors.black,
+              disabledBackgroundColor: AppColors.glassFillStrong,
+              disabledForegroundColor: AppColors.textDim,
               padding: const EdgeInsets.symmetric(vertical: 14),
+              textStyle: const TextStyle(
+                fontFamily: 'Almarai',
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
             ),
           ),
         ),

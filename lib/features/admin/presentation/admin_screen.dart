@@ -21,6 +21,8 @@ class AdminScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminScreenState extends ConsumerState<AdminScreen> {
+  /// The one account whose details are open. Opening another closes this one.
+  String? _openId;
   final _search = TextEditingController();
 
   @override
@@ -357,6 +359,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                         ),
                         row: rows[i],
                         isSelf: rows[i].userId == selfUid,
+                        expanded: _openId == rows[i].userId,
+                        onToggle: () => setState(
+                          () => _openId =
+                              _openId == rows[i].userId ? null : rows[i].userId,
+                        ),
                         onActivateLifetime: () => _runAction(
                           row: rows[i],
                           confirmTitle: 'تفعيل دائم',
@@ -411,8 +418,14 @@ class AdminUserCard extends StatelessWidget {
     required this.onActivateLifetime,
     required this.onDelete,
     required this.onSubscription,
+    this.expanded = true,
+    this.onToggle,
   });
 
+  /// Accordion: only the name shows until the card is opened. The list opens
+  /// one card at a time; standalone use (tests) shows everything.
+  final bool expanded;
+  final VoidCallback? onToggle;
   final AdminUserRow row;
   final bool isSelf;
   final VoidCallback onActivateLifetime;
@@ -427,134 +440,161 @@ class AdminUserCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  row.email,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textHigh,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+          InkWell(
+            key: ValueKey('account-header-${row.userId}'),
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      row.email,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textHigh,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
+                  if (onToggle != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: FaIcon(
+                        expanded
+                            ? FontAwesomeIcons.chevronUp
+                            : FontAwesomeIcons.chevronDown,
+                        size: 12,
+                        color: AppColors.textLow,
+                      ),
+                    ),
+                ],
               ),
-              // An administrator's account is permanent: no menu, nothing to
-              // change, block, delete or re-activate (the database refuses it too).
-              if (row.isAdmin)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: FaIcon(
-                    FontAwesomeIcons.lock,
-                    key: ValueKey('admin-locked'),
-                    size: 15,
-                    color: AppColors.textLow,
-                  ),
-                )
-              else
-                PopupMenuButton<AdminAction>(
-                  icon: const FaIcon(
-                    FontAwesomeIcons.ellipsisVertical,
-                    size: 16,
-                    color: AppColors.textLow,
-                  ),
-                  onSelected: (a) {
-                    switch (a) {
-                      case AdminAction.lifetime:
-                        onActivateLifetime();
-                      case AdminAction.delete:
-                        onDelete();
-                      case AdminAction.extend:
-                      case AdminAction.payment:
-                      case AdminAction.suspend:
-                      case AdminAction.reactivate:
-                        onSubscription(a);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: AdminAction.extend,
-                      child: Text('تمديد التجربة'),
-                    ),
-                    const PopupMenuItem(
-                      value: AdminAction.payment,
-                      child: Text('تأكيد دفع اشتراك'),
-                    ),
-                    const PopupMenuItem(
-                      value: AdminAction.lifetime,
-                      child: Text('تفعيل دائم'),
-                    ),
-                    // One button for stopping and one for resuming, never both.
-                    if (row.status == 'blocked')
-                      const PopupMenuItem(
-                        value: AdminAction.reactivate,
-                        child: Text('إعادة التفعيل'),
-                      )
-                    else
-                      const PopupMenuItem(
-                        value: AdminAction.suspend,
-                        child: Text(
-                          'إيقاف الحساب',
-                          style: TextStyle(color: AppColors.negative),
-                        ),
-                      ),
-                    if (!isSelf)
-                      const PopupMenuItem(
-                        value: AdminAction.delete,
-                        child: Text(
-                          'حذف الحساب',
-                          style: TextStyle(color: AppColors.negative),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
+            ),
           ),
-          if ((row.phone ?? '').isNotEmpty) ...[
-            const SizedBox(height: 4),
+          if (expanded) ...[
+            const SizedBox(height: 6),
             Row(
               children: [
-                const FaIcon(
-                  FontAwesomeIcons.whatsapp,
-                  size: 13,
-                  color: AppColors.positive,
+                Expanded(
+                  child: (row.phone ?? '').isEmpty
+                      ? const SizedBox.shrink()
+                      : Row(
+                          children: [
+                            const FaIcon(
+                              FontAwesomeIcons.whatsapp,
+                              size: 13,
+                              color: AppColors.positive,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              row.phone!,
+                              key: const ValueKey('user-phone'),
+                              textDirection: TextDirection.ltr,
+                              style: const TextStyle(
+                                color: AppColors.textMid,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  row.phone!,
-                  key: const ValueKey('user-phone'),
-                  textDirection: TextDirection.ltr,
-                  style: const TextStyle(
-                    color: AppColors.textMid,
-                    fontSize: 13,
+                // An administrator's account is permanent: no menu, nothing to
+                // change, block, delete or re-activate (the database refuses it too).
+                if (row.isAdmin)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: FaIcon(
+                      FontAwesomeIcons.lock,
+                      key: ValueKey('admin-locked'),
+                      size: 15,
+                      color: AppColors.textLow,
+                    ),
+                  )
+                else
+                  PopupMenuButton<AdminAction>(
+                    icon: const FaIcon(
+                      FontAwesomeIcons.ellipsisVertical,
+                      size: 16,
+                      color: AppColors.textLow,
+                    ),
+                    onSelected: (a) {
+                      switch (a) {
+                        case AdminAction.lifetime:
+                          onActivateLifetime();
+                        case AdminAction.delete:
+                          onDelete();
+                        case AdminAction.extend:
+                        case AdminAction.payment:
+                        case AdminAction.suspend:
+                        case AdminAction.reactivate:
+                          onSubscription(a);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: AdminAction.extend,
+                        child: Text('تمديد التجربة'),
+                      ),
+                      const PopupMenuItem(
+                        value: AdminAction.payment,
+                        child: Text('تأكيد دفع اشتراك'),
+                      ),
+                      const PopupMenuItem(
+                        value: AdminAction.lifetime,
+                        child: Text('تفعيل دائم'),
+                      ),
+                      // One button for stopping and one for resuming, never both.
+                      if (row.status == 'blocked')
+                        const PopupMenuItem(
+                          value: AdminAction.reactivate,
+                          child: Text('إعادة التفعيل'),
+                        )
+                      else
+                        const PopupMenuItem(
+                          value: AdminAction.suspend,
+                          child: Text(
+                            'إيقاف الحساب',
+                            style: TextStyle(color: AppColors.negative),
+                          ),
+                        ),
+                      if (!isSelf)
+                        const PopupMenuItem(
+                          value: AdminAction.delete,
+                          child: Text(
+                            'حذف الحساب',
+                            style: TextStyle(color: AppColors.negative),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
               ],
             ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _Chip(label: statusLabel, color: statusColor),
+                if (row.isAdmin)
+                  const _Chip(label: 'مشرف', color: AppColors.accent),
+                if (row.licenseType == 'lifetime')
+                  const _Chip(label: 'دائمة', color: AppColors.positive),
+                if (row.trialEndsAt != null && row.status == 'trial')
+                  _Chip(
+                    label: 'حتى ${dateOnly.format(row.trialEndsAt!.toLocal())}',
+                    color: AppColors.textMid,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'انضم: ${dateOnly.format(row.createdAt.toLocal())}',
+              style: const TextStyle(color: AppColors.textLow, fontSize: 11),
+            ),
           ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _Chip(label: statusLabel, color: statusColor),
-              if (row.isAdmin)
-                const _Chip(label: 'مشرف', color: AppColors.accent),
-              if (row.licenseType == 'lifetime')
-                const _Chip(label: 'دائمة', color: AppColors.positive),
-              if (row.trialEndsAt != null && row.status == 'trial')
-                _Chip(
-                  label: 'حتى ${dateOnly.format(row.trialEndsAt!.toLocal())}',
-                  color: AppColors.textMid,
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'انضم: ${dateOnly.format(row.createdAt.toLocal())}',
-            style: const TextStyle(color: AppColors.textLow, fontSize: 11),
-          ),
         ],
       ),
     );
