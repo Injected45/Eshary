@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/creator_chip.dart';
@@ -24,6 +23,7 @@ import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart' show todayDate;
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
 enum HistoryKind { income, outgoing }
 
@@ -749,8 +749,8 @@ class _RecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('yyyy-MM-dd');
-    final tf = DateFormat('HH:mm');
+    final df = LibyaDateFormat('yyyy-MM-dd');
+    final tf = LibyaDateFormat('HH:mm');
     return Material(
       color: Colors.transparent,
       child: InkWell(

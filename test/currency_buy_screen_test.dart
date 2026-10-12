@@ -134,8 +134,8 @@ void main() {
     await tester.tap(find.text('الجهة المرسلة'));
     await tester.pumpAndSettle();
     expect(find.textContaining(blocked), findsOneWidget);
-    expect(find.textContaining('عليك استكمال بيانات حسابك أولاً'),
-        findsOneWidget);
+    expect(
+        find.textContaining('عليك استكمال بيانات حسابك أولاً'), findsOneWidget);
     expect(find.text(senderMarker), findsNothing);
   });
 
@@ -199,16 +199,16 @@ void main() {
     // the hint is the short word, centred in the box
     expect(find.text('الإشاري'), findsOneWidget);
     expect(find.text('أدخل الرقم الإشاري'), findsNothing);
-    expect(
-        (tester.getCenter(find.text('الإشاري')).dx - r.center.dx).abs(), lessThan(2));
-    expect(
-        (tester.getCenter(find.text('الإشاري')).dy - r.center.dy).abs(), lessThan(2));
+    expect((tester.getCenter(find.text('الإشاري')).dx - r.center.dx).abs(),
+        lessThan(2));
+    expect((tester.getCenter(find.text('الإشاري')).dy - r.center.dy).abs(),
+        lessThan(2));
 
     // typed text is centred
     await tester.enterText(value, '250');
     await tester.pumpAndSettle();
-    expect(
-        (tester.getCenter(find.text('250')).dx - v.center.dx).abs(), lessThan(2));
+    expect((tester.getCenter(find.text('250')).dx - v.center.dx).abs(),
+        lessThan(2));
   });
 
   group('auto-advance and the save button', () {

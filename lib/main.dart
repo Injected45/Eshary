@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'shared/app_lock.dart';
 import 'shared/background_alerts.dart';
 import 'shared/cache.dart';
 import 'shared/liquid_background.dart';
+import 'shared/screen_security.dart';
 import 'shared/logger.dart';
 
 Future<void> main() async {
@@ -40,6 +42,13 @@ Future<void> main() async {
   );
   final prefs = await SharedPreferences.getInstance();
   AppLogger.init(prefs);
+  // Whenever a session ends (sign-out, a deleted or blocked account, an expired
+  // refresh), what the phone remembered about that person goes with it.
+  Supabase.instance.client.auth.onAuthStateChange.listen((state) {
+    if (state.event == AuthChangeEvent.signedOut) {
+      unawaited(clearPrivateData(prefs));
+    }
+  });
   await BackgroundAlerts.instance.init();
 
   FlutterError.onError = (details) {
@@ -75,6 +84,15 @@ class _EsharyAppState extends ConsumerState<EsharyApp> {
   // Re-entrancy guard so a single 'blocked' transition does not call
   // signOut twice if the provider re-emits while the call is in flight.
   bool _signingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // the saved "no screenshots" choice is applied as soon as the window exists
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      applySecureScreen(ref.read(secureScreenProvider));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

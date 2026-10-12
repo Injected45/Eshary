@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
@@ -17,6 +16,7 @@ import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../transfers/domain/transfer.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import 'employee_auth_providers.dart';
+import '../../../shared/libya_time.dart';
 
 /// History screen shown to employees so they can review every transaction
 /// they have ever authored — both today's still-daily rows AND archived
@@ -389,7 +389,7 @@ class _TransferList extends ConsumerWidget {
     final exchangeNameById = <String, String>{
       for (final e in exchanges) e.id: e.name,
     };
-    final fmt = DateFormat('yyyy-MM-dd  HH:mm');
+    final fmt = LibyaDateFormat('yyyy-MM-dd  HH:mm');
     final companies = ref.watch(companiesListProvider).value ?? const <Company>[];
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
@@ -442,7 +442,7 @@ class _CurrencyBuyList extends ConsumerWidget {
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
     };
-    final fmt = DateFormat('yyyy-MM-dd  HH:mm');
+    final fmt = LibyaDateFormat('yyyy-MM-dd  HH:mm');
     return Column(
       children: [
         for (final b in rows)

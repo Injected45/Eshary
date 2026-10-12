@@ -61,9 +61,10 @@ void main() {
       final s = LicenseStatus.fromJson({
         'status': 'trial',
         'license_type': 'trial',
-        'trial_ends_at':
-            DateTime.now().toUtc().subtract(const Duration(hours: 1))
-                .toIso8601String(),
+        'trial_ends_at': DateTime.now()
+            .toUtc()
+            .subtract(const Duration(hours: 1))
+            .toIso8601String(),
         'is_valid': false,
       });
       expect(s.isValid, isFalse);
@@ -87,9 +88,10 @@ void main() {
       final s = LicenseStatus.fromJson({
         'status': 'expired',
         'license_type': 'trial',
-        'trial_ends_at':
-            DateTime.now().toUtc().subtract(const Duration(days: 1))
-                .toIso8601String(),
+        'trial_ends_at': DateTime.now()
+            .toUtc()
+            .subtract(const Duration(days: 1))
+            .toIso8601String(),
         'is_valid': false,
       });
       expect(s.status, 'expired');

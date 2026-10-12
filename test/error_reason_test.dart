@@ -21,7 +21,8 @@ void main() {
 
     test('a long reason is cut, a wrapper is stripped', () {
       final long = 'x' * 500;
-      final reason = compactReason(Exception('PostgrestException(message: $long)'));
+      final reason =
+          compactReason(Exception('PostgrestException(message: $long)'));
       expect(reason.length, lessThanOrEqualTo(141));
       expect(reason, startsWith('xxxx'));
       expect(compactReason(Exception('admin only')), 'admin only');
@@ -34,8 +35,10 @@ void main() {
     });
 
     test('known errors keep their own Arabic message (no raw text)', () {
-      expect(friendlyError(Exception('insufficient_balance')), isNot(contains('insufficient_balance')));
-      expect(friendlyError(Exception('cancel_day_passed')), isNot(contains('\n')));
+      expect(friendlyError(Exception('insufficient_balance')),
+          isNot(contains('insufficient_balance')));
+      expect(
+          friendlyError(Exception('cancel_day_passed')), isNot(contains('\n')));
     });
   });
 
@@ -51,10 +54,13 @@ void main() {
         .readAsStringSync();
     expect(sql, contains("set_config('eshary.restoring', 'on', true)"));
     expect(
-      RegExp(r"current_setting\('eshary\.restoring', true\)").allMatches(sql).length,
+      RegExp(r"current_setting\('eshary\.restoring', true\)")
+          .allMatches(sql)
+          .length,
       2,
       reason: 'both alert triggers check the flag',
     );
-    expect(sql, contains("set_config('eshary.skip_balance_check', 'on', true)"));
+    expect(
+        sql, contains("set_config('eshary.skip_balance_check', 'on', true)"));
   });
 }

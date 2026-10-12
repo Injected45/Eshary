@@ -18,7 +18,8 @@ AdminUserRow _row({required bool admin, String status = 'active'}) =>
     });
 
 void main() {
-  Future<void> show(WidgetTester tester, AdminUserRow row, {bool self = false}) async {
+  Future<void> show(WidgetTester tester, AdminUserRow row,
+      {bool self = false}) async {
     void noop() {}
     await tester.pumpWidget(
       MaterialApp(
@@ -58,7 +59,12 @@ void main() {
     expect(find.byType(PopupMenuButton<AdminAction>), findsOneWidget);
     await tester.tap(find.byType(PopupMenuButton<AdminAction>));
     await tester.pumpAndSettle();
-    for (final t in ['تمديد التجربة', 'تفعيل دائم', 'حذف الحساب', 'إيقاف الحساب']) {
+    for (final t in [
+      'تمديد التجربة',
+      'تفعيل دائم',
+      'حذف الحساب',
+      'إيقاف الحساب'
+    ]) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
   });

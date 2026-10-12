@@ -1,67 +1,52 @@
 package com.rahala.eshary
 
-import android.accounts.AccountManager
-import android.app.Activity
-import android.content.Intent
-import android.os.Build
+import android.provider.Settings
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.security.MessageDigest
 
 class MainActivity : FlutterFragmentActivity() {
-    private val channelName = "eshary/account_picker"
-    private val pickRequest = 4711
-    private var pending: MethodChannel.Result? = null
+    private val channelName = "eshary/device"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
-                if (call.method != "pickEmail") {
+                if (call.method == "setSecure") {
+                    // Block screenshots / screen recording and hide the app in
+                    // the recent-apps list (the user's choice in Settings).
+                    val on = call.arguments as? Boolean ?: false
+                    if (on) {
+                        window.setFlags(
+                            WindowManager.LayoutParams.FLAG_SECURE,
+                            WindowManager.LayoutParams.FLAG_SECURE,
+                        )
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                    result.success(null)
+                    return@setMethodCallHandler
+                }
+                if (call.method != "deviceKey") {
                     result.notImplemented()
                     return@setMethodCallHandler
                 }
-                if (pending != null) {
-                    result.error("busy", "a picker is already open", null)
-                    return@setMethodCallHandler
-                }
-                // Android's own account chooser: lists the e-mail (Google)
-                // accounts on this phone. No permission and no network needed.
-                val types = arrayOf("com.google")
-                val intent: Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    AccountManager.newChooseAccountIntent(
-                        null, null, types, null, null, null, null,
-                    )
+                // The key that binds an employee to one phone: a hash of the
+                // phone's Android ID (per app signing key and user), so two
+                // identical phones differ and the raw ID never leaves the phone.
+                val id = Settings.Secure.getString(
+                    contentResolver,
+                    Settings.Secure.ANDROID_ID,
+                )
+                if (id.isNullOrEmpty()) {
+                    result.success(null)
                 } else {
-                    @Suppress("DEPRECATION")
-                    AccountManager.newChooseAccountIntent(
-                        null, null, types, false, null, null, null, null,
-                    )
-                }
-                try {
-                    pending = result
-                    startActivityForResult(intent, pickRequest)
-                } catch (e: Exception) {
-                    pending = null
-                    result.error("unavailable", e.message, null)
+                    val bytes = MessageDigest.getInstance("SHA-256")
+                        .digest("eshary-device|$id".toByteArray(Charsets.UTF_8))
+                    result.success(bytes.joinToString("") { "%02x".format(it) }.take(40))
                 }
             }
-    }
-
-    @Deprecated("Activity result for the account chooser")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == pickRequest) {
-            val result = pending
-            pending = null
-            val email = if (resultCode == Activity.RESULT_OK) {
-                data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
-            } else {
-                null
-            }
-            result?.success(email) // null = the user closed the chooser
-            return
-        }
-        @Suppress("DEPRECATION")
-        super.onActivityResult(requestCode, resultCode, data)
     }
 }

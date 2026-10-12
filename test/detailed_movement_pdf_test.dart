@@ -85,7 +85,8 @@ void main() {
   });
 
   group('تفاصيل حركة الدخول والخروج', () {
-    final code = between('Future<Uint8List> buildDetailedTransfersReport', 'Future<Uint8List> buildAccountStatement');
+    final code = between('Future<Uint8List> buildDetailedTransfersReport',
+        'Future<Uint8List> buildAccountStatement');
 
     test('columns, in order', () {
       expect(titlesOf(code), [
@@ -128,14 +129,16 @@ void main() {
       expect(RegExp("'إجمالي الدخول'").allMatches(code).length, 1);
       expect(RegExp("'إجمالي الخروج'").allMatches(code).length, 1);
       expect(code, isNot(contains("'فرق الحركة'")));
-      expect(code.indexOf('_reportTable('), lessThan(code.indexOf('_statRow(')));
+      expect(
+          code.indexOf('_reportTable('), lessThan(code.indexOf('_statRow(')));
       expect(RegExp('_statRow\\(').allMatches(code).length, 1);
     });
   });
 
   group('حوالات الدخول إلى حساباتي / حوالات الخروج من حساباتي', () {
     // _buildKindReport is the last method of the extension
-    final kind = src.substring(src.indexOf('Future<Uint8List> _buildKindReport'));
+    final kind =
+        src.substring(src.indexOf('Future<Uint8List> _buildKindReport'));
 
     test('كود الحساب comes before حساباتي, and إشاري after it', () {
       final t = titlesOf(kind);
@@ -165,8 +168,10 @@ void main() {
     });
 
     test('both reports go through it and take the employee name', () {
-      final income = between('Future<Uint8List> buildIncomeDetailsReport', 'Future<Uint8List> buildOutgoingDetailsReport');
-      final outgoing = between('Future<Uint8List> buildOutgoingDetailsReport', 'Future<Uint8List> _buildKindReport');
+      final income = between('Future<Uint8List> buildIncomeDetailsReport',
+          'Future<Uint8List> buildOutgoingDetailsReport');
+      final outgoing = between('Future<Uint8List> buildOutgoingDetailsReport',
+          'Future<Uint8List> _buildKindReport');
       for (final c in [income, outgoing]) {
         expect(c, contains('_buildKindReport('));
         expect(c, contains('String? employeeName'));
@@ -181,7 +186,8 @@ void main() {
     });
 
     test('the period sits on the left edge of the page', () {
-      final header = between('pw.Widget _periodHeader(', 'pw.Widget _periodHeaderTop(');
+      final header =
+          between('pw.Widget _periodHeader(', 'pw.Widget _periodHeaderTop(');
       // the period is aligned physically left, and is the only place it is drawn
       final at = header.indexOf("'الفترة: \$period'");
       expect(at, greaterThan(0));
@@ -191,25 +197,29 @@ void main() {
 
     test('every table line is black (grey lines fade when printed)', () {
       final files = {
-        'lib/shared/pdf_export.dart': File('lib/shared/pdf_export.dart').readAsStringSync(),
+        'lib/shared/pdf_export.dart':
+            File('lib/shared/pdf_export.dart').readAsStringSync(),
         'lib/shared/pdf_export_period.dart': src,
       };
       var tables = 0;
       for (final e in files.entries) {
         // from "pw.Table(" to its column widths: the border definition
-        for (final m in RegExp(r'pw\.Table\(\s*border:[\s\S]*?columnWidths').allMatches(e.value)) {
+        for (final m in RegExp(r'pw\.Table\(\s*border:[\s\S]*?columnWidths')
+            .allMatches(e.value)) {
           tables++;
           expect(m.group(0), isNot(contains('grey')), reason: e.key);
           expect(m.group(0), contains('PdfColors.black'), reason: e.key);
         }
       }
-      expect(tables, 3, reason: 'daily exits, daily entries, shared report table');
+      expect(tables, 3,
+          reason: 'daily exits, daily entries, shared report table');
       // the single-record sheet writes its black lines down too
       expect(files['lib/shared/pdf_export.dart'],
           contains('border: pw.TableBorder.all(color: PdfColors.black)'));
     });
 
-    test('table text is black unless it is an entry (green) or an exit (red)', () {
+    test('table text is black unless it is an entry (green) or an exit (red)',
+        () {
       final cell = between('pw.Widget _reportCell(', 'pw.Widget _reportTable(');
       expect(cell, contains('color ?? PdfColors.black'));
     });
@@ -233,10 +243,15 @@ void main() {
     });
 
     test('the period reads "من … إلى …", never an arrow', () {
-      expect(periodLabel(DateTime(2026, 10, 8), DateTime(2026, 10, 8)), '2026/10/08');
+      expect(periodLabel(DateTime(2026, 10, 8), DateTime(2026, 10, 8)),
+          '2026/10/08');
       expect(periodLabel(DateTime(2026, 10, 8), DateTime(2026, 10, 10)),
           'من 2026/10/08 إلى 2026/10/10');
-      for (final f in ['lib/shared/pdf_export.dart', 'lib/shared/pdf_export_period.dart', 'lib/shared/period_label.dart']) {
+      for (final f in [
+        'lib/shared/pdf_export.dart',
+        'lib/shared/pdf_export_period.dart',
+        'lib/shared/period_label.dart'
+      ]) {
         expect(File(f).readAsStringSync(), isNot(contains('→ \${')), reason: f);
       }
     });
@@ -253,7 +268,8 @@ void main() {
         final lines = File(f).readAsLinesSync();
         final bad = <String>[];
         for (var i = 0; i < lines.length; i++) {
-          if (lines[i].contains(r'\${')) bad.add('${i + 1}: ${lines[i].trim()}');
+          if (lines[i].contains(r'\${'))
+            bad.add('${i + 1}: ${lines[i].trim()}');
         }
         expect(bad, isEmpty, reason: bad.join('\n'));
       });

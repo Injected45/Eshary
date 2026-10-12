@@ -4,11 +4,16 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart'
     hide NotificationVisibility;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../core/build_flavor.dart';
 import 'logger.dart';
 
-/// Keeps the app alive in the background (Android foreground service) and
-/// shows a system notification — heads-up banner plus the default sound —
-/// when something arrives while the app is not on screen.
+/// Shows a system notification — heads-up banner plus the default sound —
+/// when something arrives while the app is not on screen, and (direct APK
+/// only) keeps the app alive in the background with an Android foreground
+/// service. The Google Play build ([kPlayBuild]) has no such service and no
+/// battery-optimisation exemption: Google Play restricts both. There, alerts
+/// arrive while the app is open or still alive in the background; push alerts
+/// for a closed app need Firebase Cloud Messaging.
 ///
 /// No Firebase / push server: the app's own connection (Realtime + 5 s poll,
 /// see realtime_sync.dart) keeps running because the foreground service stops
@@ -31,6 +36,9 @@ class BackgroundAlerts {
   bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
+  /// The always-on foreground service: the direct APK only.
+  bool get serviceEnabled => supported && !kPlayBuild;
+
   /// True when the app is not the screen the user is looking at.
   bool get inBackground {
     final s = WidgetsBinding.instance.lifecycleState;
@@ -41,7 +49,7 @@ class BackgroundAlerts {
   Future<void> init() async {
     if (!supported || _ready) return;
     try {
-      FlutterForegroundTask.initCommunicationPort();
+      if (serviceEnabled) FlutterForegroundTask.initCommunicationPort();
       await _plugin.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings(_icon),
@@ -60,25 +68,27 @@ class BackgroundAlerts {
           enableVibration: true,
         ),
       );
-      FlutterForegroundTask.init(
-        androidNotificationOptions: AndroidNotificationOptions(
-          channelId: 'eshary_background',
-          channelName: 'التشغيل في الخلفية',
-          channelDescription:
-              'يبقي التطبيق متصلاً لاستقبال الإشعارات والتنبيه بصوت.',
-          onlyAlertOnce: true,
-        ),
-        iosNotificationOptions: const IOSNotificationOptions(
-          showNotification: false,
-          playSound: false,
-        ),
-        foregroundTaskOptions: ForegroundTaskOptions(
-          eventAction: ForegroundTaskEventAction.nothing(),
-          autoRunOnBoot: false,
-          allowWakeLock: true,
-          allowWifiLock: true,
-        ),
-      );
+      if (serviceEnabled) {
+        FlutterForegroundTask.init(
+          androidNotificationOptions: AndroidNotificationOptions(
+            channelId: 'eshary_background',
+            channelName: 'التشغيل في الخلفية',
+            channelDescription:
+                'يبقي التطبيق متصلاً لاستقبال الإشعارات والتنبيه بصوت.',
+            onlyAlertOnce: true,
+          ),
+          iosNotificationOptions: const IOSNotificationOptions(
+            showNotification: false,
+            playSound: false,
+          ),
+          foregroundTaskOptions: ForegroundTaskOptions(
+            eventAction: ForegroundTaskEventAction.nothing(),
+            autoRunOnBoot: false,
+            allowWakeLock: true,
+            allowWifiLock: true,
+          ),
+        );
+      }
       _ready = true;
     } catch (e, st) {
       AppLogger.error('[bg] init failed', e, st);
@@ -94,6 +104,9 @@ class BackgroundAlerts {
           AndroidFlutterLocalNotificationsPlugin>();
       // Android 13+: notifications need a runtime permission.
       await android?.requestNotificationsPermission();
+
+      // Google Play build: notifications only, no service, no battery exemption.
+      if (!serviceEnabled) return;
 
       if (!await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
         await FlutterForegroundTask.requestIgnoreBatteryOptimization();
@@ -114,7 +127,7 @@ class BackgroundAlerts {
 
   /// Stop the service (sign-out), so no notification stays behind.
   Future<void> stop() async {
-    if (!supported || !_ready) return;
+    if (!serviceEnabled || !_ready) return;
     try {
       if (await FlutterForegroundTask.isRunningService) {
         await FlutterForegroundTask.stopService();

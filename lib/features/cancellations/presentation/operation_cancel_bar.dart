@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../domain/cancellation.dart';
 import 'cancel_operation_dialog.dart';
 import 'cancellations_providers.dart';
+import '../../../shared/libya_time.dart';
 
 /// The bottom of an operation's details page:
 ///   * cancelled → a purple "عملية ملغاة" banner;
@@ -37,7 +37,7 @@ class OperationCancelBar extends ConsumerWidget {
     if (cancelledAt != null) {
       return _Banner(
         text: 'عملية ملغاة — '
-            '${DateFormat('yyyy/MM/dd  HH:mm').format(cancelledAt!.toLocal())}\n'
+            '${LibyaDateFormat('yyyy/MM/dd  HH:mm').format(cancelledAt!.toLocal())}\n'
             'أُعيد الرصيد بقيد عكسي.',
       );
     }

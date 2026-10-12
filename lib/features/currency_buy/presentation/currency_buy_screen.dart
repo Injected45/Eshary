@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -36,6 +35,7 @@ import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
 enum _PendingBuyKind { pending, execute }
 
@@ -1480,7 +1480,7 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
     final companyById = <String, String>{
       for (final c in (companies.value ?? const <Company>[])) c.id: c.name,
     };
-    final tf = DateFormat('HH:mm');
+    final tf = LibyaDateFormat('HH:mm');
     String fmt(DateTime t) => tf.format(_tripoliTime(t));
     final visible = widget.rows
         .where((b) => creatorPasses(_filter, b.createdByEmployeeId))

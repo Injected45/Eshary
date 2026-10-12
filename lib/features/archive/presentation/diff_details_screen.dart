@@ -2,7 +2,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/creator_filter.dart';
@@ -27,6 +26,7 @@ import '../../transfers/presentation/transfers_providers.dart';
 import '../../../core/supabase_provider.dart';
 import 'archive_filters.dart';
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
 class DiffDetailsScreen extends ConsumerStatefulWidget {
   const DiffDetailsScreen({
@@ -346,19 +346,19 @@ List<_Bucket> _bucketize({
   final List<_Bucket> buckets = [];
   if (mode == DateFilterMode.today || spanDays <= 1) {
     final base = DateTime(start.year, start.month, start.day);
-    final hourFmt = DateFormat('HH:mm');
+    final hourFmt = LibyaDateFormat('HH:mm');
     for (var h = 0; h < 24; h += 2) {
       final t = base.add(Duration(hours: h));
       buckets.add(_Bucket(hourFmt.format(t), t, 0, 0));
     }
   } else if (spanDays <= 14) {
-    final dayFmt = DateFormat('MM/dd');
+    final dayFmt = LibyaDateFormat('MM/dd');
     for (var d = 0; d < spanDays; d++) {
       final t = DateTime(start.year, start.month, start.day + d);
       buckets.add(_Bucket(dayFmt.format(t), t, 0, 0));
     }
   } else {
-    final dayFmt = DateFormat('MM/dd');
+    final dayFmt = LibyaDateFormat('MM/dd');
     var cursor = DateTime(start.year, start.month, start.day);
     while (!cursor.isAfter(end)) {
       buckets.add(_Bucket(dayFmt.format(cursor), cursor, 0, 0));
@@ -1037,8 +1037,8 @@ class _OperationsTable extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rows = _buildRows(context, ref);
-    final tf = DateFormat('HH:mm');
-    final df = DateFormat('yyyy/MM/dd');
+    final tf = LibyaDateFormat('HH:mm');
+    final df = LibyaDateFormat('yyyy/MM/dd');
     return GlassCard(
       padding: EdgeInsets.zero,
       child: Theme(

@@ -27,8 +27,7 @@ Future<void> _open(WidgetTester tester, EmployeeIdentity? identity) async {
     ProviderScope(
       overrides: [
         currentEmployeeProvider.overrideWith((ref) async => identity),
-        archivedBuysProvider
-            .overrideWith((ref) async => const <CurrencyBuy>[]),
+        archivedBuysProvider.overrideWith((ref) async => const <CurrencyBuy>[]),
         archivedTransfersProvider
             .overrideWith((ref) async => const <Transfer>[]),
       ],
@@ -75,7 +74,10 @@ void main() {
 
   testWidgets('full closings permission and the admin see both types',
       (tester) async {
-    for (final id in [_employee(['closings_all']), null]) {
+    for (final id in [
+      _employee(['closings_all']),
+      null
+    ]) {
       await _open(tester, id);
       expect(find.textContaining('إجمالي الدخول'), findsOneWidget);
       expect(find.textContaining('إجمالي الخروج'), findsOneWidget);

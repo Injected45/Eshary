@@ -144,6 +144,16 @@ class _TrialLoginScreenState extends ConsumerState<TrialLoginScreen> {
           ),
           const SizedBox(height: 22),
           PhoneInput(enabled: !_sent && !_busy, onChanged: (v) => _phone = v),
+          if (_sent) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'إن كان هذا الرقم مسجّلاً لدينا فسيصله رمز على واتساب خلال لحظات.',
+              textAlign: TextAlign.center,
+              key: ValueKey('login-generic-note'),
+              style: TextStyle(
+                  color: AppColors.textLow, fontSize: 12, height: 1.6),
+            ),
+          ],
           if (!_sent) ...[
             const SizedBox(height: 18),
             FilledButton(

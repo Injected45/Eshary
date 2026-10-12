@@ -2,64 +2,95 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../shared/cache.dart';
 
-/// Stable per-install device identifier used to bind a sub_user to a single
-/// device on first login (Phase 2 of the Employee Management module).
+/// The key that binds an employee to ONE phone.
 ///
-/// Strategy:
-///   1. Try the OS-provided identifier (Android `id`, iOS `identifierForVendor`,
-///      Windows `deviceId`, etc.) — survives app reinstalls on most platforms.
-///   2. Fall back to a one-time generated UUID stored in SharedPreferences
-///      so platforms without a usable system ID still get a stable value.
-///   3. Cache the resolved ID in SharedPreferences under [_kCacheKey] so the
-///      first login and subsequent logins always present the same value.
+/// The key is "NEW" or "NEW~OLD":
+///   * NEW  a hash of this phone's own Android ID (never the raw ID), made in
+///          the native side. Two identical phones have different keys. When the
+///          native value is unavailable (other platforms, a failure) a random
+///          id made once and kept on the phone is used instead.
+///   * OLD  the key the previous versions of the app used (the Android build id,
+///          the same on every phone of one model). It is offered only so that
+///          an employee bound under the old key is moved to the new one at the
+///          next sign-in without an administrator resetting anything; the server
+///          accepts it for that one move (migration 0065).
 class DeviceIdService {
-  DeviceIdService(this._prefs);
+  DeviceIdService(this._prefs, {Future<String?> Function()? nativeKey})
+      : _nativeKey = nativeKey ?? _androidKey;
 
   final SharedPreferences _prefs;
-  static const _kCacheKey = 'eshary.device_id.v1';
+  final Future<String?> Function() _nativeKey;
 
-  Future<String> get() async {
-    final cached = _prefs.getString(_kCacheKey);
-    if (cached != null && cached.isNotEmpty) return cached;
+  /// What versions before this one cached.
+  static const _kLegacyKey = 'eshary.device_id.v1';
 
-    final resolved = await _resolveFromPlatform();
-    final id = (resolved != null && resolved.isNotEmpty)
-        ? resolved
-        : _generateFallback();
-    await _prefs.setString(_kCacheKey, id);
-    return id;
+  /// The new key, cached so it is the same at every sign-in.
+  static const _kNewKey = 'eshary.device_id.v2';
+
+  static const _channel = MethodChannel('eshary/device');
+
+  static Future<String?> _androidKey() async {
+    if (!Platform.isAndroid) return null;
+    try {
+      final k = await _channel.invokeMethod<String>('deviceKey');
+      return (k == null || k.isEmpty) ? null : k;
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<String?> _resolveFromPlatform() async {
+  Future<String> get() async {
+    var fresh = _prefs.getString(_kNewKey);
+    if (fresh == null || fresh.isEmpty) {
+      fresh = await _nativeKey() ??
+          await _resolveOtherPlatforms() ??
+          _generateFallback();
+      await _prefs.setString(_kNewKey, fresh);
+    }
+    final old = await _legacy();
+    return (old != null && old.isNotEmpty && old != fresh)
+        ? '$fresh~$old'
+        : fresh;
+  }
+
+  /// The key an older version stored (or would have computed on this phone).
+  Future<String?> _legacy() async {
+    final cached = _prefs.getString(_kLegacyKey);
+    if (cached != null && cached.isNotEmpty) return cached;
     try {
-      final info = DeviceInfoPlugin();
       if (Platform.isAndroid) {
-        final a = await info.androidInfo;
-        return a.id.isNotEmpty ? a.id : null;
-      }
-      if (Platform.isIOS) {
-        final i = await info.iosInfo;
-        return i.identifierForVendor;
-      }
-      if (Platform.isWindows) {
-        final w = await info.windowsInfo;
-        return w.deviceId;
-      }
-      if (Platform.isMacOS) {
-        final m = await info.macOsInfo;
-        return m.systemGUID;
-      }
-      if (Platform.isLinux) {
-        final l = await info.linuxInfo;
-        return l.machineId;
+        final id = (await DeviceInfoPlugin().androidInfo).id;
+        return id.isNotEmpty ? id : null;
       }
     } catch (_) {
-      // Fall through to UUID fallback.
+      // no old key to offer
+    }
+    return null;
+  }
+
+  Future<String?> _resolveOtherPlatforms() async {
+    try {
+      final info = DeviceInfoPlugin();
+      if (Platform.isIOS) {
+        return (await info.iosInfo).identifierForVendor;
+      }
+      if (Platform.isWindows) {
+        return (await info.windowsInfo).deviceId;
+      }
+      if (Platform.isMacOS) {
+        return (await info.macOsInfo).systemGUID;
+      }
+      if (Platform.isLinux) {
+        return (await info.linuxInfo).machineId;
+      }
+    } catch (_) {
+      // fall through to the random id
     }
     return null;
   }

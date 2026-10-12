@@ -422,8 +422,8 @@ extension PeriodReports on PdfExport {
     String? employeeName,
   }) async {
     final doc = pw.Document(theme: _theme);
-    final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('HH:mm');
+    final dayFmt = _LibyaFmt('yyyy/MM/dd');
+    final timeFmt = _LibyaFmt('HH:mm');
 
     final ops = <_DetailedOp>[];
     for (final b in buys) {
@@ -613,8 +613,8 @@ extension PeriodReports on PdfExport {
     String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
-    final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('HH:mm');
+    final dayFmt = _LibyaFmt('yyyy/MM/dd');
+    final timeFmt = _LibyaFmt('HH:mm');
     final exportedAtTime = DateTime.now();
     final logo = await _loadLogo();
     final header = _periodHeader(
@@ -856,8 +856,8 @@ extension PeriodReports on PdfExport {
     String? employeeName,
   }) async {
     final doc = pw.Document(theme: _theme);
-    final dayFmt = DateFormat('yyyy/MM/dd');
-    final timeFmt = DateFormat('HH:mm');
+    final dayFmt = _LibyaFmt('yyyy/MM/dd');
+    final timeFmt = _LibyaFmt('HH:mm');
     final sorted = [...rows]..sort((a, b) => a.t.compareTo(b.t));
 
     final exportedAtTime = DateTime.now();
@@ -973,7 +973,7 @@ extension PeriodReports on PdfExport {
     String? notificationText,
   }) async {
     final doc = pw.Document(theme: _theme);
-    final stampFmt = DateFormat('yyyy/MM/dd HH:mm');
+    final stampFmt = _LibyaFmt('yyyy/MM/dd HH:mm');
     final sorted = [...rows]
       ..sort((a, b) => a.cancelledAt.compareTo(b.cancelledAt));
 

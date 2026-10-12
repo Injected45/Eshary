@@ -224,8 +224,7 @@ void main() {
     for (final f in Directory('lib').listSync(recursive: true)) {
       if (f is! File || !f.path.endsWith('.dart')) continue;
       final src = f.readAsStringSync().replaceAll('\r\n', '\n');
-      for (final m
-          in RegExp(r'\.when\(\n([^\n]*)\n([^\n]*)').allMatches(src)) {
+      for (final m in RegExp(r'\.when\(\n([^\n]*)\n([^\n]*)').allMatches(src)) {
         if (!m.group(1)!.contains('skipLoadingOnReload: true') ||
             !m.group(2)!.contains('skipError: true')) {
           offenders.add('${f.path}: ${m.group(0)}');

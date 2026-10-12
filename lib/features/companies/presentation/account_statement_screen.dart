@@ -21,6 +21,7 @@ import '../domain/exchange.dart';
 import 'account_statement_providers.dart';
 import 'companies_providers.dart';
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
 /// "كشف حساب": a short statement — دخول | خروج | الرصيد — that the admin can
 /// cut by who did the operations (everyone, the admin, one employee), by
@@ -44,8 +45,8 @@ class _AccountStatementScreenState
   String? _exchangeId;
   bool _exporting = false;
 
-  static final _dateFmt = DateFormat('yyyy/MM/dd');
-  static final _timeFmt = DateFormat('HH:mm');
+  static final _dateFmt = LibyaDateFormat('yyyy/MM/dd');
+  static final _timeFmt = LibyaDateFormat('HH:mm');
 
   bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 

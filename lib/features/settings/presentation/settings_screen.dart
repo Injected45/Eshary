@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../../shared/app_lock.dart';
 import '../../../shared/visual_mode.dart';
 import '../../../shared/audio_feedback.dart';
+import '../../../shared/screen_security.dart';
 import '../../../shared/cache.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
@@ -53,7 +54,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
           if (!isAdmin &&
-              Supabase.instance.client.auth.currentUser?.isAnonymous != true) ...[
+              Supabase.instance.client.auth.currentUser?.isAnonymous !=
+                  true) ...[
             const SizedBox(height: 12),
             _SettingsRow(
               icon: FontAwesomeIcons.crown,
@@ -65,6 +67,27 @@ class SettingsScreen extends ConsumerWidget {
           const _AppLockRow(),
           const SizedBox(height: 12),
           const _VisualModeRow(),
+          const SizedBox(height: 12),
+          const _SecureScreenRow(),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.shieldHalved,
+            title: 'سياسة الخصوصية',
+            onTap: () => context.push('/privacy'),
+          ),
+          // A subscriber can delete their own account (Google Play requires it
+          // inside the app). The platform administrator's account is permanent
+          // and an employee's account is removed by the owner.
+          if (!isAdmin &&
+              Supabase.instance.client.auth.currentUser?.isAnonymous !=
+                  true) ...[
+            const SizedBox(height: 12),
+            _SettingsRow(
+              icon: FontAwesomeIcons.userXmark,
+              title: 'حذف حسابي',
+              onTap: () => context.push('/delete-account'),
+            ),
+          ],
           if (isAdmin) ...[
             const SizedBox(height: 12),
             _SettingsRow(
@@ -354,7 +377,8 @@ class _AppLockRow extends ConsumerWidget {
                 showTopSnackBar(
                   context,
                   const SnackBar(
-                    content: Text('فعّل بصمة أو قفل شاشة في إعدادات الهاتف أولاً.'),
+                    content:
+                        Text('فعّل بصمة أو قفل شاشة في إعدادات الهاتف أولاً.'),
                   ),
                 );
               }
@@ -365,6 +389,36 @@ class _AppLockRow extends ConsumerWidget {
           }
           await ref.read(appLockEnabledProvider.notifier).set(v);
         },
+      ),
+    );
+  }
+}
+
+/// "منع لقطات الشاشة": blocks screenshots and recording and hides the app in the
+/// recent-apps list. Off by default.
+class _SecureScreenRow extends ConsumerWidget {
+  const _SecureScreenRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(secureScreenProvider);
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: SwitchListTile(
+        key: const ValueKey('secure-screen-switch'),
+        contentPadding: EdgeInsets.zero,
+        secondary: const FaIcon(
+          FontAwesomeIcons.eyeSlash,
+          size: 18,
+          color: AppColors.accent,
+        ),
+        title: const Text('منع لقطات الشاشة'),
+        subtitle: const Text(
+          'يحمي أرقامك من التصوير ويخفي التطبيق في قائمة التطبيقات الأخيرة',
+          style: TextStyle(fontSize: 11.5, color: AppColors.textLow),
+        ),
+        value: on,
+        onChanged: (v) => ref.read(secureScreenProvider.notifier).set(v),
       ),
     );
   }
@@ -485,8 +539,7 @@ class _ModeChoice extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: selected ? AppColors.accent : AppColors.textMid,
-                  fontWeight:
-                      selected ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),

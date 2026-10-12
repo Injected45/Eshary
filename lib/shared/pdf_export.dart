@@ -13,6 +13,7 @@ import '../features/companies/domain/exchange.dart';
 import '../features/currency_buy/domain/currency_buy.dart';
 import '../features/transfers/domain/transfer.dart';
 import 'formatters.dart';
+import 'libya_time.dart';
 import 'ledger.dart';
 import 'period_label.dart';
 
@@ -79,9 +80,40 @@ class _ArText extends pw.Text {
   }
 }
 
-/// A colon between digits (a clock: 02:14) is drawn bigger and bold, so it
-/// stays clear in the small table text. Anything else is an ordinary
-/// [_ArText]. Used by every report cell and by the export footer.
+/// Times in Libya time, 24-hour, drawn so they are always right:
+///  - the hour, the colon and the minutes sit in one LEFT-TO-RIGHT group, so the
+///    reading is "04:55" and never "55:04" (inside right-to-left text the three
+///    pieces would swap places);
+///  - the colon is bold, the same size as the digits, with a small even gap on
+///    each side.
+/// A string without a clock is an ordinary [_ArText].
+final _clockRe = RegExp(r'\d{1,2}:\d{2}');
+
+pw.Widget _clockGroup(String hhmm, pw.TextStyle style) {
+  final parts = hhmm.split(':');
+  final size = style.fontSize ?? 8;
+  final gap = pw.SizedBox(width: size * 0.12);
+  pw.Widget piece(String t, pw.TextStyle st) => _ArText(
+        t,
+        style: st,
+        textDirection: pw.TextDirection.ltr,
+      );
+  return pw.Directionality(
+    textDirection: pw.TextDirection.ltr,
+    child: pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        piece(parts[0].padLeft(2, '0'), style),
+        gap,
+        piece(':', style.copyWith(fontWeight: pw.FontWeight.bold)),
+        gap,
+        piece(parts[1], style),
+      ],
+    ),
+  );
+}
+
 pw.Widget _clockText(
   String text, {
   required pw.TextStyle style,
@@ -89,8 +121,7 @@ pw.Widget _clockText(
   pw.TextAlign? textAlign,
   bool? softWrap,
 }) {
-  final clock = RegExp(r'(?<=\d):(?=\d)');
-  if (!clock.hasMatch(text)) {
+  if (!_clockRe.hasMatch(text)) {
     return _ArText(
       text,
       style: style,
@@ -99,25 +130,61 @@ pw.Widget _clockText(
       softWrap: softWrap,
     );
   }
-  final base = _ArText._withYehFont(style) ?? style;
-  final colon = base.copyWith(
-    fontSize: (style.fontSize ?? 8) + 4,
-    fontWeight: pw.FontWeight.bold,
+  final size = style.fontSize ?? 8;
+  pw.Widget line(String l) {
+    final whole = RegExp(r'^\s*(\d{1,2}:\d{2})\s*$').firstMatch(l);
+    if (whole != null) return _clockGroup(whole.group(1)!, style);
+    if (!_clockRe.hasMatch(l)) {
+      return _ArText(
+        l,
+        style: style,
+        textDirection: textDirection,
+        textAlign: textAlign,
+        softWrap: softWrap,
+      );
+    }
+    // a sentence with a clock inside: text pieces and clock groups, in
+    // reading order (right to left)
+    final pieces = <pw.Widget>[];
+    var at = 0;
+    for (final m in _clockRe.allMatches(l)) {
+      final before = l.substring(at, m.start).trim();
+      if (before.isNotEmpty) {
+        pieces.add(
+            _ArText(before, style: style, textDirection: pw.TextDirection.rtl));
+        pieces.add(pw.SizedBox(width: size * 0.7));
+      }
+      pieces.add(_clockGroup(m.group(0)!, style));
+      at = m.end;
+    }
+    final rest = l.substring(at).trim();
+    if (rest.isNotEmpty) {
+      pieces.add(pw.SizedBox(width: size * 0.7));
+      pieces.add(
+          _ArText(rest, style: style, textDirection: pw.TextDirection.rtl));
+    }
+    return pw.Directionality(
+      textDirection: pw.TextDirection.rtl,
+      child: pw.Row(
+        mainAxisSize: pw.MainAxisSize.min,
+        children: pieces,
+      ),
+    );
+  }
+
+  final lines = text.split('\n');
+  if (lines.length == 1) return line(text);
+  return pw.Column(
+    mainAxisSize: pw.MainAxisSize.min,
+    children: [for (final l in lines) line(l)],
   );
-  final parts = text.split(clock);
-  return pw.RichText(
-    text: pw.TextSpan(
-      children: [
-        for (var i = 0; i < parts.length; i++) ...[
-          pw.TextSpan(text: fixIsolatedYeh(parts[i]), style: base),
-          if (i < parts.length - 1) pw.TextSpan(text: ':', style: colon),
-        ],
-      ],
-    ),
-    textDirection: textDirection,
-    textAlign: textAlign ?? pw.TextAlign.start,
-    softWrap: softWrap ?? true,
-  );
+}
+
+/// A [DateFormat] that first moves the moment to Libya time (see [libyaTime]).
+class _LibyaFmt {
+  _LibyaFmt(String pattern) : _f = DateFormat(pattern);
+  final DateFormat _f;
+  String format(DateTime t) => _f.format(libyaTime(t));
 }
 
 /// The LAST line of every printed page: when the report was exported and by
@@ -126,7 +193,7 @@ pw.Widget _clockText(
 /// full or nearly empty) and at the foot of the single-page layouts.
 pw.Widget _exportFooter({required DateTime at, String? by}) {
   final name = (by ?? '').trim().isEmpty ? 'admin' : by!.trim();
-  final when = DateFormat('yyyy-MM-dd | HH:mm').format(at);
+  final when = DateFormat('yyyy-MM-dd | HH:mm').format(libyaTime(at));
   return pw.Container(
     width: double.infinity,
     alignment: pw.Alignment.center,
@@ -214,8 +281,7 @@ class PdfExport {
     } catch (_) {
       logoBytes = null;
     }
-    final logoImage =
-        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+    final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     doc.addPage(
       // MultiPage: the export line is its footer, painted on the bottom margin
@@ -226,60 +292,59 @@ class PdfExport {
         textDirection: pw.TextDirection.rtl,
         footer: (ctx) => _exportFooter(at: exportedAtTime, by: exportedBy),
         build: (context) => [
-            pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                if (logoImage != null)
-                  pw.Container(
-                    height: 44,
-                    width: 44,
-                    margin: const pw.EdgeInsets.only(right: 8),
-                    child: pw.Image(logoImage, fit: pw.BoxFit.contain),
-                  ),
-                pw.Expanded(
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                    children: [
-                      _ArText(
-                        title,
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                        textDirection: pw.TextDirection.rtl,
-                      ),
-                    ],
-                  ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (logoImage != null)
+                pw.Container(
+                  height: 44,
+                  width: 44,
+                  margin: const pw.EdgeInsets.only(right: 8),
+                  child: pw.Image(logoImage, fit: pw.BoxFit.contain),
                 ),
-                if (notificationText != null &&
-                    notificationText.trim().isNotEmpty)
-                  _notificationBox(notificationText.trim())
-                else if (logoImage != null)
-                  pw.SizedBox(width: 52),
-              ],
-            ),
-            pw.Divider(),
-            pw.TableHelper.fromTextArray(
-              border: pw.TableBorder.all(color: PdfColors.black),
-              headers: [for (final h in headers) fixIsolatedYeh(h)],
-              data: [
-                for (final row in dataRows)
-                  [for (final c in row) fixIsolatedYeh(c)],
-              ],
-              headerStyle: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 11,
-                color: PdfColors.black,
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                  children: [
+                    _ArText(
+                      title,
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  ],
+                ),
               ),
-              headerDecoration:
-                  const pw.BoxDecoration(color: PdfColors.grey200),
-              cellStyle: const pw.TextStyle(
-                fontSize: 10,
-                color: PdfColors.black,
-              ),
-              cellAlignment: pw.Alignment.centerRight,
-              cellPadding: const pw.EdgeInsets.all(4),
+              if (notificationText != null &&
+                  notificationText.trim().isNotEmpty)
+                _notificationBox(notificationText.trim())
+              else if (logoImage != null)
+                pw.SizedBox(width: 52),
+            ],
+          ),
+          pw.Divider(),
+          pw.TableHelper.fromTextArray(
+            border: pw.TableBorder.all(color: PdfColors.black),
+            headers: [for (final h in headers) fixIsolatedYeh(h)],
+            data: [
+              for (final row in dataRows)
+                [for (final c in row) fixIsolatedYeh(c)],
+            ],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 11,
+              color: PdfColors.black,
             ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            cellStyle: const pw.TextStyle(
+              fontSize: 10,
+              color: PdfColors.black,
+            ),
+            cellAlignment: pw.Alignment.centerRight,
+            cellPadding: const pw.EdgeInsets.all(4),
+          ),
         ],
       ),
     );
@@ -309,8 +374,7 @@ class PdfExport {
     } catch (_) {
       logoBytes = null;
     }
-    final logoImage =
-        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+    final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     pw.Widget headerSection() => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -474,8 +538,7 @@ class PdfExport {
             text,
             style: pw.TextStyle(
               fontSize: header ? 11 : 10,
-              fontWeight:
-                  header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
               color: PdfColors.black,
             ),
             textDirection: pw.TextDirection.rtl,
@@ -681,8 +744,7 @@ class PdfExport {
     } catch (_) {
       logoBytes = null;
     }
-    final logoImage =
-        logoBytes != null ? pw.MemoryImage(logoBytes) : null;
+    final logoImage = logoBytes != null ? pw.MemoryImage(logoBytes) : null;
 
     pw.Widget headerSection() => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -852,8 +914,7 @@ class PdfExport {
             text,
             style: pw.TextStyle(
               fontSize: header ? 11 : 10,
-              fontWeight:
-                  header ? pw.FontWeight.bold : pw.FontWeight.normal,
+              fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
               color: PdfColors.black,
             ),
             textDirection: pw.TextDirection.rtl,

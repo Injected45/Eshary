@@ -20,8 +20,13 @@ import 'package:flutter_test/flutter_test.dart';
 final _day = DateTime(2026, 10, 8);
 DateTime _at(int h, [int m = 0]) => DateTime(2026, 10, 8, h, m);
 
-CurrencyBuy _buy(String id, double usd, DateTime at,
-        {DateTime? cancelledAt, String? by,}) =>
+CurrencyBuy _buy(
+  String id,
+  double usd,
+  DateTime at, {
+  DateTime? cancelledAt,
+  String? by,
+}) =>
     CurrencyBuy(
       id: id,
       ownerId: 'o',
@@ -40,8 +45,13 @@ CurrencyBuy _buy(String id, double usd, DateTime at,
       cancelledAt: cancelledAt,
     );
 
-Transfer _out(String id, double amount, DateTime at,
-        {DateTime? cancelledAt, String? by,}) =>
+Transfer _out(
+  String id,
+  double amount,
+  DateTime at, {
+  DateTime? cancelledAt,
+  String? by,
+}) =>
     Transfer(
       id: id,
       ownerId: 'o',
@@ -273,8 +283,10 @@ void main() {
         });
 
     test('kinds are read', () {
-      expect(alert('cancel_request_transfer').kind,
-          AlertKind.cancelRequestTransfer,);
+      expect(
+        alert('cancel_request_transfer').kind,
+        AlertKind.cancelRequestTransfer,
+      );
       expect(alert('cancel_request_buy').kind, AlertKind.cancelRequestBuy);
       expect(alert('cancel_request_transfer').isExit, isTrue);
       expect(alert('cancel_request_buy').isExit, isFalse);
@@ -339,7 +351,8 @@ void main() {
       }
     });
 
-    test('purple for both sides, and cancelled rows left out of kind totals', () {
+    test('purple for both sides, and cancelled rows left out of kind totals',
+        () {
       final src = File('lib/shared/pdf_export_period.dart').readAsStringSync();
       expect(src, contains('const _cancelledColor = PdfColors.purple700;'));
       expect(src, contains('op.reversalAt('));
@@ -530,7 +543,8 @@ void main() {
     });
 
     test('the details page carries the cancel bar for both kinds', () {
-      final src = File('lib/shared/transaction_details.dart').readAsStringSync();
+      final src =
+          File('lib/shared/transaction_details.dart').readAsStringSync();
       expect('OperationCancelBar('.allMatches(src).length, 2);
     });
 
@@ -540,8 +554,12 @@ void main() {
           File('supabase/migrations/0048_cancellations.sql').readAsStringSync();
       expect(sql, contains('drop policy if exists transfers_delete_own'));
       expect(sql, contains('drop policy if exists currency_buys_update_own'));
-      expect(sql, contains(
-          'revoke insert, update, delete on operation_cancellations from authenticated',),);
+      expect(
+        sql,
+        contains(
+          'revoke insert, update, delete on operation_cancellations from authenticated',
+        ),
+      );
       expect(sql, contains("at time zone 'Africa/Tripoli'"));
       expect(sql, contains('crypt(p_password, v_hash)'));
     });

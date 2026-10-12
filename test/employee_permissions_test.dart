@@ -86,11 +86,14 @@ void main() {
         ),
       );
 
-      expect(find.byType(SwitchListTile), findsNWidgets(kEmployeePermissions.length));
-      final switches = t.widgetList<SwitchListTile>(find.byType(SwitchListTile));
+      expect(find.byType(SwitchListTile),
+          findsNWidgets(kEmployeePermissions.length));
+      final switches =
+          t.widgetList<SwitchListTile>(find.byType(SwitchListTile));
       expect(switches.every((s) => !s.value), isTrue);
 
-      FilledButton save() => t.widget<FilledButton>(find.widgetWithText(FilledButton, 'حفظ'));
+      FilledButton save() =>
+          t.widget<FilledButton>(find.widgetWithText(FilledButton, 'حفظ'));
       expect(save().onPressed, isNull, reason: 'nothing changed yet');
 
       await t.tap(find.byType(SwitchListTile).first);

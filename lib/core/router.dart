@@ -14,6 +14,8 @@ import '../features/license/presentation/license_provider.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
+import '../features/legal/presentation/delete_account_screen.dart';
+import '../features/legal/presentation/privacy_policy_screen.dart';
 import '../features/trial/presentation/phone_change_screen.dart';
 import '../features/trial/presentation/subscription_screen.dart';
 import '../features/trial/presentation/trial_follow_screen.dart';
@@ -48,7 +50,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/admin-sign-in' ||
           loc == '/phone-login' ||
           loc == '/trial-request' ||
-          loc == '/trial-follow';
+          loc == '/trial-follow' ||
+          loc == '/privacy';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -122,6 +125,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/trial-follow',
         builder: (_, __) => const TrialFollowScreen(),
+      ),
+      GoRoute(
+        path: '/privacy',
+        builder: (_, __) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/delete-account',
+        builder: (_, __) => const DeleteAccountScreen(),
       ),
       GoRoute(
         path: '/phone-change',

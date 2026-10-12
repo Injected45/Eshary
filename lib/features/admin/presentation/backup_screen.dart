@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme.dart';
@@ -24,6 +23,7 @@ import '../../transfers/presentation/beneficiaries_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../data/backup_repository.dart';
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -63,7 +63,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 
   String _fileName(DateTime t) =>
-      'eshary-backup-${DateFormat('yyyyMMdd-HHmm').format(t)}.json';
+      'eshary-backup-${LibyaDateFormat('yyyyMMdd-HHmm').format(t)}.json';
 
   Future<void> _saveFile(Map<String, dynamic> backup, DateTime t) async {
     final bytes = utf8.encode(jsonEncode(backup));
@@ -79,7 +79,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   Future<void> _deleteSelected(List<BackupInfo> all) async {
     final chosen = all.where((b) => _selected.contains(b.id)).toList();
     if (chosen.isEmpty) return;
-    final df = DateFormat('yyyy/MM/dd HH:mm');
+    final df = LibyaDateFormat('yyyy/MM/dd HH:mm');
     final bytes = chosen.fold<int>(0, (s, b) => s + b.sizeBytes);
     final ok = await _confirm(
       title: 'حذف ${chosen.length} نسخة؟',
@@ -121,7 +121,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   /// backup was taken. The database saves a safety copy of the CURRENT state
   /// first (kind "قبل استعادة"), so even a wrong press is one press to undo.
   Future<void> _restoreFromStored(BackupInfo b) async {
-    final when = DateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
+    final when = LibyaDateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
     await _run(() async {
       final data = await ref.read(backupRepositoryProvider).get(b.id);
       await _applyRestore(
@@ -163,7 +163,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     String message = 'تمت الاستعادة بنجاح',
   }) async {
     await ref.read(backupRepositoryProvider).restore(data);
-    await ref.read(jsonCacheProvider).clear();
+    // only the cached lists: the phone's own settings (app lock, look) stay
+    await ref.read(jsonCacheProvider).clearUserData();
     _refreshAppData();
     ref.invalidate(backupsListProvider);
     playAlert();
@@ -291,7 +292,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     final backups = ref.watch(backupsListProvider);
-    final df = DateFormat('yyyy/MM/dd  HH:mm');
+    final df = LibyaDateFormat('yyyy/MM/dd  HH:mm');
 
     return Scaffold(
       backgroundColor: Colors.transparent,

@@ -54,7 +54,8 @@ void main() {
     final now = DateTime.now();
     final day = '${now.year}-${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
-    expect(pdfFileName('سجل خروج الحوالات اليوم'), 'سجل خروج الحوالات اليوم - $day.pdf');
+    expect(pdfFileName('سجل خروج الحوالات اليوم'),
+        'سجل خروج الحوالات اليوم - $day.pdf');
   });
 
   test('every shared PDF is named in Arabic by pdfFileName', () {

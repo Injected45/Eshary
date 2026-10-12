@@ -29,6 +29,12 @@ const cors = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// What a well-formed input looks like. Anything else is refused here, before the
+// database is touched.
+const CODE_RE = /^\d{6}$/;
+const TOKEN_RE = /^[0-9a-f]{64}$/;
+const PHONE_RE = /^\+[1-9]\d{7,14}$/;
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -40,12 +46,24 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ ok: false, code: "bad_request" }, 405);
 
   try {
-    const body = await req.json();
-    const action = typeof body.action === "string" ? body.action : "";
-    const code = body.code;
-    if (typeof code !== "string") {
+    // a request of this kind is a few hundred bytes: refuse anything large
+    const size = Number(req.headers.get("content-length") ?? "0");
+    if (size > 4096) return json({ ok: false, code: "bad_request" }, 413);
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch (_e) {
       return json({ ok: false, code: "bad_request" }, 400);
     }
+    const action = typeof body.action === "string" ? body.action : "";
+    if (typeof body.code !== "string") {
+      return json({ ok: false, code: "bad_request" }, 400);
+    }
+    const code = body.code.replace(/\s/g, "");
+    // a malformed code can never be right: same answer as a wrong one, and no
+    // attempt is counted against anyone
+    if (!CODE_RE.test(code)) return json({ ok: false, code: "invalid_code" });
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -73,8 +91,8 @@ Deno.serve(async (req) => {
     // ------------------------------------------------------------------
     if (action === "activate") {
       const followToken = body.followToken;
-      if (typeof followToken !== "string") {
-        return json({ ok: false, code: "bad_request" }, 400);
+      if (typeof followToken !== "string" || !TOKEN_RE.test(followToken)) {
+        return json({ ok: false, code: "not_found" });
       }
 
       // 1. Is the request approved, still valid, and who is it?
@@ -146,9 +164,11 @@ Deno.serve(async (req) => {
     // Sign-in of an existing subscriber
     // ------------------------------------------------------------------
     if (action === "login") {
-      const phone = body.phone;
-      if (typeof phone !== "string") {
-        return json({ ok: false, code: "bad_request" }, 400);
+      const phone = typeof body.phone === "string"
+        ? body.phone.replace(/[\s\-()]/g, "")
+        : "";
+      if (!PHONE_RE.test(phone)) {
+        return json({ ok: false, code: "invalid_phone" });
       }
       const { data: ok, error } = await admin.rpc("login_verify", {
         p_phone: phone,

@@ -42,7 +42,8 @@ Future<_FakeBackups> _open(WidgetTester tester) async {
         backupRepositoryProvider.overrideWithValue(fake),
         backupsListProvider.overrideWith(
           (ref) async => [
-            BackupInfo(id: 'b2', kind: 'manual', createdAt: _t, sizeBytes: 2048),
+            BackupInfo(
+                id: 'b2', kind: 'manual', createdAt: _t, sizeBytes: 2048),
             BackupInfo(
               id: 'b1',
               kind: 'auto',

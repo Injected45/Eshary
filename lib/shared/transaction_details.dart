@@ -15,6 +15,7 @@ import '../features/transfers/domain/transfer.dart';
 import 'creator_chip.dart';
 import 'formatters.dart';
 import 'glass.dart';
+import './libya_time.dart';
 
 /// Outgoing transfer details — a full-screen page (no horizontal scrolling),
 /// two coloured sections:
@@ -114,10 +115,8 @@ void showCurrencyBuyDetails(
   WidgetRef ref, {
   required CurrencyBuy buy,
 }) {
-  final companies =
-      ref.read(companiesListProvider).value ?? const <Company>[];
-  final exchanges =
-      ref.read(allExchangesProvider).value ?? const <Exchange>[];
+  final companies = ref.read(companiesListProvider).value ?? const <Company>[];
+  final exchanges = ref.read(allExchangesProvider).value ?? const <Exchange>[];
   final clients = ref.read(clientsListProvider).value ?? const [];
 
   String? findCompany(String id) =>
@@ -130,17 +129,14 @@ void showCurrencyBuyDetails(
       ? null
       : clients.where((c) => c.id == buy.clientId).firstOrNull;
   final clientName = clientMatch?.name ??
-      ((buy.clientFromAccount?.isEmpty ?? true)
-          ? '—'
-          : buy.clientFromAccount!);
+      ((buy.clientFromAccount?.isEmpty ?? true) ? '—' : buy.clientFromAccount!);
   final clientCompany = (clientMatch?.company?.isEmpty ?? true)
       ? ((buy.clientFromAccount?.isEmpty ?? true)
           ? '—'
           : buy.clientFromAccount!)
       : clientMatch!.company!;
-  final clientCode = (clientMatch?.code?.isEmpty ?? true)
-      ? '—'
-      : clientMatch!.code!;
+  final clientCode =
+      (clientMatch?.code?.isEmpty ?? true) ? '—' : clientMatch!.code!;
 
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -168,9 +164,7 @@ void showCurrencyBuyDetails(
               _Kv('اسم حسابي', findCompany(buy.myCompanyId) ?? '—'),
               _Kv(
                 'رقم حسابي',
-                (exchange?.ourCode?.isEmpty ?? true)
-                    ? '—'
-                    : exchange!.ourCode!,
+                (exchange?.ourCode?.isEmpty ?? true) ? '—' : exchange!.ourCode!,
               ),
             ],
           ),
@@ -285,14 +279,9 @@ class _DateLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final local = createdAt.toLocal();
+    final local = createdAt.libya;
     final dateStr = DateFormat('dd-MM-yyyy').format(local);
-    final hour12 = local.hour == 0
-        ? 12
-        : (local.hour > 12 ? local.hour - 12 : local.hour);
-    final amPm = local.hour < 12 ? 'ص' : 'م';
-    final timeStr =
-        '${hour12.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')} $amPm';
+    final timeStr = DateFormat('HH:mm').format(local);
 
     return Row(
       children: [

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
@@ -17,8 +16,9 @@ import '../domain/cancellation.dart';
 import 'cancel_operation_dialog.dart';
 import 'cancellations_providers.dart';
 import '../../../shared/top_message.dart';
+import '../../../shared/libya_time.dart';
 
-final _stampFmt = DateFormat('yyyy/MM/dd  HH:mm');
+final _stampFmt = LibyaDateFormat('yyyy/MM/dd  HH:mm');
 
 /// Admin → "الإلغاءات": the employees' requests waiting for a decision, and
 /// كشف الإلغاءات for a period (with PDF).

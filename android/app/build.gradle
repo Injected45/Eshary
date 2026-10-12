@@ -11,8 +11,20 @@ if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
 }
 
+// The Google Play build (build-aab.bat sets ESHARY_PLAY=1) uses its own manifest
+// without the always-on background service and the battery exemption.
+def playBuild = System.getenv('ESHARY_PLAY') == '1'
+
 android {
     namespace = "com.rahala.eshary"
+    sourceSets {
+        main {
+            if (playBuild) {
+                manifest.srcFile 'src/play/AndroidManifest.xml'
+            }
+        }
+    }
+
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

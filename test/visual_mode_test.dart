@@ -75,9 +75,8 @@ void main() {
   });
 
   test('Settings has the two choices with their keys, and only those two', () {
-    final src =
-        File('lib/features/settings/presentation/settings_screen.dart')
-            .readAsStringSync();
+    final src = File('lib/features/settings/presentation/settings_screen.dart')
+        .readAsStringSync();
     expect(src, contains("ValueKey('visual-mode-deep')"));
     expect(src, contains("ValueKey('visual-mode-calm')"));
     expect(src, contains("'شكل التطبيق'"));

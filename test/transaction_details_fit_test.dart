@@ -65,7 +65,8 @@ void main() {
     Size(390, 844), // modern phone
     Size(412, 915),
   ]) {
-    testWidgets('${size.width.toInt()}x${size.height.toInt()}: everything '
+    testWidgets(
+        '${size.width.toInt()}x${size.height.toInt()}: everything '
         'is on screen, no scrolling, nothing cut', (tester) async {
       await _open(tester, size);
       // no scrollable at all on the page

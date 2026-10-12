@@ -106,8 +106,9 @@ void main() {
     expect(admin, contains('String? _openId;'));
     expect(admin, contains('expanded: _openId == rows[i].userId'));
 
-    final emp = File('lib/features/sub_users/presentation/sub_users_screen.dart')
-        .readAsStringSync();
+    final emp =
+        File('lib/features/sub_users/presentation/sub_users_screen.dart')
+            .readAsStringSync();
     expect(emp, contains('String? _openId;'));
     expect(emp, contains('expanded: _openId == u.id'));
     // the card shows the name in its header, and details only when expanded

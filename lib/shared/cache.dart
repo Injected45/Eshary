@@ -29,6 +29,22 @@ class JsonCache {
   }
 
   Future<void> clear() => _prefs.clear();
+
+  /// Everything the phone remembered about the signed-in person: the cached
+  /// lists (names, balances, operations) and the error log. The phone's own
+  /// settings (app lock, look, device key) stay.
+  Future<void> clearUserData() => clearPrivateData(_prefs);
+}
+
+/// See [JsonCache.clearUserData]. Used when a session ends and after an
+/// account is deleted, so nothing about a person is left on a shared or lost
+/// phone.
+Future<void> clearPrivateData(SharedPreferences prefs) async {
+  for (final key in prefs.getKeys().toList()) {
+    if (key.startsWith('cache:') || key == 'app_logs_v1') {
+      await prefs.remove(key);
+    }
+  }
 }
 
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {

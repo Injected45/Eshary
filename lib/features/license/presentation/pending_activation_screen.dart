@@ -14,6 +14,7 @@ import 'license_provider.dart';
 import '../../../shared/top_message.dart';
 import '../../trial/data/trial_repository.dart';
 import '../../trial/domain/trial_models.dart';
+import '../../../shared/libya_time.dart';
 
 class PendingActivationScreen extends ConsumerStatefulWidget {
   const PendingActivationScreen({super.key});
@@ -368,7 +369,7 @@ class _PendingActivationScreenState
   }
 
   String _formatDate(DateTime utc) {
-    final local = utc.toLocal();
+    final local = utc.libya;
     String pad(int n) => n.toString().padLeft(2, '0');
     return '${local.year}-${pad(local.month)}-${pad(local.day)} '
         '${pad(local.hour)}:${pad(local.minute)}';

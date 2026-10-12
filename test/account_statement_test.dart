@@ -25,8 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 final _day = DateTime(2026, 10, 8);
-DateTime _at(int hour, [int minute = 0]) =>
-    DateTime(2026, 10, 8, hour, minute);
+DateTime _at(int hour, [int minute = 0]) => DateTime(2026, 10, 8, hour, minute);
 
 CurrencyBuy _buy(String id, double usd, DateTime at,
         {String? by, String exchange = 'e1'}) =>
@@ -147,7 +146,9 @@ void main() {
       final s = run(start: _at(10), end: _at(12, 30));
       expect(s.entries.map((e) => e.at.hour), [10, 11, 12]);
       expect(s.balance, -350 + 200 - 50);
-      expect(run(start: DateTime(2026, 10, 9), end: DateTime(2026, 10, 9, 23)).isEmpty,
+      expect(
+          run(start: DateTime(2026, 10, 9), end: DateTime(2026, 10, 9, 23))
+              .isEmpty,
           isTrue);
     });
 
@@ -209,7 +210,8 @@ void main() {
       expect(opening, 1000 - 200 + 50); // 850
     });
 
-    test('the lines start from it and the closing balance matches the account', () {
+    test('the lines start from it and the closing balance matches the account',
+        () {
       final opening = openingBalanceAt(
         currentBalance: 1000,
         buys: buys,
@@ -278,7 +280,10 @@ void main() {
     test('one account only', () {
       final opening = openingBalanceAt(
         currentBalance: 400, // that account's balance
-        buys: [_buy('x', 100, _at(10), exchange: 'e2'), _buy('y', 500, _at(10))],
+        buys: [
+          _buy('x', 100, _at(10), exchange: 'e2'),
+          _buy('y', 500, _at(10))
+        ],
         transfers: const [],
         start: start,
         exchangeId: 'e2',
@@ -358,7 +363,8 @@ void main() {
           overrides: [
             statementDataProvider.overrideWith((ref, range) async => data),
             subUsersListProvider.overrideWith(
-              (ref) async => [employee('sami', 'سامي'), employee('omar', 'عمر')],
+              (ref) async =>
+                  [employee('sami', 'سامي'), employee('omar', 'عمر')],
             ),
             allExchangesProvider.overrideWith(
               (ref) async => [
@@ -389,9 +395,11 @@ void main() {
       expect(find.text('الرصيد'), findsWidgets);
       expect(find.text('+\$1,200.00'), findsOneWidget, reason: 'إجمالي الدخول');
       expect(find.text('-\$425.00'), findsOneWidget, reason: 'إجمالي الخروج');
-      expect(find.text('\$778.00'), findsOneWidget, reason: 'الرصيد = رصيد الحسابات');
+      expect(find.text('\$778.00'), findsOneWidget,
+          reason: 'الرصيد = رصيد الحسابات');
       expect(find.text('\$3.00'), findsOneWidget, reason: 'رصيد افتتاحي: tile');
-      expect(find.text('3.00'), findsOneWidget, reason: 'رصيد افتتاحي: first row');
+      expect(find.text('3.00'), findsOneWidget,
+          reason: 'رصيد افتتاحي: first row');
       expect(find.text('رصيد افتتاحي'), findsNWidgets(2));
     });
 
@@ -550,9 +558,11 @@ void _periodDefaultsTests() {
       });
     }
 
-    test('the movement-details picker opens on today when nothing is chosen', () {
-      final src = File('lib/features/archive/presentation/history_details_screen.dart')
-          .readAsStringSync();
+    test('the movement-details picker opens on today when nothing is chosen',
+        () {
+      final src =
+          File('lib/features/archive/presentation/history_details_screen.dart')
+              .readAsStringSync();
       expect(src, contains('_filterRange ?? DateTimeRange(start: todayDate()'));
     });
   });

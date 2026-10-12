@@ -9,7 +9,6 @@ import '../../../shared/logger.dart';
 import '../../branches/presentation/add_branch_dialog.dart';
 import '../../branches/presentation/branches_providers.dart';
 import '../data/sub_users_repository.dart';
-import '../domain/sub_user.dart';
 import '../../../shared/top_message.dart';
 
 /// Returned from [AddSubUserDialog] on success — bundles the new row id,

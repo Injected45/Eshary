@@ -287,6 +287,9 @@ String friendlyError(Object e) {
   if (s.contains('account_suspended') || s.contains('not_suspended')) {
     return 'حالة الحساب لا تسمح بهذا الإجراء. حدّث القائمة.';
   }
+  if (s.contains('no_phone')) {
+    return 'لا يوجد رقم هاتف مسجّل لهذا الحساب. تواصل مع الدعم لحذفه.';
+  }
   if (s.contains('same_phone')) {
     return 'هذا هو رقمك الحالي بالفعل.';
   }

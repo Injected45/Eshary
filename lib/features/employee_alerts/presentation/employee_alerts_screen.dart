@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
@@ -13,8 +12,9 @@ import '../data/employee_alerts_repository.dart';
 import '../domain/employee_alert.dart';
 import 'employee_alerts_providers.dart';
 import 'send_employee_message_dialog.dart';
+import '../../../shared/libya_time.dart';
 
-final _dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
+final _dateFmt = LibyaDateFormat('yyyy-MM-dd  HH:mm');
 
 /// The notification text for one operation, in the wording the admin asked for.
 String alertText(EmployeeAlert a) {

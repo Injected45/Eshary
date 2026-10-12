@@ -58,7 +58,8 @@ void main() {
     _b('c', 'manual', 20),
   ];
 
-  testWidgets('says the backup is every 24 hours, kept 30 days', (tester) async {
+  testWidgets('says the backup is every 24 hours, kept 30 days',
+      (tester) async {
     await open(tester, rows);
     expect(find.textContaining('كل 24 ساعة'), findsOneWidget);
     expect(find.textContaining('30 يوماً'), findsOneWidget);

@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import './libya_time.dart';
 
 /// Money formatter with both Latin and Arabic-Indic digit options.
 /// Source HTML used Latin digits (`Intl.NumberFormat('en-US', ...)`) so
@@ -37,5 +38,5 @@ String _arabicDigitToLatin(String c) {
   return map[c] ?? c;
 }
 
-final DateFormat dateOnly = DateFormat('yyyy-MM-dd');
-final DateFormat dateTime = DateFormat('yyyy-MM-dd HH:mm');
+final DateFormat dateOnly = LibyaDateFormat('yyyy-MM-dd');
+final DateFormat dateTime = LibyaDateFormat('yyyy-MM-dd HH:mm');

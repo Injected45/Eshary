@@ -8,8 +8,9 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../data/admin_repository.dart';
 import '../domain/deleted_account.dart';
+import '../../../shared/libya_time.dart';
 
-final _stamp = DateFormat('yyyy/MM/dd  HH:mm');
+final _stamp = LibyaDateFormat('yyyy/MM/dd  HH:mm');
 
 /// الإدارة → سجل الحسابات المحذوفة: who deleted which account and when, with the
 /// e-mail and phone it had. Read-only; searchable by e-mail or phone.

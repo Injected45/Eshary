@@ -55,7 +55,8 @@ void main() {
   });
 
   test('times are shown in Libya time (UTC+2)', () {
-    expect(formatTripoli(DateTime.utc(2026, 10, 10, 22, 30)), '2026-10-11 00:30');
+    expect(
+        formatTripoli(DateTime.utc(2026, 10, 10, 22, 30)), '2026-10-11 00:30');
   });
 
   test('an expired subscriber may still enter, read only', () {

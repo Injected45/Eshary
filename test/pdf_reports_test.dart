@@ -87,7 +87,8 @@ void main() {
       final s = i + m.end;
       final e = raw.indexOf('endstream', s);
       try {
-        final txt = String.fromCharCodes(ZLibCodec().decode(bytes.sublist(s, e)));
+        final txt =
+            String.fromCharCodes(ZLibCodec().decode(bytes.sublist(s, e)));
         if (txt.contains(' Tf')) out.add(txt);
       } catch (_) {}
       i = e + 9;
@@ -181,7 +182,9 @@ void main() {
             (
               at: t0.add(Duration(minutes: i)),
               who: i.isEven ? 'المدير' : 'سامي',
-              account: i.isEven ? 'الرحالة الأولى - بهار روز' : 'الرحالة الأولى - الليبية الدولية',
+              account: i.isEven
+                  ? 'الرحالة الأولى - بهار روز'
+                  : 'الرحالة الأولى - الليبية الدولية',
               income: i.isEven ? 100.0 + i : null,
               outgoing: i.isEven ? null : 40.0 + i,
               balance: 100.0 + i,
@@ -222,7 +225,8 @@ void main() {
                 .where((y) => y < 40)
                 .toList();
             expect(low, isNotEmpty,
-                reason: '${e.key}: page ${p + 1} has no footer rule near the bottom');
+                reason:
+                    '${e.key}: page ${p + 1} has no footer rule near the bottom');
           }
         }
       });
@@ -320,8 +324,7 @@ void main() {
         };
 
         for (final e in reports.entries) {
-          expect(String.fromCharCodes(e.value.take(5)), '%PDF-',
-              reason: e.key);
+          expect(String.fromCharCodes(e.value.take(5)), '%PDF-', reason: e.key);
           expect(pages(e.value), greaterThanOrEqualTo(1), reason: e.key);
           if (n == 80 && e.key != 'single record') {
             expect(pages(e.value), greaterThan(1),

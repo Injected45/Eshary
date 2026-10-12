@@ -6,9 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('the settings screen no longer deletes row by row', () {
-    final src =
-        File('lib/features/settings/presentation/settings_screen.dart')
-            .readAsStringSync();
+    final src = File('lib/features/settings/presentation/settings_screen.dart')
+        .readAsStringSync();
     // that produced "حُذفت جزئيًا. أخطاء: 2" once the API refused direct deletes
     expect(src, isNot(contains('حُذفت جزئيًا')));
     expect(src, isNot(contains(".from(table).delete()")));
@@ -35,7 +34,10 @@ void main() {
     expect(sql, contains('delete from currency_buys where owner_id = v_owner'));
     expect(sql, contains('delete from operation_cancellations'));
     expect(sql, contains('current_employee_id() is not null'));
-    expect(sql, contains('grant execute on function owner_wipe_operations() to authenticated'));
+    expect(
+        sql,
+        contains(
+            'grant execute on function owner_wipe_operations() to authenticated'));
   });
 
   test('"not_authorized" reads in Arabic', () {

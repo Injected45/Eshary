@@ -54,7 +54,8 @@ void main() {
           ),
         ),
       );
-      final drawn = t.widget<QrDisplayDialog>(find.byType(QrDisplayDialog)).payload;
+      final drawn =
+          t.widget<QrDisplayDialog>(find.byType(QrDisplayDialog)).payload;
       expect(employeeTokenFromQrPayload(drawn), _token);
     });
 

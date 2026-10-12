@@ -145,6 +145,17 @@ class _TrialRequestScreenState extends ConsumerState<TrialRequestScreen> {
               style: TextStyle(fontSize: 12.5, color: AppColors.textMid),
             ),
           ),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton(
+              key: const ValueKey('trial-privacy'),
+              onPressed: () => context.push('/privacy'),
+              child: const Text(
+                'اقرأ سياسة الخصوصية',
+                style: TextStyle(fontSize: 12, color: AppColors.accent),
+              ),
+            ),
+          ),
           if (_error != null) ...[
             const SizedBox(height: 6),
             AuthError(_error!),

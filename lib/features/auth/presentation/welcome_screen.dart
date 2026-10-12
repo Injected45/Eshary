@@ -150,6 +150,17 @@ class WelcomeScreen extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        TextButton(
+                          key: const ValueKey('welcome-privacy'),
+                          onPressed: () => context.go('/privacy'),
+                          child: const Text(
+                            'سياسة الخصوصية',
+                            style: TextStyle(
+                              color: AppColors.textLow,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

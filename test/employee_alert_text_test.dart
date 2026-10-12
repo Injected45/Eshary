@@ -4,7 +4,8 @@ import 'package:eshary/features/employee_alerts/domain/employee_alert.dart';
 import 'package:eshary/features/employee_alerts/presentation/employee_alerts_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-EmployeeAlert _alert(String kind, {String? party = 'أحمد', double amount = 1250}) {
+EmployeeAlert _alert(String kind,
+    {String? party = 'أحمد', double amount = 1250}) {
   return EmployeeAlert.fromJson({
     'id': 'a1',
     'sub_user_id': 's1',
@@ -19,7 +20,8 @@ EmployeeAlert _alert(String kind, {String? party = 'أحمد', double amount = 1
 }
 
 void main() {
-  test('exit alert reads: تم تنفيذ "خروج" من الموظف … بقيمة … إلى المستفيد', () {
+  test('exit alert reads: تم تنفيذ "خروج" من الموظف … بقيمة … إلى المستفيد',
+      () {
     final text = alertText(_alert('transfer'));
     expect(text, contains('تم تنفيذ "خروج" من الموظف سامي'));
     expect(text, contains('بقيمة 1,250.00\$ إلى المستفيد أحمد'));

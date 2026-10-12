@@ -40,8 +40,7 @@ void main() {
     return container;
   }
 
-  testWidgets('welcome: start a trial / sign in, nothing else',
-      (tester) async {
+  testWidgets('welcome: start a trial / sign in, nothing else', (tester) async {
     await pump(tester, const WelcomeScreen());
     expect(find.text('ابدأ تجربتك'), findsOneWidget);
     expect(find.text('دخول حسابي'), findsOneWidget);
@@ -105,8 +104,8 @@ void main() {
   });
 
   test('the app calls the deployed name of the sign-in function', () {
-    final repo =
-        File('lib/features/trial/data/trial_repository.dart').readAsStringSync();
+    final repo = File('lib/features/trial/data/trial_repository.dart')
+        .readAsStringSync();
     expect(repo, contains("const kMemberSessionFunction = 'super-handler';"));
     expect(
       RegExp(r'functions\.invoke\(\s*kMemberSessionFunction').hasMatch(repo),

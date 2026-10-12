@@ -14,7 +14,8 @@ void main() {
       };
 
   test('the users list carries the confirmed phone', () {
-    expect(AdminUserRow.fromJson(json(phone: '0912345678')).phone, '0912345678');
+    expect(
+        AdminUserRow.fromJson(json(phone: '0912345678')).phone, '0912345678');
     expect(AdminUserRow.fromJson(json()).phone, isNull);
   });
 
@@ -24,12 +25,12 @@ void main() {
   });
 
   test('the card shows the phone and the search finds it', () {
-    final src =
-        File('lib/features/admin/presentation/admin_screen.dart').readAsStringSync();
+    final src = File('lib/features/admin/presentation/admin_screen.dart')
+        .readAsStringSync();
     expect(src, contains("ValueKey('user-phone')"));
     expect(src, contains("(r.phone ?? '').contains(query)"));
-    final sql =
-        File('supabase/migrations/0051_admin_list_users_phone.sql').readAsStringSync();
+    final sql = File('supabase/migrations/0051_admin_list_users_phone.sql')
+        .readAsStringSync();
     expect(sql, contains('left join member_phones mp on mp.user_id = u.id'));
     expect(sql, contains('is_caller_admin()'));
   });

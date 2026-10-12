@@ -1,3 +1,4 @@
+
 /// Which table a cancelled operation lives in.
 enum OperationKind { transfer, buy }
 

@@ -10,6 +10,7 @@ import '../../../shared/logger.dart';
 import '../data/activity_logs_repository.dart';
 import '../domain/activity_log.dart';
 import '../domain/sub_user.dart';
+import '../../../shared/libya_time.dart';
 
 /// Chronological log of everything a single employee has done — opened
 /// by the admin from the إدارة الموظفين screen. Useful for audit and
@@ -22,7 +23,7 @@ class EmployeeActivityScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(subUserActivityLogsProvider(subUser.id));
-    final dateFmt = DateFormat('yyyy-MM-dd  HH:mm');
+    final dateFmt = LibyaDateFormat('yyyy-MM-dd  HH:mm');
 
     return Scaffold(
       backgroundColor: Colors.transparent,

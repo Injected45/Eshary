@@ -177,7 +177,8 @@ void main() {
     expect(dx('الرقم الإشاري'), greaterThan(dx('القيمة بالدولار (USD)')));
   });
 
-  testWidgets('narrow phone + amount over the balance: no overflow, error shown',
+  testWidgets(
+      'narrow phone + amount over the balance: no overflow, error shown',
       (tester) async {
     await _open(
       tester,
@@ -190,7 +191,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  group('beneficiary section is locked until the transfer data is complete', () {
+  group('beneficiary section is locked until the transfer data is complete',
+      () {
     const blocked = 'عذراً لا يمكن فتح الجهة المستفيدة';
     final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
 
@@ -365,7 +367,8 @@ void main() {
           createdByEmployeeId: null,
         );
 
-    testWidgets('there is no daily-close button, for the admin', (tester) async {
+    testWidgets('there is no daily-close button, for the admin',
+        (tester) async {
       await _open(tester, one);
       expect(find.textContaining('الإقفال اليومي'), findsNothing);
       expect(find.textContaining('ترحيل'), findsNothing);
