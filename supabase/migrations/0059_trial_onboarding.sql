@@ -1446,6 +1446,10 @@ begin
     end if;
     update trial_requests set status = 'needs_info', review_note = v_note, updated_at = v_now
      where id = r.id;
+    -- a short notice so the applicant knows to open the app (no code in it)
+    perform _wa_send(r.phone,
+      'إشاري: طلب تجربتك يحتاج معلومات إضافية.' || E'\n' || '«' || v_note || '»' || E'\n' ||
+      'افتح التطبيق ثم اضغط «متابعة طلب التجربة» لتراها وترد.');
   elsif p_decision = 'reject' then
     if v_note is null then
       raise exception 'note_required' using errcode = 'P0001';

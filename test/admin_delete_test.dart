@@ -119,9 +119,9 @@ void main() {
       expect(src, contains('AdminAction.delete'));
       expect(src, contains("'حذف الحساب'"));
       expect(src, contains('.deleteUser(rows[i].userId)'));
-      // shown only inside the same condition as الحظر
+      // never for yourself (an administrator's card has no menu at all)
       final at = src.indexOf('value: AdminAction.delete');
-      expect(src.lastIndexOf('if (!isSelf && !row.isAdmin)', at), greaterThan(0));
+      expect(src.lastIndexOf('if (!isSelf)', at), greaterThan(0));
       // the confirmation shows the e-mail and the phone
       expect(src, contains("'البريد: \${rows[i].email}"));
       expect(src, contains("'الهاتف: "));

@@ -32,6 +32,10 @@ class LicenseRepository {
       final res = await _client.rpc<List<dynamic>>('current_license_status');
       final list = res.cast<Map<String, dynamic>>();
       if (list.isEmpty) {
+        // No licence row for a signed-in person: the account may have been
+        // deleted by an administrator. Ask the server; if the account is gone
+        // the session is closed and the welcome screen takes over.
+        await _signOutIfAccountGone();
         return LicenseStatus.missing;
       }
       final row = list.first;
@@ -58,6 +62,28 @@ class LicenseRepository {
       // protected operations stop until the connection is back.
       if (!parsed.isAdmin) return LicenseStatus.missing;
       return parsed;
+    }
+  }
+
+  /// A deleted account keeps a valid-looking token for a while. `getUser` is
+  /// answered by the server (not by the token), so it tells the truth: when the
+  /// user no longer exists the session is closed.
+  Future<void> _signOutIfAccountGone() async {
+    final user = _client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    try {
+      await _client.auth.getUser();
+    } on AuthException catch (e) {
+      final gone = e.statusCode == '401' ||
+          e.statusCode == '403' ||
+          e.statusCode == '404' ||
+          (e.code ?? '').contains('user_not_found');
+      if (gone) {
+        await _cache.writeString(_cacheKey(), '');
+        await _client.auth.signOut();
+      }
+    } catch (_) {
+      // offline or a transient error: leave the session as it is
     }
   }
 

@@ -29,12 +29,7 @@ void main() {
             body: AdminUserCard(
               row: row,
               isSelf: self,
-              onActivateTrial: noop,
               onActivateLifetime: noop,
-              onBlock: noop,
-              onSetPending: noop,
-              onGrantAdmin: noop,
-              onRevokeAdmin: noop,
               onDelete: noop,
               onSubscription: (_) {},
             ),
@@ -63,7 +58,7 @@ void main() {
     expect(find.byType(PopupMenuButton<AdminAction>), findsOneWidget);
     await tester.tap(find.byType(PopupMenuButton<AdminAction>));
     await tester.pumpAndSettle();
-    for (final t in ['تفعيل تجريبي 3 أيام', 'تفعيل دائم', 'حذف الحساب', 'حظر']) {
+    for (final t in ['تمديد التجربة', 'تفعيل دائم', 'حذف الحساب', 'إيقاف الحساب']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
   });

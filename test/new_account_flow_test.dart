@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/auth/presentation/welcome_screen.dart';
 import 'package:eshary/features/trial/data/trial_repository.dart';
-import 'package:eshary/features/trial/presentation/demo_tour_screen.dart';
 import 'package:eshary/features/trial/presentation/phone_input.dart';
 import 'package:eshary/features/trial/presentation/trial_request_screen.dart';
 import 'package:eshary/shared/cache.dart';
@@ -41,13 +40,15 @@ void main() {
     return container;
   }
 
-  testWidgets('welcome: start a trial / sign in / tour, nothing else',
+  testWidgets('welcome: start a trial / sign in, nothing else',
       (tester) async {
     await pump(tester, const WelcomeScreen());
     expect(find.text('ابدأ تجربتك'), findsOneWidget);
     expect(find.text('دخول حسابي'), findsOneWidget);
-    expect(find.byKey(const ValueKey('welcome-demo')), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-demo')), findsNothing);
+    expect(find.text('جولة تعريفية'), findsNothing);
     expect(find.text('تسجيل دخول موظف'), findsOneWidget);
+    expect(find.text('دخول المدير'), findsOneWidget);
     expect(find.byKey(const ValueKey('welcome-invite')), findsNothing);
     expect(find.byKey(const ValueKey('welcome-member')), findsNothing);
     expect(find.textContaining('Google'), findsNothing);
@@ -82,14 +83,6 @@ void main() {
     expect(composePhone('+218', '91 234 5678'), '+218912345678');
     expect(composePhone('+20', '01012345678'), '+201012345678');
     expect(composePhone('+218', ''), '');
-  });
-
-  testWidgets('the tour uses invented data and no server', (tester) async {
-    await pump(tester, const DemoTourScreen());
-    expect(find.text('بيانات تجريبية للعرض فقط'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('demo-next')));
-    await tester.pumpAndSettle();
-    expect(find.text('شراء دولار'), findsOneWidget);
   });
 
   test('Google, invitations and SMS are gone from the app', () {

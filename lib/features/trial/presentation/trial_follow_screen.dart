@@ -211,7 +211,7 @@ class _TrialFollowScreenState extends ConsumerState<TrialFollowScreen> {
           FontAwesomeIcons.circleQuestion,
           AppColors.warning,
           'نحتاج معلومات إضافية',
-          d.reviewNote ?? '',
+          '',
         ),
       'approved' => (
           FontAwesomeIcons.circleCheck,
@@ -255,6 +255,7 @@ class _TrialFollowScreenState extends ConsumerState<TrialFollowScreen> {
           ),
         ),
         const SizedBox(height: 8),
+        if (d.status == 'needs_info') _infoBox(d.reviewNote ?? ''),
         if (body.isNotEmpty)
           Text(
             body,
@@ -308,14 +309,54 @@ class _TrialFollowScreenState extends ConsumerState<TrialFollowScreen> {
         ],
         const SizedBox(height: 10),
         TextButton(
-          onPressed: () => context.go('/demo'),
-          child: const Text('شاهد جولة تعريفية بالتطبيق'),
-        ),
-        TextButton(
           onPressed: () => context.go('/sign-in'),
           child: const Text('رجوع'),
         ),
       ],
+    );
+  }
+
+  /// The administrator's request, impossible to miss.
+  Widget _infoBox(String note) {
+    const orange = Color(0xFFFF8A00);
+    return Container(
+      key: const ValueKey('info-request'),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: orange.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: orange, width: 1.6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              FaIcon(FontAwesomeIcons.triangleExclamation, size: 15, color: orange),
+              SizedBox(width: 8),
+              Text(
+                'رسالة من الإدارة',
+                style: TextStyle(
+                  color: orange,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            note,
+            style: const TextStyle(
+              color: AppColors.textHigh,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

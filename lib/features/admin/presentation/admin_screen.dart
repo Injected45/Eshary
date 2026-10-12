@@ -357,16 +357,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                         ),
                         row: rows[i],
                         isSelf: rows[i].userId == selfUid,
-                        onActivateTrial: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'تفعيل تجريبي 3 أيام',
-                          confirmBody:
-                              'سيتم منح ${rows[i].email} فترة تجريبية لمدة 3 أيام.',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .activateTrial(rows[i].email),
-                          successMessage: 'تم تفعيل الفترة التجريبية',
-                        ),
                         onActivateLifetime: () => _runAction(
                           row: rows[i],
                           confirmTitle: 'تفعيل دائم',
@@ -374,38 +364,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                               'سيتم تفعيل ${rows[i].email} بخطة دائمة بدون انتهاء.',
                           action: () => ref
                               .read(adminRepositoryProvider)
-                              .activateLifetime(rows[i].email),
+                              .activateLifetime(rows[i].loginEmail),
                           successMessage: 'تم التفعيل الدائم',
-                        ),
-                        onBlock: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'حظر المستخدم',
-                          confirmBody:
-                              'سيتم حظر ${rows[i].email} وتسجيل خروجه من جلسته الحالية خلال 30 ثانية.',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .block(rows[i].email),
-                          successMessage: 'تم حظر المستخدم',
-                        ),
-                        onSetPending: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'إعادة لبانتظار التفعيل',
-                          confirmBody:
-                              'سيتم إرجاع ${rows[i].email} إلى حالة "بانتظار التفعيل".',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .setPending(rows[i].email),
-                          successMessage: 'تم تحديث الحالة',
-                        ),
-                        onGrantAdmin: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'تعيين كمشرف',
-                          confirmBody:
-                              'سيحصل ${rows[i].email} على صلاحيات المشرف الكاملة.',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .grantAdmin(rows[i].email),
-                          successMessage: 'تم تعيين المشرف',
                         ),
                         onSubscription: (a) => _subscription(rows[i], a),
                         onDelete: () => _runAction(
@@ -420,16 +380,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
                               .deleteUser(rows[i].userId),
                           successMessage: 'تم حذف الحساب',
                         ),
-                        onRevokeAdmin: () => _runAction(
-                          row: rows[i],
-                          confirmTitle: 'إزالة صلاحيات المشرف',
-                          confirmBody:
-                              'سيتم سحب صلاحيات المشرف من ${rows[i].email}.',
-                          action: () => ref
-                              .read(adminRepositoryProvider)
-                              .revokeAdmin(rows[i].email),
-                          successMessage: 'تمت إزالة الصلاحيات',
-                        ),
                       ),
                     );
                   },
@@ -443,18 +393,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
   }
 }
 
+/// The only actions left on an account card: fewer buttons, fewer mistakes.
 enum AdminAction {
-  trial,
   lifetime,
-  block,
-  pending,
-  grantAdmin,
-  revokeAdmin,
-  delete,
   extend,
   payment,
   suspend,
   reactivate,
+  delete,
 }
 
 class AdminUserCard extends StatelessWidget {
@@ -462,24 +408,14 @@ class AdminUserCard extends StatelessWidget {
     super.key,
     required this.row,
     required this.isSelf,
-    required this.onActivateTrial,
     required this.onActivateLifetime,
-    required this.onBlock,
-    required this.onSetPending,
-    required this.onGrantAdmin,
-    required this.onRevokeAdmin,
     required this.onDelete,
     required this.onSubscription,
   });
 
   final AdminUserRow row;
   final bool isSelf;
-  final VoidCallback onActivateTrial;
   final VoidCallback onActivateLifetime;
-  final VoidCallback onBlock;
-  final VoidCallback onSetPending;
-  final VoidCallback onGrantAdmin;
-  final VoidCallback onRevokeAdmin;
   final VoidCallback onDelete;
   final void Function(AdminAction) onSubscription;
 
@@ -525,18 +461,8 @@ class AdminUserCard extends StatelessWidget {
                   ),
                   onSelected: (a) {
                     switch (a) {
-                      case AdminAction.trial:
-                        onActivateTrial();
                       case AdminAction.lifetime:
                         onActivateLifetime();
-                      case AdminAction.block:
-                        onBlock();
-                      case AdminAction.pending:
-                        onSetPending();
-                      case AdminAction.grantAdmin:
-                        onGrantAdmin();
-                      case AdminAction.revokeAdmin:
-                        onRevokeAdmin();
                       case AdminAction.delete:
                         onDelete();
                       case AdminAction.extend:
@@ -548,14 +474,6 @@ class AdminUserCard extends StatelessWidget {
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(
-                      value: AdminAction.trial,
-                      child: Text('تفعيل تجريبي 3 أيام'),
-                    ),
-                    const PopupMenuItem(
-                      value: AdminAction.lifetime,
-                      child: Text('تفعيل دائم'),
-                    ),
-                    const PopupMenuItem(
                       value: AdminAction.extend,
                       child: Text('تمديد التجربة'),
                     ),
@@ -564,38 +482,28 @@ class AdminUserCard extends StatelessWidget {
                       child: Text('تأكيد دفع اشتراك'),
                     ),
                     const PopupMenuItem(
-                      value: AdminAction.suspend,
-                      child: Text('إيقاف الحساب (بسبب)'),
+                      value: AdminAction.lifetime,
+                      child: Text('تفعيل دائم'),
                     ),
-                    const PopupMenuItem(
-                      value: AdminAction.reactivate,
-                      child: Text('إعادة تفعيل بعد الإيقاف'),
-                    ),
-                    const PopupMenuItem(
-                      value: AdminAction.pending,
-                      child: Text('إعادة لبانتظار التفعيل'),
-                    ),
-                    if (!row.isAdmin)
+                    // One button for stopping and one for resuming, never both.
+                    if (row.status == 'blocked')
                       const PopupMenuItem(
-                        value: AdminAction.grantAdmin,
+                        value: AdminAction.reactivate,
+                        child: Text('إعادة التفعيل'),
+                      )
+                    else
+                      const PopupMenuItem(
+                        value: AdminAction.suspend,
                         child: Text(
-                          'تعيين كمشرف',
-                          style: TextStyle(color: AppColors.accent),
+                          'إيقاف الحساب',
+                          style: TextStyle(color: AppColors.negative),
                         ),
                       ),
-                    if (!isSelf && !row.isAdmin)
+                    if (!isSelf)
                       const PopupMenuItem(
                         value: AdminAction.delete,
                         child: Text(
                           'حذف الحساب',
-                          style: TextStyle(color: AppColors.negative),
-                        ),
-                      ),
-                    if (!isSelf && !row.isAdmin)
-                      const PopupMenuItem(
-                        value: AdminAction.block,
-                        child: Text(
-                          'حظر',
                           style: TextStyle(color: AppColors.negative),
                         ),
                       ),

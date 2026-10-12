@@ -9,7 +9,8 @@ class AdminUserRow {
     required this.isAdmin,
     required this.createdAt,
     this.phone,
-  });
+    String? loginEmail,
+  }) : loginEmail = loginEmail ?? email;
 
   final String userId;
   final String email;
@@ -22,6 +23,10 @@ class AdminUserRow {
   /// The phone the person confirmed with a WhatsApp code (new accounts), or
   /// null for accounts created another way.
   final String? phone;
+
+  /// The real sign-in address, which the per-account actions use. For a new
+  /// subscriber `email` is "business — manager" and this is the internal one.
+  final String loginEmail;
 
   /// Mirrors the is_valid logic from current_license_status() so the admin
   /// list renders the same colour as the user's own pending screen.
@@ -43,6 +48,7 @@ class AdminUserRow {
       isAdmin: j['is_admin'] as bool? ?? false,
       createdAt: DateTime.parse(j['created_at'] as String),
       phone: j['phone'] as String?,
+      loginEmail: j['login_email'] as String?,
     );
   }
 }

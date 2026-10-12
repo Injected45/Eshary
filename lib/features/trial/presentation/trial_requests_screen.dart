@@ -24,18 +24,30 @@ class TrialRequestsScreen extends ConsumerStatefulWidget {
       _TrialRequestsScreenState();
 }
 
-const _filters = <(String, String)>[
-  ('', 'الكل'),
-  ('pending_review', 'قيد المراجعة'),
-  ('needs_info', 'تحتاج معلومات'),
-  ('approved_waiting', 'موافَق عليها'),
-  ('message_failed', 'فشل الرسالة'),
-  ('approval_expired', 'موافقة منتهية'),
-  ('active_trial', 'تجربة فعّالة'),
-  ('ending_soon', 'تنتهي قريباً'),
-  ('expired_trial', 'تجربة منتهية'),
-  ('paid', 'مدفوعة'),
-  ('rejected_or_suspended', 'مرفوضة / موقوفة'),
+/// Five groups instead of eleven states. The exact state of each request
+/// (message failed, approval expired, ending soon ...) stays on its card.
+const _filters = <(String, String, Set<String>)>[
+  ('', 'الكل', <String>{}),
+  (
+    'decide',
+    'تنتظر قراري',
+    {'pending_review', 'needs_info'},
+  ),
+  (
+    'activate',
+    'بانتظار التفعيل',
+    {'approved_waiting', 'message_failed', 'approval_expired'},
+  ),
+  (
+    'active',
+    'فعّالة',
+    {'active_trial', 'ending_soon', 'paid'},
+  ),
+  (
+    'closed',
+    'منتهية أو مغلقة',
+    {'expired_trial', 'rejected_or_suspended'},
+  ),
 ];
 
 class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
@@ -183,7 +195,7 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  for (final (key, label) in _filters)
+                  for (final (key, label, _) in _filters)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: ChoiceChip(
@@ -224,7 +236,14 @@ class _TrialRequestsScreenState extends ConsumerState<TrialRequestsScreen> {
                   data: (all) {
                     final rows = _filter.isEmpty
                         ? all
-                        : all.where((r) => r.bucket == _filter).toList();
+                        : all
+                            .where(
+                              (r) => _filters
+                                  .firstWhere((f) => f.$1 == _filter)
+                                  .$3
+                                  .contains(r.bucket),
+                            )
+                            .toList();
                     if (rows.isEmpty) {
                       return ListView(
                         children: const [

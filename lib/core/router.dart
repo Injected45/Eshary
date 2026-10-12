@@ -14,7 +14,6 @@ import '../features/license/presentation/license_provider.dart';
 import '../features/license/presentation/pending_activation_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/splash/presentation/splash_screen.dart';
-import '../features/trial/presentation/demo_tour_screen.dart';
 import '../features/trial/presentation/phone_change_screen.dart';
 import '../features/trial/presentation/subscription_screen.dart';
 import '../features/trial/presentation/trial_follow_screen.dart';
@@ -49,8 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/admin-sign-in' ||
           loc == '/phone-login' ||
           loc == '/trial-request' ||
-          loc == '/trial-follow' ||
-          loc == '/demo';
+          loc == '/trial-follow';
       final atEmployeeAuth = loc == '/employee-sign-in';
       final atAuth = atAdminAuth || atEmployeeAuth;
 
@@ -133,7 +131,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/subscription',
         builder: (_, __) => const SubscriptionScreen(),
       ),
-      GoRoute(path: '/demo', builder: (_, __) => const DemoTourScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
       GoRoute(
         path: '/employee-sign-in',

@@ -12,7 +12,6 @@ import '../../trial/data/trial_repository.dart';
 ///   - ابدأ تجربتك     -> asks for a trial; the administrator decides and a
 ///     WhatsApp code starts it (no e-mail, no invitation, no SMS)
 ///   - دخول حسابي      -> a subscriber already in: phone + WhatsApp code
-///   - جولة تعريفية    -> a tour with invented data
 ///   - تسجيل دخول موظف -> temporary code or QR
 /// The platform administrator's e-mail / password sign-in lives behind the
 /// small "دخول المدير" link, so it is not shown to employees.
@@ -120,19 +119,6 @@ class WelcomeScreen extends ConsumerWidget {
                               const FaIcon(FontAwesomeIcons.whatsapp, size: 16),
                           label: const Text('دخول حسابي'),
                           style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          key: const ValueKey('welcome-demo'),
-                          onPressed: () => context.go('/demo'),
-                          icon: const FaIcon(FontAwesomeIcons.play, size: 14),
-                          label: const Text('جولة تعريفية'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textHigh,
-                            side: const BorderSide(
-                                color: AppColors.glassBorderStrong),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
