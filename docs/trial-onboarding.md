@@ -27,7 +27,7 @@
 ## ما يجب ضبطه خارج الكود
 1. تنفيذ `0059_trial_onboarding.sql` في SQL Editor ثم تثبيت نسخة التطبيق الجديدة مباشرة (الهجرة تغلق التسجيل القديم، والنسخة القديمة لا تعمل بعدها للمشتركين الجدد).
 2. نشر `supabase/functions/member-session/index.ts` في دالة Edge المسماة `super-handler` (الاسم الحالي في التطبيق).
-3. Authentication → Providers/Sign In: **أوقف** «Allow new users to sign up» (الحسابات تُنشأ فقط من الدالة؛ الموظفون يبقون عبر الدخول المجهول).
+3. Authentication → Providers/Sign In: اترك «Allow new users to sign up» **مفعّلاً** و«Allow anonymous sign-ins» **مفعّلاً**. إيقاف الأول يوقف الثاني أيضاً (Supabase يرفض الدخول المجهول بـ «Signups not allowed for this instance»)، فلا يستطيع أي موظف تسجيل الدخول. أي حساب يُنشأ بهذه الطريقة يأخذ ترخيص `pending` (0013) فيمنعه license_gate من كل شيء.
 4. أسرار البوابة في `app_secrets`: `wa_base_url`, `wa_session_id`, `wa_api_key` (موجودة). لا تظهر للتطبيق.
 5. pg_cron: تفعّله الهجرة وتجدول `eshary_tick()` كل دقيقة (حارس الزمن + حالة الرسائل + انتهاء التجارب). إن لم يتوفر pg_cron فعّله من Database → Extensions.
 

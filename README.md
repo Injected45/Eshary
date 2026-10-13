@@ -75,6 +75,8 @@ Apply with the Supabase CLI: `supabase db reset` (local) or `supabase db push` (
 
 - **Account deletion, privacy policy, Google Play build** (migration 0064) — a subscriber deletes their own account in the app with a WhatsApp code sent to their registered phone; the account, everything it owns, its trial trail, the personal contents of its audit rows and its rows in stored backups are removed. The policy (`docs/privacy-policy.md`) is shown in the app. A separate Play build (`build-aab.bat`) drops the always-on background service and the battery exemption. See `docs/play-store-readiness.md`.
 
+- **Account deletion, privacy policy, Google Play build** (migration 0064) — a subscriber deletes their own account in the app with a WhatsApp code to their registered phone; the account, everything it owns, its trial trail, the personal contents of its audit rows and its rows in stored backups are removed. The policy (`docs/privacy-policy.md`) is shown in the app. A separate Play build (`build-aab.bat`) drops the always-on background service and the battery exemption. See `docs/play-store-readiness.md`.
+
 ## Phases
 
 See `docs/phase-plan.md` for the full 4-phase roadmap and what's deferred. All four phases (schema, scaffold, UI parity, polish) are complete; the deferred items are launcher icon, write-side offline queue, and accessibility audit.
