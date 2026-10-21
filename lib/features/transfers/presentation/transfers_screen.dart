@@ -60,14 +60,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   String? _exchangeCompanyName;
   int? _activeSection;
 
-  // Auto-advance: when a container is completely and correctly filled it closes
-  // by itself and the next one opens, after a short pause (so typing is never
-  // cut off). Each container advances once per fill; it re-arms only after it
-  // has become incomplete again.
-  Timer? _advanceTimer;
-  bool _s1Advanced = false;
-  bool _s2Advanced = false;
-  static const _advanceDelay = Duration(milliseconds: 1400);
   bool _logExpanded = false;
   bool _autoPicked = false;
 
@@ -89,12 +81,10 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   }
 
   void _onAmountChanged() {
-    _advanceTimer?.cancel();
     if (mounted) setState(() {});
   }
 
   void _onFormTyped() {
-    _advanceTimer?.cancel();
     if (mounted) setState(() {});
   }
 
@@ -122,47 +112,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   bool get _readyToSave =>
       _exitFormComplete && !_overBalance && _beneficiaryComplete;
 
-  /// Closes a finished container and opens the next one, once, after a pause.
-  void _checkAutoAdvance() {
-    if (!mounted || _busy) return;
-    // 1 -> 2: "خروج من حسابي" is complete and the balance covers the amount
-    if (_exitFormComplete && !_overBalance) {
-      if (_activeSection == 1 &&
-          !_s1Advanced &&
-          !(_advanceTimer?.isActive ?? false)) {
-        _advanceTimer = Timer(_advanceDelay, () {
-          if (!mounted) return;
-          if (_activeSection == 1 && _exitFormComplete && !_overBalance) {
-            setState(() {
-              _activeSection = 2;
-              _s1Advanced = true;
-            });
-          }
-        });
-      }
-    } else {
-      _s1Advanced = false;
-    }
-    // 2 -> closed: the beneficiary is complete; the save button is then ready
-    if (_beneficiaryComplete) {
-      if (_activeSection == 2 &&
-          !_s2Advanced &&
-          !(_advanceTimer?.isActive ?? false)) {
-        _advanceTimer = Timer(_advanceDelay, () {
-          if (!mounted) return;
-          if (_activeSection == 2 && _beneficiaryComplete) {
-            setState(() {
-              _activeSection = null;
-              _s2Advanced = true;
-            });
-          }
-        });
-      }
-    } else {
-      _s2Advanced = false;
-    }
-  }
-
   /// The selected account as it is now: the list is refreshed after every
   /// save, and the balance moves at save, so read it from the live list.
   Exchange? get _currentExchange {
@@ -186,7 +135,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   void dispose() {
-    _advanceTimer?.cancel();
     _beneficiaryName.removeListener(_onFormTyped);
     _beneficiaryAccount.removeListener(_onFormTyped);
     _beneficiaryCode.removeListener(_onFormTyped);
@@ -234,11 +182,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _exchange = null;
       _company = null;
       _activeSection = null;
-      _s1Advanced = false;
-      _s2Advanced = false;
       _autoPicked = false; // a single account is filled in again
     });
-    _advanceTimer?.cancel();
   }
 
   Future<void> _onExchangeChanged(Exchange? e) async {
@@ -288,7 +233,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '🏦 من حساب : $company\n'
         '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
-        '📄 الرقم الإشاري : $ref\n'
+        '${ref.isEmpty ? '' : '📄 الرقم الإشاري : $ref\n'}'
         '————————————————\n'
         'شكراً علي تعاونكم معنا 🤝';
 
@@ -296,7 +241,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '🏦 من حساب : $company\n'
         '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
-        '📄 الرقم الإشاري : $ref\n'
+        '${ref.isEmpty ? '' : '📄 الرقم الإشاري : $ref\n'}'
         '————————————————\n'
         '${beneficiary.isEmpty ? '' : '🏦 تسليمكم في شركة : $beneficiary\n'}'
         '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
@@ -315,7 +260,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
         '${benCode.isEmpty ? '' : '🔢 كود : $benCode\n'}'
         '💵 المبلغ : ( $amount \$ ) 🇹🇷\n'
-        '📄 الرقم الإشاري : $ref\n'
+        '${ref.isEmpty ? '' : '📄 الرقم الإشاري : $ref\n'}'
         '------------------------------\n'
         'شاكر لكم حسن انتباهكم';
 
@@ -557,8 +502,6 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // After every rebuild: see whether a finished container should advance.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoAdvance());
     final exchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(todayTransfersProvider);
     // only MY exchange companies: a customer's company is never offered here

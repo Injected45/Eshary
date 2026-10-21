@@ -379,7 +379,7 @@ void main() {
               'lib/features/currency_buy/presentation/currency_buy_screen.dart')
           .readAsStringSync();
       expect(src.split('reference: _fullReference,').length - 1, 2);
-      expect(src.contains('_fullReference.isEmpty'), isTrue);
+      expect(src.contains('final reference = _fullReference;'), isTrue);
       expect(src.contains('reference: _reference.text.trim()'), isFalse);
       expect(src.contains('prefixText: _refPrefix.isEmpty ? null : _refPrefix'),
           isTrue);
@@ -419,6 +419,25 @@ void main() {
         File('lib/features/transfers/presentation/transfers_screen.dart')
             .readAsStringSync();
     expect(out.split("beneficiary.isEmpty ? '' : ").length - 1, 3);
+  });
+
+  test('no reference: the lines are left out and the save does not wait', () {
+    final buy =
+        File('lib/features/currency_buy/presentation/currency_buy_screen.dart')
+            .readAsStringSync();
+    expect(buy.contains(r"reference.isEmpty ? '' : 'اشاري ( $reference )"),
+        isTrue);
+    expect(
+        buy.contains(r"reference.isEmpty ? '' : 'الرقم الإشاري : $reference"),
+        isTrue);
+    expect(
+        buy.replaceAll(RegExp(r'\s+'), ' '),
+        contains(
+            'bool get _readyToSave => _accountComplete && _senderSaveable;'));
+    final out =
+        File('lib/features/transfers/presentation/transfers_screen.dart')
+            .readAsStringSync();
+    expect(out.split("ref.isEmpty ? '' : '📄 الرقم الإشاري").length - 1, 3);
   });
 
   test('a party can be edited (letters included) from the saved list', () {

@@ -85,13 +85,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   bool _autoPicked = false;
   bool _executedExpanded = false;
 
-  // Auto-advance (see the exit screen): a finished container closes and the
-  // next opens after a short pause, once per fill.
-  Timer? _advanceTimer;
-  bool _s1Advanced = false;
-  bool _s2Advanced = false;
-  static const _advanceDelay = Duration(milliseconds: 1400);
-
   @override
   void initState() {
     super.initState();
@@ -102,67 +95,22 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   }
 
   void _onFormTyped() {
-    _advanceTimer?.cancel();
     if (mounted) setState(() {});
   }
 
-  /// The sender is complete: company, the saved sender, the reference and the
-  /// dollar value. The code is not required: a sender known by name only is
-  /// as good as one known by code only (the saved party has one of them).
-  bool get _senderComplete =>
-      _senderCompany != null &&
-      _client != null &&
-      _reference.text.trim().isNotEmpty &&
-      parseMoney(_usd.text) > 0;
+  /// Enough to SAVE: the company choice, the saved sender and the dollar value.
+  /// Neither the code nor the reference is required: a sender known by name
+  /// only is as good as one known by code only, and not every merchant has a
+  /// reference number.
+  bool get _senderSaveable =>
+      _senderCompany != null && _client != null && parseMoney(_usd.text) > 0;
 
   /// Everything needed to save: my account and the sender. Only then the save
   /// button is ready.
-  bool get _readyToSave => _accountComplete && _senderComplete;
-
-  /// Closes a finished container and opens the next one, once, after a pause.
-  void _checkAutoAdvance() {
-    if (!mounted || _busy) return;
-    // 1 -> 2: "دخول لحسابي" is complete
-    if (_accountComplete) {
-      if (_activeSection == 1 &&
-          !_s1Advanced &&
-          !(_advanceTimer?.isActive ?? false)) {
-        _advanceTimer = Timer(_advanceDelay, () {
-          if (!mounted) return;
-          if (_activeSection == 1 && _accountComplete) {
-            setState(() {
-              _activeSection = 2;
-              _s1Advanced = true;
-            });
-          }
-        });
-      }
-    } else {
-      _s1Advanced = false;
-    }
-    // 2 -> closed: the sender is complete; the save button is then ready
-    if (_accountComplete && _senderComplete) {
-      if (_activeSection == 2 &&
-          !_s2Advanced &&
-          !(_advanceTimer?.isActive ?? false)) {
-        _advanceTimer = Timer(_advanceDelay, () {
-          if (!mounted) return;
-          if (_activeSection == 2 && _accountComplete && _senderComplete) {
-            setState(() {
-              _activeSection = null;
-              _s2Advanced = true;
-            });
-          }
-        });
-      }
-    } else {
-      _s2Advanced = false;
-    }
-  }
+  bool get _readyToSave => _accountComplete && _senderSaveable;
 
   @override
   void dispose() {
-    _advanceTimer?.cancel();
     _usd.removeListener(_onFormTyped);
     _reference.removeListener(_onFormTyped);
     _usd.dispose();
@@ -191,9 +139,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _lyd.text = '0.00';
     _reference.clear();
     _activeSection = null;
-    _s1Advanced = false;
-    _s2Advanced = false;
-    _advanceTimer?.cancel();
     _autoPicked = false; // a single account is filled in again
   }
 
@@ -363,14 +308,15 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final senderCode = _effectiveSenderCode;
     final myCompany = _myCompany?.name ?? '—';
     final myCode = (_exchange?.ourCode ?? '').trim();
-    final reference = _fullReference.isEmpty ? '—' : _fullReference;
+    // No reference: the line is left out, not printed empty.
+    final reference = _fullReference;
 
     final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
         'نرجوا منكم تأكيد الدخول\n'
         '${senderCompany.isEmpty ? '' : 'القادم من شركة * $senderCompany *\n'}'
         '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount\n'}'
         '${senderCode.isEmpty ? '' : 'كود : $senderCode\n'}'
-        'اشاري ( $reference )\n'
+        '${reference.isEmpty ? '' : 'اشاري ( $reference )\n'}'
         '———————————————-\n'
         '🏦 لحساب: $myCompany\n'
         '${myCode.isEmpty ? '' : '🔢  كود: $myCode\n'}'
@@ -386,7 +332,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         '${senderCompany.isEmpty ? '' : 'مرسلة من شركة $senderCompany 🇹🇷\n'}'
         '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount 🇹🇷\n'}'
         '${senderCode.isEmpty ? '' : '🔢  كود : $senderCode\n'}'
-        'الرقم الإشاري : $reference\n'
+        '${reference.isEmpty ? '' : 'الرقم الإشاري : $reference\n'}'
         '———————————————-\n'
         'شاكر لكم حسن انتباهكم 🫡';
 
@@ -712,8 +658,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     // Exactly one account in total: fill the company, account and code as
     // soon as the screen opens (and again after each save) and go straight
     // to the sender section. With several accounts nothing is chosen for me.
-    // After every rebuild: see whether a finished container should advance.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoAdvance());
     final loadedExchanges = allExchangesAsync.value;
     final loadedCompanies = companiesAsync.value;
     final loadedExchangeCompanies = exchangeCompaniesAsync.value;
@@ -1092,7 +1036,6 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                   initialValue: _client?.code ?? '',
                   readOnly: _client == null || _senderCodeStored,
                   onChanged: (v) {
-                    _advanceTimer?.cancel();
                     setState(() {
                       _senderCodeTyped = v;
                       _senderCodeFor = _client?.id;
@@ -1158,7 +1101,9 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                           // The sender's fixed letters stay in front; only the
                           // changing number is typed.
                           decoration: InputDecoration(
-                            hintText: _refPrefix.isEmpty ? 'الإشاري' : 'الرقم',
+                            hintText: _refPrefix.isEmpty
+                                ? 'الإشاري (اختياري)'
+                                : 'الرقم (اختياري)',
                             hintMaxLines: 1,
                             prefixText: _refPrefix.isEmpty ? null : _refPrefix,
                             prefixStyle: _kFieldTextStyle.copyWith(

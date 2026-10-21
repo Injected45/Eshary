@@ -9,6 +9,7 @@ import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'add_client_dialog.dart';
+import 'delete_party.dart';
 import 'clients_providers.dart';
 import '../../../shared/top_message.dart';
 
@@ -255,31 +256,8 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                                         size: 14,
                                         color: AppColors.negative,
                                       ),
-                                      onPressed: () async {
-                                        try {
-                                          await ref
-                                              .read(
-                                                clientsRepositoryProvider,
-                                              )
-                                              .delete(item.id);
-                                          ref.invalidate(
-                                            clientsListProvider,
-                                          );
-                                        } catch (e, st) {
-                                          AppLogger.error(
-                                            'savedClients.delete',
-                                            e,
-                                            st,
-                                          );
-                                          if (!context.mounted) return;
-                                          showTopSnackBar(
-                                            context,
-                                            SnackBar(
-                                              content: Text(friendlyError(e)),
-                                            ),
-                                          );
-                                        }
-                                      },
+                                      onPressed: () => confirmAndDeleteParty(
+                                          context, ref, item),
                                     ),
                                 ],
                               ),

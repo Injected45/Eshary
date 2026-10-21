@@ -8,6 +8,7 @@ import '../../../shared/logger.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'add_client_dialog.dart';
+import 'delete_party.dart';
 import 'clients_providers.dart';
 import '../../../shared/top_message.dart';
 
@@ -134,74 +135,10 @@ class _ClientTile extends ConsumerWidget {
               size: 14,
               color: AppColors.negative,
             ),
-            onPressed: () => _confirmDelete(context, ref),
+            onPressed: () => confirmAndDeleteParty(context, ref, client),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showGlassDialog<bool>(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'حذف العميل؟',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHigh,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('إلغاء'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.negative,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      child: const Text('حذف'),
-                    ),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (confirmed == true) {
-      try {
-        await ref.read(clientsRepositoryProvider).delete(client.id);
-        ref.invalidate(clientsListProvider);
-      } catch (e, st) {
-        AppLogger.error('clients.delete', e, st);
-        if (!context.mounted) return;
-        showTopSnackBar(
-          context,
-          SnackBar(content: Text(friendlyError(e))),
-        );
-      }
-    }
   }
 }

@@ -425,7 +425,7 @@ void main() {
     });
   });
 
-  group('auto-advance and the save button', () {
+  group('containers close by hand only, and the save button', () {
     final one = [_exchange('1', 'شركة الصرافة', 'X-100', 2500)];
     const pause = Duration(milliseconds: 1500);
     FilledButton save(WidgetTester t) =>
@@ -437,36 +437,24 @@ void main() {
       expect(save(tester).onPressed, isNull);
     });
 
-    testWidgets(
-        'last field of "خروج من حسابي" filled: it closes and the beneficiary opens',
+    testWidgets('last field of "خروج من حسابي" filled: nothing moves by itself',
         (tester) async {
       await _open(tester, one);
       await tester.enterText(find.byType(TextField).at(2), '100');
       await tester.pump();
-      // not at once: the typing must never be cut off
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('الجهات المحفوظة'), findsNothing);
-      expect(find.text('X-100'), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('X-100'), findsOneWidget,
+          reason: 'the account stays open');
+      expect(find.text('الجهات المحفوظة'), findsNothing,
+          reason: 'the beneficiary stays closed until it is tapped');
+
+      await tester.tap(find.text('الجهة المستفيدة'));
       await tester.pumpAndSettle();
       expect(find.text('الجهات المحفوظة'), findsOneWidget,
-          reason: 'beneficiary opened');
-      expect(find.text('X-100'), findsNothing, reason: 'account closed');
-    });
-
-    testWidgets('typing again restarts the pause', (tester) async {
-      await _open(tester, one);
-      await tester.enterText(find.byType(TextField).at(2), '1');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1000));
-      await tester.enterText(find.byType(TextField).at(2), '10');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1000));
-      expect(find.text('الجهات المحفوظة'), findsNothing,
-          reason: 'still waiting: the last key restarted the pause');
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pumpAndSettle();
-      expect(find.text('الجهات المحفوظة'), findsOneWidget);
+          reason: 'opened by hand');
+      expect(find.text('X-100'), findsNothing,
+          reason: 'the account closed by hand');
     });
 
     testWidgets('an amount above the balance never advances', (tester) async {
@@ -508,6 +496,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(save(tester).onPressed, isNull,
             reason: 'beneficiary still empty');
+        await tester.tap(find.text('الجهة المستفيدة'));
+        await tester.pumpAndSettle();
         for (final f in entry.value.entries) {
           await tester.enterText(
               find.widgetWithText(TextField, f.key), f.value);
@@ -515,8 +505,8 @@ void main() {
         await tester.pump();
         await tester.pump(pause);
         await tester.pumpAndSettle();
-        expect(find.text('الجهات المحفوظة'), findsNothing,
-            reason: 'beneficiary closed by itself');
+        expect(find.text('الجهات المحفوظة'), findsOneWidget,
+            reason: 'it does not close by itself');
         expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
       });
     }
@@ -526,6 +516,8 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '100');
       await tester.pump();
       await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الجهة المستفيدة'));
       await tester.pumpAndSettle();
       await tester.enterText(
           find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
@@ -546,6 +538,8 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '100');
       await tester.pump();
       await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الجهة المستفيدة'));
       await tester.pumpAndSettle();
       await tester.enterText(
           find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');

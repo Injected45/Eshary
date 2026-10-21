@@ -151,6 +151,18 @@ String friendlyError(Object e) {
   if (s.contains('cancel_not_cancellable') || s.contains('cancel_not_found')) {
     return 'لا يمكن إلغاء هذه العملية.';
   }
+  // A name is never deleted from one place and left in another (0075).
+  if (s.contains('company_in_use_accounts')) {
+    return 'لا يمكن حذف هذه الشركة: لك حساب عندها. احذف الحساب أولًا '
+        '(ويُحذف فقط إن لم تُنفَّذ عليه عمليات).';
+  }
+  if (s.contains('company_in_use_parties')) {
+    return 'لا يمكن حذف هذه الشركة: توجد جهات محفوظة باسمها. احذف تلك '
+        'الجهات أولًا، فتُحذف الشركة معها.';
+  }
+  if (s.contains('party_not_found')) {
+    return 'هذه الجهة لم تعد موجودة. حدّث القائمة.';
+  }
   if (s.contains('client_has_operations')) {
     return 'لا يمكن حذف هذه الجهة لارتباطها بعمليات مالية سابقة.';
   }

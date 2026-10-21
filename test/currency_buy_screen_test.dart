@@ -197,11 +197,15 @@ void main() {
         findsNothing);
 
     // the hint is the short word, centred in the box
-    expect(find.text('الإشاري'), findsOneWidget);
+    expect(find.text('الإشاري (اختياري)'), findsOneWidget);
     expect(find.text('أدخل الرقم الإشاري'), findsNothing);
-    expect((tester.getCenter(find.text('الإشاري')).dx - r.center.dx).abs(),
+    expect(
+        (tester.getCenter(find.text('الإشاري (اختياري)')).dx - r.center.dx)
+            .abs(),
         lessThan(2));
-    expect((tester.getCenter(find.text('الإشاري')).dy - r.center.dy).abs(),
+    expect(
+        (tester.getCenter(find.text('الإشاري (اختياري)')).dy - r.center.dy)
+            .abs(),
         lessThan(2));
 
     // typed text is centred
@@ -211,7 +215,7 @@ void main() {
         lessThan(2));
   });
 
-  group('auto-advance and the save button', () {
+  group('containers close by hand only, and the save button', () {
     final client = Client(
       id: 'c1',
       ownerId: 'o',
@@ -238,7 +242,7 @@ void main() {
       await _open(tester, one, clients: [noCompany]);
       await tester.tap(find.text('دخول لحسابي'));
       await tester.pumpAndSettle();
-      await tester.pump(pause);
+      await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
       // the company list offers "بدون شركة" because a saved sender has none
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
@@ -261,6 +265,35 @@ void main() {
       expect(save(tester).onPressed, isNotNull, reason: 'no company needed');
     });
 
+    testWidgets('no reference at all: the save button still works',
+        (tester) async {
+      await _open(tester, one, clients: [client]);
+      await tester.tap(find.text('دخول لحسابي'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الجهة المرسلة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('شركة المرسل').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أحمد').last);
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextField);
+      final n = tester.widgetList(fields).length;
+      // only the value: the reference box stays empty
+      await tester.enterText(fields.at(n - 1), '250');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(save(tester).onPressed, isNotNull,
+          reason: 'a reference is optional');
+      expect(find.text('الإشاري (اختياري)'), findsWidgets,
+          reason: 'the box says it is optional');
+    });
+
     testWidgets(
         'a saved sender with no code can be saved: the code is optional',
         (tester) async {
@@ -275,7 +308,7 @@ void main() {
       await _open(tester, one, clients: [noCode]);
       await tester.tap(find.text('دخول لحسابي'));
       await tester.pumpAndSettle();
-      await tester.pump(pause);
+      await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
@@ -311,7 +344,7 @@ void main() {
       await _open(tester, one, clients: [client, trc]);
       await tester.tap(find.text('دخول لحسابي'));
       await tester.pumpAndSettle();
-      await tester.pump(pause);
+      await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
@@ -326,7 +359,7 @@ void main() {
       expect(find.text('TRC'), findsNothing);
       expect(find.byKey(const ValueKey('ref-prefix-edit')), findsOneWidget,
           reason: 'the pencil is there to add letters to this sender');
-      expect(find.text('الإشاري'), findsWidgets);
+      expect(find.text('الإشاري (اختياري)'), findsWidgets);
 
       // a sender with letters: they stay in front, the number is typed
       await tester.tap(find.byType(DropdownButtonFormField<Client>));
@@ -345,20 +378,25 @@ void main() {
     });
 
     testWidgets(
-        '"دخول لحسابي" complete: it closes by itself and the sender opens; '
-        'sender complete: it closes and the save button is ready',
+        'nothing opens or closes by itself: the containers move only when tapped',
         (tester) async {
       await _open(tester, one, clients: [client]);
       await tester.tap(find.text('دخول لحسابي'));
       await tester.pumpAndSettle();
       expect(find.text('X-100'), findsOneWidget, reason: 'account open');
 
-      await tester.pump(pause);
+      // however long we wait, the account stays open and the sender closed
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expect(find.text('X-100'), findsNothing, reason: 'account closed');
-      expect(find.text(senderMarker), findsOneWidget, reason: 'sender opened');
+      expect(find.text('X-100'), findsOneWidget, reason: 'account still open');
+      expect(find.text(senderMarker), findsNothing,
+          reason: 'sender still closed');
       expect(save(tester).onPressed, isNull);
 
+      // by hand: open the sender
+      await tester.tap(find.text('الجهة المرسلة'));
+      await tester.pumpAndSettle();
+      expect(find.text(senderMarker), findsOneWidget, reason: 'sender opened');
       await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('شركة المرسل').last);
@@ -372,15 +410,17 @@ void main() {
       final n = tester.widgetList(fields).length;
       await tester.enterText(fields.at(n - 2), 'R-1');
       await tester.enterText(fields.at(n - 1), '250');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text(senderMarker), findsOneWidget,
-          reason: 'not at once: typing is never cut off');
-      await tester.pump(pause);
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-      expect(find.text(senderMarker), findsNothing,
-          reason: 'sender closed by itself');
+      // everything is filled, the reference too: it is still open
+      expect(find.text(senderMarker), findsOneWidget,
+          reason: 'the sender does not close by itself');
       expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
+
+      // and it closes only when tapped
+      await tester.tap(find.text('الجهة المرسلة'));
+      await tester.pumpAndSettle();
+      expect(find.text(senderMarker), findsNothing, reason: 'closed by hand');
     });
   });
 }

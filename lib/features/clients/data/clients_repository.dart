@@ -76,16 +76,16 @@ class ClientsRepository {
     );
   }
 
-  Future<void> delete(String id) async {
-    final usage = await _client
-        .from('currency_buys')
-        .select('id')
-        .eq('client_id', id)
-        .limit(1);
-    if ((usage as List).isNotEmpty) {
-      throw const ClientHasOperationsException();
-    }
-    await _client.from('clients').delete().eq('id', id);
+  /// Deletes a saved party in the database (migration 0075): it is refused when
+  /// the party has operations, and the customer company that came with it goes
+  /// too when no other party uses it. Returns that company's name, or null when
+  /// none was removed.
+  Future<String?> delete(String id) async {
+    final res = await _client.rpc<Map<String, dynamic>>(
+      'delete_party',
+      params: {'p_client_id': id},
+    );
+    return res['company_removed'] as String?;
   }
 }
 
