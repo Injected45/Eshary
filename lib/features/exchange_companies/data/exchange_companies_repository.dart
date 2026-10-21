@@ -22,6 +22,7 @@ class ExchangeCompaniesRepository {
     required String ownerId,
     required String name,
     String? country,
+    String kind = kExchangeCompanyMine,
   }) async {
     final row = await _client
         .from('exchange_companies')
@@ -29,6 +30,7 @@ class ExchangeCompaniesRepository {
           'owner_id': ownerId,
           'name': name,
           'country': country,
+          if (kind == kExchangeCompanyClient) 'kind': kind,
         })
         .select()
         .single();
@@ -39,12 +41,15 @@ class ExchangeCompaniesRepository {
     required String id,
     required String name,
     String? country,
+    String? kind,
   }) async {
     final row = await _client
         .from('exchange_companies')
         .update({
           'name': name,
           'country': country,
+          // moved between "mine" and "customers'": sent only when asked
+          if (kind != null) 'kind': kind,
         })
         .eq('id', id)
         .select()

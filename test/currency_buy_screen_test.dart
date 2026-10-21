@@ -225,6 +225,43 @@ void main() {
         t.widget<FilledButton>(find.byKey(const ValueKey('save-buy')));
 
     testWidgets(
+        'a sender with no company: "بدون شركة" lists it and the entry can be saved',
+        (tester) async {
+      final noCompany = Client(
+        id: 'c4',
+        ownerId: 'o',
+        name: 'ابوبكر',
+        company: null,
+        code: '7001',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      await _open(tester, one, clients: [noCompany]);
+      await tester.tap(find.text('دخول لحسابي'));
+      await tester.pumpAndSettle();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      // the company list offers "بدون شركة" because a saved sender has none
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      expect(find.text('بدون شركة'), findsWidgets);
+      await tester.tap(find.text('بدون شركة').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ابوبكر').last);
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextField);
+      final n = tester.widgetList(fields).length;
+      await tester.enterText(fields.at(n - 2), 'R-1');
+      await tester.enterText(fields.at(n - 1), '250');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(save(tester).onPressed, isNotNull, reason: 'no company needed');
+    });
+
+    testWidgets(
         'a saved sender with no code can be saved: the code is optional',
         (tester) async {
       final noCode = Client(

@@ -29,6 +29,8 @@ ExchangeCompany _company(String id, String name) => ExchangeCompany(
       ownerId: 'u1',
       name: name,
       createdAt: DateTime(2026, 10, 1),
+      // the customer dialog offers customers' companies only (0074)
+      kind: kExchangeCompanyClient,
     );
 
 class _FakeClients implements ClientsRepository {
@@ -240,12 +242,43 @@ void main() {
       ]);
     });
 
-    testWidgets('nothing typed: asks for a code or a name', (tester) async {
+    testWidgets('nothing typed: asks for a code, a name or a company',
+        (tester) async {
       final fake = await _openAdd(tester);
       await tester.tap(find.text('حفظ'));
       await tester.pumpAndSettle();
       expect(fake.created, isEmpty);
-      expect(find.text('اكتب الكود أو الاسم على الأقل'), findsOneWidget);
+      expect(
+          find.text('اكتب الكود أو الاسم أو الشركة على الأقل'), findsOneWidget);
+    });
+
+    testWidgets('a merchant with account name + code and no company is saved',
+        (tester) async {
+      final fake = await _openAdd(tester);
+      await tester.enterText(_field('كود الحساب'), '7001');
+      await tester.enterText(_field('اسم العميل'), 'ابوبكر');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created, [
+        {'name': 'ابوبكر', 'company': null, 'code': '7001'},
+      ]);
+    });
+
+    testWidgets('a company alone is enough: the party takes its name',
+        (tester) async {
+      final fake = await _openAdd(tester);
+      await _chooseCompany(tester, 'أنزار');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created, [
+        {'name': 'أنزار', 'company': 'أنزار', 'code': ''},
+      ]);
+    });
+
+    test('a row shows what the merchant gave: no dash before a lone code', () {
+      expect(partySubtitle(_client('9', 'س', null, '5521')), 'كود 5521');
+      expect(partySubtitle(_client('9', 'س', 'أنزار', '5521')),
+          'أنزار · كود 5521');
     });
 
     testWidgets('the fields run company, code, name', (tester) async {
@@ -375,6 +408,17 @@ void main() {
     // our own account code too: nothing is printed for what is not written
     expect(out.split("code.isEmpty ? '' : '🔢 كود : ").length - 1, 3);
     expect(buy.split("myCode.isEmpty ? '' : ").length - 1, 2);
+  });
+
+  test('a missing company is left out of the messages too', () {
+    final buy =
+        File('lib/features/currency_buy/presentation/currency_buy_screen.dart')
+            .readAsStringSync();
+    expect(buy.split("senderCompany.isEmpty ? '' : ").length - 1, 2);
+    final out =
+        File('lib/features/transfers/presentation/transfers_screen.dart')
+            .readAsStringSync();
+    expect(out.split("beneficiary.isEmpty ? '' : ").length - 1, 3);
   });
 
   test('a party can be edited (letters included) from the saved list', () {

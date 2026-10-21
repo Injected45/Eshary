@@ -47,7 +47,7 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   Widget build(BuildContext context) {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
-    final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
+    final exchangeCompaniesAsync = ref.watch(myExchangeCompaniesProvider);
     final archivedBuys = ref.watch(archivedBuysProvider).value ?? const [];
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const [];

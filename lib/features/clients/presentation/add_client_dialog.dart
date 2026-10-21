@@ -68,20 +68,22 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
   /// closes, selects the company that was just created so the user can keep
   /// filling the form without leaving the screen.
   Future<void> _addNewCompany() async {
-    final before = (ref.read(exchangeCompaniesListProvider).valueOrNull ??
+    final before = (ref.read(clientCompaniesProvider).valueOrNull ??
             const <ExchangeCompany>[])
         .map((c) => c.name)
         .toSet();
     await showGlassDialog<void>(
       context: context,
+      // a customer's company: it never becomes one of MY exchange companies
       builder: (_) => AddExchangeCompanyDialog(
+        kind: kExchangeCompanyClient,
         onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
       ),
     );
     if (!mounted) return;
     final after = await ref.read(exchangeCompaniesListProvider.future);
     if (!mounted) return;
-    final added = after.where((c) => !before.contains(c.name));
+    final added = after.where((c) => c.isClient && !before.contains(c.name));
     if (added.isNotEmpty) {
       setState(() => _companySelection = added.first.name);
     }
@@ -93,11 +95,16 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
         _codeLocked ? widget.existing!.code!.trim() : cleanCode(_code.text);
     // The name is optional when there is a code: most merchants are known by
     // their code only. Such a party is called by its code.
-    if (typedName.isEmpty && code.isEmpty) {
-      setState(() => _nameError = 'اكتب الكود أو الاسم على الأقل');
+    final company = (_companySelection ?? '').trim();
+    // Merchants give different things: company + account + code, company +
+    // code, account + code. Any one of the three is enough to save.
+    if (typedName.isEmpty && code.isEmpty && company.isEmpty) {
+      setState(() => _nameError = 'اكتب الكود أو الاسم أو الشركة على الأقل');
       return;
     }
-    final name = typedName.isEmpty ? nameForCode(code) : typedName;
+    final name = typedName.isNotEmpty
+        ? typedName
+        : (code.isNotEmpty ? nameForCode(code) : company);
     setState(() => _busy = true);
     try {
       final existing = await ref.read(clientsListProvider.future);
@@ -212,7 +219,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
             _codeLocked ? const Icon(Icons.lock_outline, size: 18) : null,
       ),
     );
-    final companyField = ref.watch(exchangeCompaniesListProvider).when(
+    final companyField = ref.watch(clientCompaniesProvider).when(
           skipLoadingOnReload: true,
           skipError: true,
           data: (companies) => Column(
@@ -222,15 +229,17 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                 value: _companySelection,
                 isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'من حساب شركة',
-                  hintText: 'اختر الشركة',
+                  labelText: 'من حساب شركة (اختياري)',
+                  hintText: 'اختر الشركة أو اتركها بلا شركة',
                 ),
-                items: companies
-                    .map((c) => DropdownMenuItem<String>(
-                          value: c.name,
-                          child: Text(c.name),
-                        ))
-                    .toList(),
+                items: [
+                  for (final n in {
+                    ...companies.map((c) => c.name),
+                    if ((_companySelection ?? '').isNotEmpty)
+                      _companySelection!,
+                  })
+                    DropdownMenuItem<String>(value: n, child: Text(n)),
+                ],
                 onChanged: (v) => setState(() {
                   _companySelection = v;
                   _nameError = null;

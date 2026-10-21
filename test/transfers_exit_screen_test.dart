@@ -480,34 +480,46 @@ void main() {
       expect(save(tester).onPressed, isNull);
     });
 
-    testWidgets(
-        'a beneficiary known by its name only is complete: the code is optional',
-        (tester) async {
-      await _open(tester, one);
-      await tester.enterText(find.byType(TextField).at(2), '100');
-      await tester.pump();
-      await tester.pump(pause);
-      await tester.pumpAndSettle();
-      expect(save(tester).onPressed, isNull, reason: 'beneficiary still empty');
-
-      // the company alone is not enough: a name or a code is needed too
-      await tester.enterText(
-          find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
-      await tester.pump();
-      await tester.pump(pause);
-      expect(find.text('الجهات المحفوظة'), findsOneWidget,
-          reason: 'no name and no code yet: stays open');
-      expect(save(tester).onPressed, isNull);
-
-      await tester.enterText(
-          find.widgetWithText(TextField, 'اسم حساب المستفيد'), 'علي');
-      await tester.pump();
-      await tester.pump(pause);
-      await tester.pumpAndSettle();
-      expect(find.text('الجهات المحفوظة'), findsNothing,
-          reason: 'beneficiary closed by itself, no code needed');
-      expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
-    });
+    // Merchants give different things: every combination below is enough.
+    final combos = <String, Map<String, String>>{
+      'company + account name + code': {
+        'اسم الشركة المستفيدة': 'شركة س',
+        'اسم حساب المستفيد': 'علي',
+        'أدخل كود حساب المستفيد': 'B-9',
+      },
+      'company + code (no account name)': {
+        'اسم الشركة المستفيدة': 'شركة س',
+        'أدخل كود حساب المستفيد': 'B-9',
+      },
+      'account name + code (no company)': {
+        'اسم حساب المستفيد': 'علي',
+        'أدخل كود حساب المستفيد': 'B-9',
+      },
+      'account name only': {'اسم حساب المستفيد': 'علي'},
+      'code only': {'أدخل كود حساب المستفيد': 'B-9'},
+    };
+    for (final entry in combos.entries) {
+      testWidgets('a beneficiary given as ' + entry.key + ' is complete',
+          (tester) async {
+        await _open(tester, one);
+        await tester.enterText(find.byType(TextField).at(2), '100');
+        await tester.pump();
+        await tester.pump(pause);
+        await tester.pumpAndSettle();
+        expect(save(tester).onPressed, isNull,
+            reason: 'beneficiary still empty');
+        for (final f in entry.value.entries) {
+          await tester.enterText(
+              find.widgetWithText(TextField, f.key), f.value);
+        }
+        await tester.pump();
+        await tester.pump(pause);
+        await tester.pumpAndSettle();
+        expect(find.text('الجهات المحفوظة'), findsNothing,
+            reason: 'beneficiary closed by itself');
+        expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
+      });
+    }
 
     testWidgets('a name and a code together are complete too', (tester) async {
       await _open(tester, one);

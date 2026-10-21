@@ -324,7 +324,9 @@ List<Client> filterParties(List<Client> all, String query) {
 
 /// "بهار روز · كود 5521": the company and the code a merchant is known by.
 String partySubtitle(Client c) {
-  final company = (c.company ?? '').trim().isEmpty ? '—' : c.company!.trim();
+  final company = (c.company ?? '').trim();
   final code = (c.code ?? '').trim();
+  if (company.isEmpty && code.isEmpty) return '—';
+  if (company.isEmpty) return 'كود $code';
   return code.isEmpty ? company : '$company · كود $code';
 }

@@ -28,6 +28,7 @@ import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
+import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
@@ -48,6 +49,15 @@ const TextStyle _kFieldTextStyle = TextStyle(
   fontWeight: FontWeight.w600,
   color: AppColors.textHigh,
 );
+
+/// The "no company" choice of the sender's company list: a merchant who gives
+/// an account name and a code but no company. Chosen like any company; the
+/// saved senders without a company are then listed under it.
+const kNoCompany = '__no_company__';
+
+/// The value of the sender's-company choice for a saved sender.
+String _companyChoiceOf(String? company) =>
+    (company ?? '').trim().isEmpty ? kNoCompany : company!.trim();
 
 class CurrencyBuyScreen extends ConsumerStatefulWidget {
   const CurrencyBuyScreen({super.key});
@@ -336,9 +346,12 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   List<String> _composeBuyMessages() {
     final amount = formatMoney(parseMoney(_usd.text));
     final exchangeCompany = _exchangeCompanyName ?? '—';
-    final senderCompany = (_senderCompany != null && _senderCompany!.isNotEmpty)
-        ? _senderCompany!
-        : (_client?.company ?? '—');
+    // No company (a merchant known by account name / code): the line is left
+    // out, not printed empty.
+    final senderCompany =
+        (_senderCompany == null || _senderCompany == kNoCompany)
+            ? (_client?.company ?? '').trim()
+            : _senderCompany!;
     // A sender saved by its code only is called "كود 5521": that is not an
     // account name, so the "حساب" line is left out (the code line says it).
     final savedName = (_client?.name ?? '').trim();
@@ -354,7 +367,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
     final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
         'نرجوا منكم تأكيد الدخول\n'
-        'القادم من شركة * $senderCompany *\n'
+        '${senderCompany.isEmpty ? '' : 'القادم من شركة * $senderCompany *\n'}'
         '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount\n'}'
         '${senderCode.isEmpty ? '' : 'كود : $senderCode\n'}'
         'اشاري ( $reference )\n'
@@ -370,7 +383,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         '🏦 لحساب: $myCompany\n'
         '${myCode.isEmpty ? '' : '🔢  كود : $myCode\n'}'
         '———————————————-\n'
-        'مرسلة من شركة $senderCompany 🇹🇷\n'
+        '${senderCompany.isEmpty ? '' : 'مرسلة من شركة $senderCompany 🇹🇷\n'}'
         '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount 🇹🇷\n'}'
         '${senderCode.isEmpty ? '' : '🔢  كود : $senderCode\n'}'
         'الرقم الإشاري : $reference\n'
@@ -613,7 +626,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     if (updated.isNotEmpty) {
       setState(() {
         _client = updated.first;
-        _senderCompany = updated.first.company;
+        _senderCompany = _companyChoiceOf(updated.first.company);
       });
     }
   }
@@ -626,7 +639,10 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       ),
     );
     if (!mounted) return;
-    final updated = await ref.read(exchangeCompaniesListProvider.future);
+    final updated = [
+      for (final c in await ref.read(exchangeCompaniesListProvider.future))
+        if (c.isMine) c,
+    ];
     if (!mounted) return;
     if (updated.isNotEmpty) {
       _onExchangeCompanyChanged(updated.first.name);
@@ -679,7 +695,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     if (picked != null && mounted) {
       setState(() {
         _client = picked;
-        _senderCompany = picked.company;
+        _senderCompany = _companyChoiceOf(picked.company);
       });
     }
   }
@@ -688,7 +704,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   Widget build(BuildContext context) {
     final clientsAsync = ref.watch(clientsListProvider);
     final companiesAsync = ref.watch(companiesListProvider);
-    final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
+    // only MY exchange companies: a customer's company is never offered here
+    final exchangeCompaniesAsync = ref.watch(myExchangeCompaniesProvider);
     final allExchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(todayBuysProvider);
 
@@ -781,17 +798,9 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         .toList()
                       ..sort();
                     if (names.isEmpty) {
-                      return const InputDecorator(
-                        decoration: InputDecoration(
-                          suffixIcon: _IconBox(
-                            FontAwesomeIcons.building,
-                            color: AppColors.warning,
-                          ),
-                        ),
-                        child: Text(
-                          'لا توجد شركة لديك فيها حساب — أضف حساباً من تبويب حساباتي',
-                          style: TextStyle(color: AppColors.textLow),
-                        ),
+                      return NoAccountNotice(
+                        exchanges: allExchangesAsync,
+                        exchangeCompanyNames: [for (final ec in items) ec.name],
                       );
                     }
                     final liveValue = names.contains(_exchangeCompanyName)
@@ -979,11 +988,14 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         onAdd: _openAddClientDialog,
                       );
                     }
-                    final companyNames = (<String>{}..addAll(clients
-                            .where((c) =>
-                                c.company != null && c.company!.isNotEmpty)
-                            .map((c) => c.company!)))
-                        .toList();
+                    final companyNames = [
+                      if (clients.any((c) => (c.company ?? '').trim().isEmpty))
+                        kNoCompany,
+                      ...(<String>{}..addAll(clients
+                          .where(
+                              (c) => c.company != null && c.company!.isNotEmpty)
+                          .map((c) => c.company!)))
+                    ];
                     final liveValue = companyNames.contains(_senderCompany)
                         ? _senderCompany
                         : null;
@@ -1010,7 +1022,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                       items: companyNames
                           .map((n) => DropdownMenuItem<String>(
                                 value: n,
-                                child: Text(n),
+                                child: Text(n == kNoCompany ? 'بدون شركة' : n),
                               ))
                           .toList(),
                       onChanged: (n) => setState(() {
@@ -1033,7 +1045,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                     final filtered = _senderCompany == null
                         ? const <Client>[]
                         : clients
-                            .where((c) => c.company == _senderCompany)
+                            .where((c) =>
+                                _companyChoiceOf(c.company) == _senderCompany)
                             .toList();
                     final liveValue =
                         filtered.any((x) => x == _client) ? _client : null;

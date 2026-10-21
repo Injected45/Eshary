@@ -18,64 +18,157 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncList = ref.watch(exchangeCompaniesListProvider);
 
+    void add(String kind) => showGlassDialog<void>(
+          context: context,
+          builder: (_) => AddExchangeCompanyDialog(
+            kind: kind,
+            onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
+          ),
+        );
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('شركات الصرافة'),
         backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const FaIcon(FontAwesomeIcons.plus, size: 16),
-            tooltip: 'إضافة شركة صرافة',
-            onPressed: () {
-              showGlassDialog<void>(
-                context: context,
-                builder: (_) => AddExchangeCompanyDialog(
-                  onSaved: () => ref.invalidate(exchangeCompaniesListProvider),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: asyncList.when(
         skipLoadingOnReload: true,
         skipError: true,
-        data: (items) => ListView(
-          padding:
-              EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
-          children: [
-            if (items.isEmpty)
+        data: (items) {
+          final mine = [
+            for (final c in items)
+              if (c.isMine) c
+          ];
+          final clients = [
+            for (final c in items)
+              if (c.isClient) c
+          ];
+          return ListView(
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+            children: [
+              // My own exchange companies: where I hold accounts.
+              _KindHeader(
+                key: const ValueKey('kind-mine'),
+                title: 'شركات الصرافة الخاصة بي',
+                subtitle:
+                    'الشركات التي لي حسابات عندها (تظهر في الدخول والخروج وحساباتي)',
+                addTooltip: 'إضافة شركة صرافة لي',
+                onAdd: () => add(kExchangeCompanyMine),
+              ),
+              if (mine.isEmpty)
+                const _EmptyKind(text: 'لا توجد شركات صرافة حتى الآن'),
+              for (final ec in mine)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ExchangeCompanyTile(item: ec),
+                ),
+              const SizedBox(height: 12),
+              // My customers' companies: never offered as my own company.
+              _KindHeader(
+                key: const ValueKey('kind-client'),
+                title: 'شركات العملاء',
+                subtitle: 'شركات من أرسل لهم أو منهم (لا تظهر كشركة باسمي)',
+                addTooltip: 'إضافة شركة عميل',
+                onAdd: () => add(kExchangeCompanyClient),
+              ),
+              if (clients.isEmpty)
+                const _EmptyKind(text: 'لا توجد شركات عملاء حتى الآن'),
+              for (final ec in clients)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ExchangeCompanyTile(item: ec),
+                ),
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Text(
-                    'لا توجد شركات صرافة حتى الآن',
-                    style: TextStyle(color: AppColors.textLow),
-                  ),
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: AppColors.textDim),
                 ),
               ),
-            for (final ec in items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ExchangeCompanyTile(item: ec),
-              ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: AppColors.textDim),
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
       ),
     );
   }
+}
+
+/// The title of one of the two lists, with its own "+".
+class _KindHeader extends StatelessWidget {
+  const _KindHeader({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.addTooltip,
+    required this.onAdd,
+  });
+
+  final String title;
+  final String subtitle;
+  final String addTooltip;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.accent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.textLow,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: addTooltip,
+            onPressed: onAdd,
+            icon: const FaIcon(FontAwesomeIcons.plus, size: 16),
+            color: AppColors.accent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyKind extends StatelessWidget {
+  const _EmptyKind({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(color: AppColors.textLow, fontSize: 13),
+          ),
+        ),
+      );
 }
 
 class _ExchangeCompanyTile extends ConsumerWidget {
@@ -197,10 +290,18 @@ class _ExchangeCompanyTile extends ConsumerWidget {
 }
 
 class AddExchangeCompanyDialog extends ConsumerStatefulWidget {
-  const AddExchangeCompanyDialog({required this.onSaved, this.existing});
+  const AddExchangeCompanyDialog({
+    required this.onSaved,
+    this.existing,
+    this.kind = kExchangeCompanyMine,
+  });
 
   final VoidCallback onSaved;
   final ExchangeCompany? existing;
+
+  /// [kExchangeCompanyMine] (my own exchange company) or
+  /// [kExchangeCompanyClient] (a customer's company).
+  final String kind;
 
   @override
   ConsumerState<AddExchangeCompanyDialog> createState() =>
@@ -218,6 +319,7 @@ class AddExchangeCompanyDialogState
     extends ConsumerState<AddExchangeCompanyDialog> {
   final _name = TextEditingController();
   String? _country;
+  late String _kind = widget.kind;
   bool _busy = false;
   String? _error;
 
@@ -229,6 +331,7 @@ class AddExchangeCompanyDialogState
     if (_isEdit) {
       _name.text = widget.existing!.name;
       _country = widget.existing!.country;
+      _kind = widget.existing!.kind;
     }
   }
 
@@ -258,6 +361,7 @@ class AddExchangeCompanyDialogState
               id: widget.existing!.id,
               name: name,
               country: _country,
+              kind: _kind == widget.existing!.kind ? null : _kind,
             );
       } else {
         final ownerId = ref.read(currentUserIdProvider);
@@ -266,6 +370,7 @@ class AddExchangeCompanyDialogState
               ownerId: ownerId,
               name: name,
               country: _country,
+              kind: widget.kind,
             );
       }
       widget.onSaved();
@@ -320,7 +425,13 @@ class AddExchangeCompanyDialogState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _isEdit ? 'تعديل شركة صرافة' : 'إضافة شركة صرافة',
+                      _isEdit
+                          ? (widget.existing!.isClient
+                              ? 'تعديل شركة عميل'
+                              : 'تعديل شركة صرافة')
+                          : (widget.kind == kExchangeCompanyClient
+                              ? 'إضافة شركة عميل'
+                              : 'إضافة شركة صرافة'),
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -359,6 +470,26 @@ class AddExchangeCompanyDialogState
                   labelText: 'اسم شركة الصرافة',
                 ),
               ),
+              if (_isEdit) ...[
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  key: const ValueKey('company-kind'),
+                  segments: const [
+                    ButtonSegment(
+                      value: kExchangeCompanyMine,
+                      label: Text('شركة صرافة لي'),
+                    ),
+                    ButtonSegment(
+                      value: kExchangeCompanyClient,
+                      label: Text('شركة عميل'),
+                    ),
+                  ],
+                  selected: {_kind},
+                  showSelectedIcon: false,
+                  onSelectionChanged:
+                      _busy ? null : (v) => setState(() => _kind = v.first),
+                ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Container(

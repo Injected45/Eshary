@@ -26,6 +26,7 @@ import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/presentation/companies_providers.dart';
+import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
@@ -97,20 +98,23 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Beneficiary data is complete: the company, and the account name OR the
-  /// code. A merchant known by its code only, or by its name only, is enough.
+  /// Beneficiary data is complete: ANY of the company, the account name or the
+  /// code. Merchants give different things: company + account + code, company +
+  /// code, or account + code. Whatever is not given is left out of the message.
   bool get _beneficiaryComplete =>
-      _beneficiaryAccount.text.trim().isNotEmpty &&
-      (_beneficiaryName.text.trim().isNotEmpty ||
-          _beneficiaryCode.text.trim().isNotEmpty);
+      _beneficiaryAccount.text.trim().isNotEmpty ||
+      _beneficiaryName.text.trim().isNotEmpty ||
+      _beneficiaryCode.text.trim().isNotEmpty;
 
   /// The name stored with the transfer: what was typed, or the code when the
   /// beneficiary has no name.
   String get _beneficiaryNameToStore {
     final name = _beneficiaryName.text.trim();
-    return name.isNotEmpty
-        ? name
-        : nameForCode(cleanCode(_beneficiaryCode.text));
+    if (name.isNotEmpty) return name;
+    final code = cleanCode(_beneficiaryCode.text);
+    return code.isNotEmpty
+        ? nameForCode(code)
+        : _beneficiaryAccount.text.trim();
   }
 
   /// Everything needed to save: the transfer data (and the balance covering
@@ -271,13 +275,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final company = _company?.name ?? '';
     final code = (_exchange?.ourCode ?? '').trim();
     final exchange = _exchange?.name ?? '';
-    final beneficiary = _beneficiaryAccount.text;
+    final beneficiary = _beneficiaryAccount.text.trim();
     final bank = _beneficiaryName.text.trim();
     final benCode = _beneficiaryCode.text.trim();
     final ref = _reference ?? '';
 
     final card1 = 'السادة ؛ $exchange 🇹🇷\n'
-        'نرجوا تسليم شركة : $beneficiary\n'
+        '${beneficiary.isEmpty ? '' : 'نرجوا تسليم شركة : $beneficiary\n'}'
         '${bank.isEmpty ? '' : 'في حساب : $bank\n'}'
         '${benCode.isEmpty ? '' : '🔢 كود الحساب : $benCode\n'}'
         '————————————————\n'
@@ -294,7 +298,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
         '📄 الرقم الإشاري : $ref\n'
         '————————————————\n'
-        '🏦 تسليمكم في شركة : $beneficiary\n'
+        '${beneficiary.isEmpty ? '' : '🏦 تسليمكم في شركة : $beneficiary\n'}'
         '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
         '${benCode.isEmpty ? '' : '🔢 كود : $benCode\n'}'
         '————————————————\n'
@@ -307,7 +311,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         'لدى شركة : $exchange 🇹🇷\n'
         '------------------------------\n'
-        'إلى حساب شركة : $beneficiary\n'
+        '${beneficiary.isEmpty ? '' : 'إلى حساب شركة : $beneficiary\n'}'
         '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
         '${benCode.isEmpty ? '' : '🔢 كود : $benCode\n'}'
         '💵 المبلغ : ( $amount \$ ) 🇹🇷\n'
@@ -333,9 +337,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
       return;
     }
-    if (_beneficiaryName.text.trim().isEmpty &&
-        _beneficiaryCode.text.trim().isEmpty) {
-      _snack('اكتب كود المستفيد أو اسمه');
+    if (!_beneficiaryComplete) {
+      _snack('اكتب شركة المستفيد أو اسم حسابه أو كوده');
       return;
     }
 
@@ -488,7 +491,10 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       ),
     );
     if (!mounted) return;
-    final updated = await ref.read(exchangeCompaniesListProvider.future);
+    final updated = [
+      for (final c in await ref.read(exchangeCompaniesListProvider.future))
+        if (c.isMine) c,
+    ];
     if (!mounted) return;
     if (updated.isNotEmpty) {
       _onExchangeCompanyChanged(updated.first.name);
@@ -555,7 +561,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoAdvance());
     final exchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(todayTransfersProvider);
-    final exchangeCompaniesAsync = ref.watch(exchangeCompaniesListProvider);
+    // only MY exchange companies: a customer's company is never offered here
+    final exchangeCompaniesAsync = ref.watch(myExchangeCompaniesProvider);
     final companiesAsync = ref.watch(companiesListProvider);
     final companyById = <String, Company>{
       for (final c in companiesAsync.value ?? const <Company>[]) c.id: c,
@@ -634,14 +641,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         .toList()
                       ..sort();
                     if (names.isEmpty) {
-                      return const InputDecorator(
-                        decoration: InputDecoration(
-                          suffixIcon: _IconBox(FontAwesomeIcons.building),
-                        ),
-                        child: Text(
-                          'لا توجد شركة لديك فيها حساب — أضف حساباً من تبويب حساباتي',
-                          style: TextStyle(color: AppColors.textLow),
-                        ),
+                      return NoAccountNotice(
+                        exchanges: exchangesAsync,
+                        exchangeCompanyNames: [for (final ec in items) ec.name],
                       );
                     }
                     final liveValue = names.contains(_exchangeCompanyName)

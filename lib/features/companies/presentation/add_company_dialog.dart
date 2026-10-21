@@ -304,7 +304,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
         decoration: const InputDecoration(labelText: 'شركة الصرافة'),
       );
     }
-    final asyncList = ref.watch(exchangeCompaniesListProvider);
+    final asyncList = ref.watch(myExchangeCompaniesProvider);
     return asyncList.when(
       skipLoadingOnReload: true,
       skipError: true,
