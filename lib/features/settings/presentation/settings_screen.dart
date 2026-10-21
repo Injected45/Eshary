@@ -139,14 +139,6 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          _SettingsRow(
-            icon: FontAwesomeIcons.codeBranch,
-            title: 'الفروع',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const BranchesScreen()),
-            ),
-          ),
           const SizedBox(height: 24),
           _DestructiveSettingsRow(
             icon: FontAwesomeIcons.eraser,
@@ -208,6 +200,14 @@ class TransferSettingsScreen extends ConsumerWidget {
             title: 'العملاء',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ClientsScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.codeBranch,
+            title: 'الفروع',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const BranchesScreen()),
             ),
           ),
           const SizedBox(height: 12),

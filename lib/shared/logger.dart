@@ -210,6 +210,22 @@ String friendlyError(Object e) {
   if (s.contains('permission_denied')) {
     return 'ليست لديك صلاحية لهذا الإجراء. تواصل مع المدير.';
   }
+  // A commission deducted from an account (0072).
+  if (s.contains('insufficient_balance') && s.contains(', expense ')) {
+    return 'رصيد الحساب لا يكفي لخصم هذه العمولة.';
+  }
+  if (s.contains('expense_amount_invalid')) {
+    return 'قيمة العمولة غير صحيحة.';
+  }
+  if (s.contains('expense_note_required')) {
+    return 'اكتب ما تخصّ به العمولة.';
+  }
+  if (s.contains('expense_text_too_long')) {
+    return 'الكود أو البيان أطول من المسموح.';
+  }
+  if (s.contains('expense_account_not_found')) {
+    return 'تعذّر العثور على هذا الحساب.';
+  }
   if (s.contains('insufficient_balance')) {
     return 'الرصيد المتاح في الحساب لا يكفي لهذه الحوالة. تحقق من الرصيد المتاح.';
   }

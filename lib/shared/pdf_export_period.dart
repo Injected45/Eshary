@@ -601,6 +601,7 @@ extension PeriodReports on PdfExport {
               double balance,
               bool cancelled,
               bool isReversal,
+              String? label,
             })>
         rows,
     required double incomeTotal,
@@ -643,11 +644,13 @@ extension PeriodReports on PdfExport {
 
     // Reading order (right → left). الوقت and المنفذ are wide enough for a
     // full name; every column and its data are centred.
+    final showLabel = rows.any((r) => (r.label ?? '').isNotEmpty);
     final headers = <String>[
       'ت',
       'التاريخ',
       'الوقت',
       if (showAccount) 'الحساب',
+      if (showLabel) 'البيان',
       if (showWho) 'المنفذ',
       'دخول',
       'خروج',
@@ -658,6 +661,7 @@ extension PeriodReports on PdfExport {
       1.4,
       1.3,
       if (showAccount) 3.2,
+      if (showLabel) 3.4,
       if (showWho) 2.6,
       1.4,
       1.4,
@@ -691,6 +695,7 @@ extension PeriodReports on PdfExport {
                 '',
                 '',
                 if (showAccount) '',
+                if (showLabel) '',
                 if (showWho) 'رصيد افتتاحي',
                 '',
                 '',
@@ -711,6 +716,7 @@ extension PeriodReports on PdfExport {
                       : rows[i].cancelled
                           ? '${rows[i].account} (ملغاة)'
                           : rows[i].account,
+                if (showLabel) rows[i].label ?? '',
                 if (showWho) rows[i].who,
                 rows[i].income == null ? '' : formatMoney(rows[i].income!),
                 rows[i].outgoing == null ? '' : formatMoney(rows[i].outgoing!),

@@ -9,6 +9,7 @@ import '../../cancellations/presentation/cancellations_providers.dart';
 import '../../cancellations/presentation/cancellations_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
+import '../../expenses/presentation/account_expense_dialog.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../domain/company.dart';
@@ -201,6 +202,15 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
                 exchanges:
                     exchangesByEcName[ecsWithAccounts[i].name] ?? const [],
                 companyNameById: companyNameById,
+                // a commission is deducted by the administrator only
+                onExpense: ref.watch(isEmployeeProvider)
+                    ? null
+                    : (ex) => showAccountExpenseDialog(
+                          context,
+                          exchange: ex,
+                          accountName:
+                              '${companyNameById[ex.companyId] ?? '—'} — ${ex.name}',
+                        ),
                 accent: _accentCycle[i % _accentCycle.length],
                 flag: _flagByCountry[ecsWithAccounts[i].country ?? ''],
                 expanded: _expanded.contains(ecsWithAccounts[i].id),
@@ -312,6 +322,7 @@ class _ExchangeCompanyCard extends StatelessWidget {
     required this.flag,
     required this.expanded,
     required this.onToggle,
+    this.onExpense,
   });
 
   final ExchangeCompany exchangeCompany;
@@ -321,6 +332,9 @@ class _ExchangeCompanyCard extends StatelessWidget {
   final String? flag;
   final bool expanded;
   final VoidCallback onToggle;
+
+  /// Deduct a commission from one of these accounts (null: not allowed).
+  final void Function(Exchange)? onExpense;
 
   @override
   Widget build(BuildContext context) {
@@ -433,6 +447,7 @@ class _ExchangeCompanyCard extends StatelessWidget {
                       exchanges: exchanges,
                       companyNameById: companyNameById,
                       accent: accent,
+                      onExpense: onExpense,
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -448,8 +463,10 @@ class _ExchangesTable extends StatelessWidget {
     required this.exchanges,
     required this.companyNameById,
     required this.accent,
+    this.onExpense,
   });
 
+  final void Function(Exchange)? onExpense;
   final List<Exchange> exchanges;
   final Map<String, String> companyNameById;
   final Color accent;
@@ -468,7 +485,7 @@ class _ExchangesTable extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
-              children: const [
+              children: [
                 Expanded(
                   child: Text(
                     'اسم الحساب',
@@ -502,6 +519,7 @@ class _ExchangesTable extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onExpense != null) const SizedBox(width: 44),
               ],
             ),
           ),
@@ -551,6 +569,22 @@ class _ExchangesTable extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (onExpense != null)
+                    SizedBox(
+                      width: 44,
+                      height: 28,
+                      child: IconButton(
+                        key: ValueKey('expense-${ex.id}'),
+                        padding: EdgeInsets.zero,
+                        tooltip: 'خصم عمولة',
+                        onPressed: () => onExpense!(ex),
+                        icon: const FaIcon(
+                          FontAwesomeIcons.fileInvoiceDollar,
+                          size: 15,
+                          color: AppColors.negative,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

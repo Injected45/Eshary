@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('"إعدادات الحوالات" holds the five transfer settings',
+  testWidgets('"إعدادات الحوالات" holds the six transfer settings',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -30,6 +30,7 @@ void main() {
       'شركات الصرافة',
       'حساباتي',
       'العملاء',
+      'الفروع',
       'إدارة الموظفين',
       'إشعارات الموظفين',
     ]) {
@@ -48,6 +49,7 @@ void main() {
       "title: 'شركات الصرافة'",
       "title: 'حساباتي'",
       "title: 'العملاء'",
+      "title: 'الفروع'",
       "title: 'إدارة الموظفين'",
       "title: 'إشعارات الموظفين'",
     ]) {
@@ -64,7 +66,6 @@ void main() {
       "title: 'إدارة الحسابات'",
       "title: 'النسخ الاحتياطي'",
       "title: 'سجل الأخطاء'",
-      "title: 'الفروع'",
       "title: 'حذف المدخلات'",
     ]) {
       expect(main, contains(t), reason: t);

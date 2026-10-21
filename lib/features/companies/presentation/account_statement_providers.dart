@@ -3,11 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../currency_buy/data/currency_buys_repository.dart';
 import '../../currency_buy/domain/currency_buy.dart';
+import '../../expenses/data/account_expenses_repository.dart';
+import '../../expenses/domain/account_expense.dart';
 import '../../transfers/data/transfers_repository.dart';
 import '../../transfers/domain/transfer.dart';
 
 /// Everything posted in a period, for the account statement.
-typedef StatementData = ({List<Transfer> transfers, List<CurrencyBuy> buys});
+typedef StatementData = ({
+  List<Transfer> transfers,
+  List<CurrencyBuy> buys,
+  List<AccountExpense> expenses,
+});
 
 /// Posted exits and entries from the start of [range] up to now (or to the
 /// end of the range, if later), oldest first. The screen shows the part inside
@@ -23,5 +29,15 @@ final statementDataProvider = FutureProvider.autoDispose
   final buys = await ref
       .watch(currencyBuysRepositoryProvider)
       .listArchivedBetween(range.start, until);
-  return (transfers: transfers, buys: buys);
+  // The commissions deducted from the accounts. A failure here (an old
+  // database without them) never takes the whole statement down.
+  var expenses = const <AccountExpense>[];
+  try {
+    expenses = await ref
+        .watch(accountExpensesRepositoryProvider)
+        .listSince(range.start);
+  } catch (_) {
+    expenses = const <AccountExpense>[];
+  }
+  return (transfers: transfers, buys: buys, expenses: expenses);
 });

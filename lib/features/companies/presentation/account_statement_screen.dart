@@ -118,6 +118,7 @@ class _AccountStatementScreenState
               account: accountNames[e.exchangeId] ?? '—',
               cancelled: e.cancelled,
               isReversal: e.isReversal,
+              label: e.note,
               income: e.income,
               outgoing: e.outgoing,
               balance: e.balance,
@@ -197,6 +198,7 @@ class _AccountStatementScreenState
           currentBalance: current,
           buys: data.buys,
           transfers: data.transfers,
+          expenses: data.expenses,
           start: r.start,
           exchangeId: _exchangeId,
         );
@@ -205,6 +207,7 @@ class _AccountStatementScreenState
       statement = buildAccountStatement(
         buys: data.buys,
         transfers: data.transfers,
+        expenses: data.expenses,
         start: r.start,
         end: r.end,
         scope: _scope,
@@ -615,6 +618,18 @@ class _StatementTable extends StatelessWidget {
                             fontSize: 10,
                           ),
                         ),
+                        if (e.isExpense)
+                          Text(
+                            e.note!,
+                            key: const ValueKey('statement-expense-note'),
+                            textAlign: TextAlign.center,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textMid,
+                              fontSize: 10,
+                            ),
+                          ),
                         if (e.cancelled)
                           Text(
                             e.isReversal ? 'قيد عكسي (إلغاء)' : 'ملغاة',

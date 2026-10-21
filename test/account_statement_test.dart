@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/companies/domain/account_statement.dart';
+import 'package:eshary/features/expenses/domain/account_expense.dart';
 import 'package:eshary/features/companies/domain/company.dart';
 import 'package:eshary/features/companies/domain/exchange.dart';
 import 'package:eshary/features/companies/presentation/account_statement_providers.dart';
@@ -339,6 +340,7 @@ void main() {
         _out('t1', 350, today(10)),
         _out('t2', 75, today(13), by: 'omar'),
       ],
+      expenses: <AccountExpense>[],
     );
 
     Future<void> open(WidgetTester tester) async {

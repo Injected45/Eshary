@@ -190,6 +190,8 @@ void main() {
               balance: 100.0 + i,
               cancelled: i % 7 == 0,
               isReversal: i % 14 == 7,
+              // a commission line now and then: the PDF gets its البيان column
+              label: i % 3 == 0 ? 'كود C-1 · عمولة إدارة الحساب' : null,
             ),
         ],
         incomeTotal: 1000,

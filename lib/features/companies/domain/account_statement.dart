@@ -1,5 +1,6 @@
 import '../../../shared/ledger.dart';
 import '../../currency_buy/domain/currency_buy.dart';
+import '../../expenses/domain/account_expense.dart';
 import '../../transfers/domain/transfer.dart';
 
 /// Whose operations a statement covers.
@@ -26,6 +27,7 @@ class StatementEntry {
     required this.exchangeId,
     this.cancelled = false,
     this.isReversal = false,
+    this.note,
   });
 
   final DateTime at;
@@ -49,6 +51,12 @@ class StatementEntry {
 
   /// The reversing entry (قيد عكسي) posted when the operation was cancelled.
   final bool isReversal;
+
+  /// For a commission (an account expense): its code and what it is for.
+  /// Null for an exit or an entry.
+  final String? note;
+
+  bool get isExpense => note != null;
 
   bool get isIncome => income != null;
 }
@@ -92,6 +100,7 @@ AccountStatement buildAccountStatement({
   String? employeeId,
   String? exchangeId,
   double openingBalance = 0,
+  List<AccountExpense> expenses = const [],
 }) {
   bool wanted(String? by, String exchange, DateTime at) {
     if (at.isBefore(start) || at.isAfter(end)) return false;
@@ -118,9 +127,11 @@ AccountStatement buildAccountStatement({
     String id,
     bool cancelled,
     bool reversal,
+    String? note,
   })>[
     for (final b in buys)
-      if (wanted(b.createdByEmployeeId, b.exchangeId, b.archivedAt ?? b.createdAt)) ...[
+      if (wanted(b.createdByEmployeeId, b.exchangeId,
+          b.archivedAt ?? b.createdAt)) ...[
         (
           at: b.archivedAt ?? b.createdAt,
           isIncome: true,
@@ -130,6 +141,7 @@ AccountStatement buildAccountStatement({
           id: b.id,
           cancelled: b.isCancelled,
           reversal: false,
+          note: null,
         ),
         if (b.cancelledAt != null &&
             wanted(b.createdByEmployeeId, b.exchangeId, b.cancelledAt!))
@@ -142,10 +154,12 @@ AccountStatement buildAccountStatement({
             id: '${b.id}~',
             cancelled: true,
             reversal: true,
+            note: null,
           ),
       ],
     for (final t in transfers)
-      if (wanted(t.createdByEmployeeId, t.exchangeId, t.archivedAt ?? t.createdAt)) ...[
+      if (wanted(t.createdByEmployeeId, t.exchangeId,
+          t.archivedAt ?? t.createdAt)) ...[
         (
           at: t.archivedAt ?? t.createdAt,
           isIncome: false,
@@ -155,6 +169,7 @@ AccountStatement buildAccountStatement({
           id: t.id,
           cancelled: t.isCancelled,
           reversal: false,
+          note: null,
         ),
         if (t.cancelledAt != null &&
             wanted(t.createdByEmployeeId, t.exchangeId, t.cancelledAt!))
@@ -167,6 +182,35 @@ AccountStatement buildAccountStatement({
             id: '${t.id}~',
             cancelled: true,
             reversal: true,
+            note: null,
+          ),
+      ],
+    // a commission leaves the account (one side only); a cancelled one gets a
+    // reversing line, like an operation
+    for (final x in expenses)
+      if (wanted(null, x.exchangeId, x.createdAt)) ...[
+        (
+          at: x.createdAt,
+          isIncome: false,
+          amount: x.amount,
+          by: null,
+          exchange: x.exchangeId,
+          id: x.id,
+          cancelled: x.isCancelled,
+          reversal: false,
+          note: x.label,
+        ),
+        if (x.cancelledAt != null && wanted(null, x.exchangeId, x.cancelledAt!))
+          (
+            at: x.cancelledAt!,
+            isIncome: true,
+            amount: x.amount,
+            by: null,
+            exchange: x.exchangeId,
+            id: '${x.id}~',
+            cancelled: true,
+            reversal: true,
+            note: x.label,
           ),
       ],
   ]..sort((a, b) {
@@ -200,6 +244,7 @@ AccountStatement buildAccountStatement({
           exchangeId: ops[i].exchange,
           cancelled: ops[i].cancelled,
           isReversal: ops[i].reversal,
+          note: ops[i].note,
         ),
     ],
     totalIncome: income,
@@ -219,6 +264,7 @@ double openingBalanceAt({
   required List<Transfer> transfers,
   required DateTime start,
   String? exchangeId,
+  List<AccountExpense> expenses = const [],
 }) {
   var net = 0.0;
   for (final b in buys) {
@@ -238,6 +284,14 @@ double openingBalanceAt({
     net -= t.amount;
     if (t.cancelledAt != null && !t.cancelledAt!.isBefore(start)) {
       net += t.amount;
+    }
+  }
+  for (final x in expenses) {
+    if (x.createdAt.isBefore(start)) continue;
+    if (exchangeId != null && x.exchangeId != exchangeId) continue;
+    net -= x.amount;
+    if (x.cancelledAt != null && !x.cancelledAt!.isBefore(start)) {
+      net += x.amount;
     }
   }
   return currentBalance - net;
