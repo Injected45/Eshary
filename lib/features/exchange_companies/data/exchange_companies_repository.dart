@@ -57,6 +57,15 @@ class ExchangeCompaniesRepository {
     return ExchangeCompany.fromJson(row);
   }
 
+  /// Per company name: its accounts, saved parties and operations (0076).
+  Future<Map<String, ExchangeCompanyUsage>> usage() async {
+    final rows = await _client.rpc<List<dynamic>>('exchange_company_usage');
+    return {
+      for (final r in rows.cast<Map<String, dynamic>>())
+        r['name'] as String: ExchangeCompanyUsage.fromJson(r),
+    };
+  }
+
   Future<void> delete(String id) async {
     await _client.from('exchange_companies').delete().eq('id', id);
   }

@@ -27,3 +27,11 @@ final clientCompaniesProvider =
           if (c.isClient) c
       ]);
 });
+
+/// What each company's name carries, to decide whether its delete button shows.
+/// Read again every time the companies list changes and when the screen opens.
+final exchangeCompanyUsageProvider =
+    FutureProvider.autoDispose<Map<String, ExchangeCompanyUsage>>((ref) async {
+  ref.watch(exchangeCompaniesListProvider);
+  return ref.watch(exchangeCompaniesRepositoryProvider).usage();
+});

@@ -134,6 +134,93 @@ void main() {
     expect(find.text('تعديل شركة عميل'), findsOneWidget);
   });
 
+  group('the delete button', () {
+    Future<void> open(
+      WidgetTester tester,
+      Map<String, ExchangeCompanyUsage>? usage,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            exchangeCompaniesListProvider.overrideWith((ref) async => _all),
+            exchangeCompanyUsageProvider.overrideWith((ref) async {
+              if (usage == null) throw Exception('not loaded');
+              return usage;
+            }),
+          ],
+          child: MaterialApp(
+            theme: buildAppTheme(),
+            home: const Directionality(
+              textDirection: TextDirection.rtl,
+              child: ExchangeCompaniesScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Finder del(String id) => find.byKey(ValueKey('company-delete-$id'));
+
+    testWidgets('only a name that was never used keeps its delete button',
+        (tester) async {
+      await open(tester, {
+        // an account and operations
+        'بهاروز':
+            const ExchangeCompanyUsage(accounts: 1, parties: 0, operations: 4),
+        // an account, no operation yet
+        'أنزار':
+            const ExchangeCompanyUsage(accounts: 1, parties: 0, operations: 0),
+        // registered and never used
+        'الصحراء':
+            const ExchangeCompanyUsage(accounts: 0, parties: 0, operations: 0),
+      });
+      expect(del('بهاروز'), findsNothing,
+          reason: 'operations: no button at all');
+      expect(del('أنزار'), findsNothing,
+          reason: 'it has an account: no button');
+      expect(del('الصحراء'), findsOneWidget, reason: 'a name only');
+      // the edit pencil stays on every one
+      expect(find.byTooltip('تعديل'), findsNWidgets(3));
+    });
+
+    testWidgets('a company with a saved party or operations only has no button',
+        (tester) async {
+      await open(tester, {
+        'بهاروز':
+            const ExchangeCompanyUsage(accounts: 0, parties: 2, operations: 0),
+        'أنزار':
+            const ExchangeCompanyUsage(accounts: 0, parties: 0, operations: 1),
+        'الصحراء':
+            const ExchangeCompanyUsage(accounts: 0, parties: 0, operations: 0),
+      });
+      expect(del('بهاروز'), findsNothing);
+      expect(del('أنزار'), findsNothing);
+      expect(del('الصحراء'), findsOneWidget);
+    });
+
+    testWidgets('while the usage is unknown, no delete button is offered',
+        (tester) async {
+      await open(tester, null);
+      for (final n in ['بهاروز', 'أنزار', 'الصحراء']) {
+        expect(del(n), findsNothing, reason: n);
+      }
+    });
+  });
+
+  test('the usage comes from the database', () {
+    final repo = File(
+            'lib/features/exchange_companies/data/exchange_companies_repository.dart')
+        .readAsStringSync();
+    expect(repo, contains("'exchange_company_usage'"));
+    final sql =
+        File('supabase/migrations/0076_company_usage.sql').readAsStringSync();
+    expect(sql, contains('function exchange_company_usage'));
+    expect(sql, contains('company_in_use_operations'));
+  });
+
   group('where each list is used', () {
     String src(String f) => File(f).readAsStringSync();
 

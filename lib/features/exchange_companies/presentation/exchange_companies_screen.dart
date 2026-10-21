@@ -17,6 +17,9 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncList = ref.watch(exchangeCompaniesListProvider);
+    // Anything recorded on a company (an account, a saved party, an operation)
+    // takes its delete button away. While this is unknown there is no button.
+    final usage = ref.watch(exchangeCompanyUsageProvider).valueOrNull;
 
     void add(String kind) => showGlassDialog<void>(
           context: context,
@@ -63,7 +66,10 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
               for (final ec in mine)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _ExchangeCompanyTile(item: ec),
+                  child: _ExchangeCompanyTile(
+                    item: ec,
+                    canDelete: usage?[ec.name]?.unused ?? false,
+                  ),
                 ),
               const SizedBox(height: 12),
               // My customers' companies: never offered as my own company.
@@ -79,7 +85,10 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
               for (final ec in clients)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _ExchangeCompanyTile(item: ec),
+                  child: _ExchangeCompanyTile(
+                    item: ec,
+                    canDelete: usage?[ec.name]?.unused ?? false,
+                  ),
                 ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
@@ -172,8 +181,12 @@ class _EmptyKind extends StatelessWidget {
 }
 
 class _ExchangeCompanyTile extends ConsumerWidget {
-  const _ExchangeCompanyTile({required this.item});
+  const _ExchangeCompanyTile({required this.item, required this.canDelete});
   final ExchangeCompany item;
+
+  /// Only a name that was registered and never used (no account, no saved
+  /// party, no operation) can be deleted: otherwise there is no delete button.
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -210,15 +223,17 @@ class _ExchangeCompanyTile extends ConsumerWidget {
               );
             },
           ),
-          IconButton(
-            tooltip: 'حذف',
-            icon: const FaIcon(
-              FontAwesomeIcons.trash,
-              size: 14,
-              color: AppColors.negative,
+          if (canDelete)
+            IconButton(
+              key: ValueKey('company-delete-${item.id}'),
+              tooltip: 'حذف',
+              icon: const FaIcon(
+                FontAwesomeIcons.trash,
+                size: 14,
+                color: AppColors.negative,
+              ),
+              onPressed: () => _confirmDelete(context, ref),
             ),
-            onPressed: () => _confirmDelete(context, ref),
-          ),
         ],
       ),
     );

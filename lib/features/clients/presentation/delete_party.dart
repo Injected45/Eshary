@@ -6,6 +6,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/top_message.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
+import '../../exchange_companies/domain/exchange_company.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'clients_providers.dart';
@@ -15,14 +16,17 @@ import 'clients_providers.dart';
 String? companyThatGoesWith(
   Client party,
   List<Client> all,
-  Iterable<String> clientCompanyNames,
-) {
+  Iterable<String> clientCompanyNames, {
+  Map<String, ExchangeCompanyUsage>? usage,
+}) {
   final company = (party.company ?? '').trim();
   if (company.isEmpty) return null;
   final shared = all.any(
     (c) => c.id != party.id && (c.company ?? '').trim() == company,
   );
   if (shared) return null;
+  // a company that operations were recorded on is never removed
+  if ((usage?[company]?.operations ?? 0) > 0) return null;
   return clientCompanyNames.contains(company) ? company : null;
 }
 
@@ -39,17 +43,19 @@ Future<void> confirmAndDeleteParty(
   // user confirms is exactly what will happen.
   var all = const <Client>[];
   var clientCompanies = const <String>[];
+  Map<String, ExchangeCompanyUsage>? usage;
   try {
     all = await ref.read(clientsListProvider.future);
     clientCompanies = [
       for (final c in await ref.read(exchangeCompaniesListProvider.future))
         if (c.isClient) c.name,
     ];
+    usage = await ref.read(exchangeCompanyUsageProvider.future);
   } catch (_) {
     // the database decides anyway; only the explanation is less specific
   }
   if (!context.mounted) return;
-  final goes = companyThatGoesWith(party, all, clientCompanies);
+  final goes = companyThatGoesWith(party, all, clientCompanies, usage: usage);
   final company = (party.company ?? '').trim();
   final label = party.name.trim().isEmpty ? (party.code ?? '') : party.name;
 
@@ -96,7 +102,9 @@ Future<void> confirmAndDeleteParty(
                 )
               else if (company.isNotEmpty)
                 Text(
-                  'تبقى شركة «$company» لأن جهات أخرى تستعملها.',
+                  (usage?[company]?.operations ?? 0) > 0
+                      ? 'تبقى شركة «$company» لأن عليها عمليات مالية.'
+                      : 'تبقى شركة «$company» لأن جهات أخرى تستعملها.',
                   key: const ValueKey('delete-party-company-kept'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(

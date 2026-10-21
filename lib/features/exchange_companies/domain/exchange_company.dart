@@ -38,3 +38,28 @@ class ExchangeCompany {
             : kExchangeCompanyMine,
       );
 }
+
+/// What is recorded under one company's name (migration 0076): its accounts, its
+/// saved parties and the financial operations recorded on it. A company is
+/// deletable only when all three are zero: a name that was registered and never
+/// used. Anything else, the app does not even show the delete button.
+class ExchangeCompanyUsage {
+  const ExchangeCompanyUsage({
+    required this.accounts,
+    required this.parties,
+    required this.operations,
+  });
+
+  final int accounts;
+  final int parties;
+  final int operations;
+
+  bool get unused => accounts == 0 && parties == 0 && operations == 0;
+
+  factory ExchangeCompanyUsage.fromJson(Map<String, dynamic> j) =>
+      ExchangeCompanyUsage(
+        accounts: (j['accounts'] as num?)?.toInt() ?? 0,
+        parties: (j['parties'] as num?)?.toInt() ?? 0,
+        operations: (j['operations'] as num?)?.toInt() ?? 0,
+      );
+}
