@@ -126,12 +126,72 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 12),
+          // Everything about the transfers in one place: the exchange
+          // companies, my accounts, the clients and the employees.
+          _SettingsRow(
+            icon: FontAwesomeIcons.moneyBillTransfer,
+            title: 'إعدادات الحوالات',
+            // the employees' unread alerts stay visible from here
+            badge: ref.watch(unreadAlertsCountProvider),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const TransferSettingsScreen(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsRow(
+            icon: FontAwesomeIcons.codeBranch,
+            title: 'الفروع',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const BranchesScreen()),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _DestructiveSettingsRow(
+            icon: FontAwesomeIcons.eraser,
+            title: 'حذف المدخلات',
+            subtitle:
+                'يحذف العمليات المسجلة (الحوالات والمشتريات) فقط — لا يحذف الشركات وشركات الصرافة والعملاء',
+            onTap: () => _confirmAndWipeEntries(context, ref),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: AppColors.textDim),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "إعدادات الحوالات": everything that controls the transfers, in one place.
+class TransferSettingsScreen extends ConsumerWidget {
+  const TransferSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('إعدادات الحوالات'),
+        backgroundColor: AppColors.bgDeep.withValues(alpha: 0.35),
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+        children: [
           _SettingsRow(
             icon: FontAwesomeIcons.buildingColumns,
             title: 'شركات الصرافة',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
-                  builder: (_) => const ExchangeCompaniesScreen()),
+                builder: (_) => const ExchangeCompaniesScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -152,14 +212,6 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _SettingsRow(
-            icon: FontAwesomeIcons.codeBranch,
-            title: 'الفروع',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const BranchesScreen()),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SettingsRow(
             icon: FontAwesomeIcons.userTie,
             title: 'إدارة الموظفين',
             onTap: () => Navigator.of(context).push(
@@ -175,22 +227,6 @@ class SettingsScreen extends ConsumerWidget {
               MaterialPageRoute<void>(
                 builder: (_) => const EmployeeAlertsScreen(),
               ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _DestructiveSettingsRow(
-            icon: FontAwesomeIcons.eraser,
-            title: 'حذف المدخلات',
-            subtitle:
-                'يحذف العمليات المسجلة (الحوالات والمشتريات) فقط — لا يحذف الشركات وشركات الصرافة والعملاء',
-            onTap: () => _confirmAndWipeEntries(context, ref),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text(
-              'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppColors.textDim),
             ),
           ),
         ],

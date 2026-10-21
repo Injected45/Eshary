@@ -97,11 +97,21 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     if (mounted) setState(() {});
   }
 
-  /// Beneficiary data is complete: company, account and code all filled.
+  /// Beneficiary data is complete: the company, and the account name OR the
+  /// code. A merchant known by its code only, or by its name only, is enough.
   bool get _beneficiaryComplete =>
       _beneficiaryAccount.text.trim().isNotEmpty &&
-      _beneficiaryName.text.trim().isNotEmpty &&
-      _beneficiaryCode.text.trim().isNotEmpty;
+      (_beneficiaryName.text.trim().isNotEmpty ||
+          _beneficiaryCode.text.trim().isNotEmpty);
+
+  /// The name stored with the transfer: what was typed, or the code when the
+  /// beneficiary has no name.
+  String get _beneficiaryNameToStore {
+    final name = _beneficiaryName.text.trim();
+    return name.isNotEmpty
+        ? name
+        : nameForCode(cleanCode(_beneficiaryCode.text));
+  }
 
   /// Everything needed to save: the transfer data (and the balance covering
   /// it) and the beneficiary. Only then the save button is ready.
@@ -259,20 +269,20 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   List<String> _composeMessages() {
     final amount = formatMoney(parseMoney(_amount.text));
     final company = _company?.name ?? '';
-    final code = _exchange?.ourCode ?? '';
+    final code = (_exchange?.ourCode ?? '').trim();
     final exchange = _exchange?.name ?? '';
     final beneficiary = _beneficiaryAccount.text;
-    final bank = _beneficiaryName.text;
-    final benCode = _beneficiaryCode.text;
+    final bank = _beneficiaryName.text.trim();
+    final benCode = _beneficiaryCode.text.trim();
     final ref = _reference ?? '';
 
     final card1 = 'السادة ؛ $exchange 🇹🇷\n'
         'نرجوا تسليم شركة : $beneficiary\n'
-        'في حساب : $bank\n'
-        '🔢 كود الحساب : $benCode\n'
+        '${bank.isEmpty ? '' : 'في حساب : $bank\n'}'
+        '${benCode.isEmpty ? '' : '🔢 كود الحساب : $benCode\n'}'
         '————————————————\n'
         '🏦 من حساب : $company\n'
-        '🔢 كود : $code\n'
+        '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
         '📄 الرقم الإشاري : $ref\n'
         '————————————————\n'
@@ -280,13 +290,13 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
     final card2 = 'تفضلوا بالإستلام من : $exchange 🇹🇷\n'
         '🏦 من حساب : $company\n'
-        '🔢 كود : $code\n'
+        '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         '💵 مبلغ : ( $amount \$ ) 🇹🇷\n'
         '📄 الرقم الإشاري : $ref\n'
         '————————————————\n'
         '🏦 تسليمكم في شركة : $beneficiary\n'
-        'إسم الحساب : $bank\n'
-        '🔢 كود : $benCode\n'
+        '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
+        '${benCode.isEmpty ? '' : '🔢 كود : $benCode\n'}'
         '————————————————\n'
         'شكراً علي تعاملكم معنا 🤝';
 
@@ -294,12 +304,12 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         '------------------------------\n'
         'يطلب تسجيل خروج بقيمة ( $amount \$ ) 🇹🇷\n'
         '🏦 من حساب : $company\n'
-        '🔢 كود : $code\n'
+        '${code.isEmpty ? '' : '🔢 كود : $code\n'}'
         'لدى شركة : $exchange 🇹🇷\n'
         '------------------------------\n'
         'إلى حساب شركة : $beneficiary\n'
-        'إسم الحساب : $bank\n'
-        '🔢 كود : $benCode\n'
+        '${bank.isEmpty ? '' : 'إسم الحساب : $bank\n'}'
+        '${benCode.isEmpty ? '' : '🔢 كود : $benCode\n'}'
         '💵 المبلغ : ( $amount \$ ) 🇹🇷\n'
         '📄 الرقم الإشاري : $ref\n'
         '------------------------------\n'
@@ -323,8 +333,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
       return;
     }
-    if (_beneficiaryName.text.trim().isEmpty) {
-      _snack('اسم المستفيد مطلوب');
+    if (_beneficiaryName.text.trim().isEmpty &&
+        _beneficiaryCode.text.trim().isEmpty) {
+      _snack('اكتب كود المستفيد أو اسمه');
       return;
     }
 
@@ -333,7 +344,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       final saved = await ref.read(transfersRepositoryProvider).create(
             companyId: _company!.id,
             exchangeId: _exchange!.id,
-            beneficiaryName: _beneficiaryName.text.trim(),
+            beneficiaryName: _beneficiaryNameToStore,
             beneficiaryAccountCompany: _beneficiaryAccount.text.trim(),
             beneficiaryCode: _beneficiaryCode.text.trim(),
             amount: amount,
@@ -920,7 +931,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
               ),
               const SizedBox(height: 12),
               _LabeledField(
-                label: 'حساب المستفيد',
+                label: 'حساب المستفيد (اختياري إذا كتبت الكود)',
                 child: TextField(
                   controller: _beneficiaryName,
                   onChanged: (_) => setState(() {}),

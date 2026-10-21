@@ -23,6 +23,7 @@ class ClientsRepository {
     required String name,
     String? company,
     String? code,
+    String? refPrefix,
   }) async {
     final row = await _client
         .from('clients')
@@ -31,6 +32,10 @@ class ClientsRepository {
           'name': name,
           'company': company,
           'code': code,
+          // only sent when there is one, so a database without the column
+          // (0069 not applied yet) still saves parties
+          if ((refPrefix ?? '').trim().isNotEmpty)
+            'ref_prefix': refPrefix!.trim(),
         })
         .select()
         .single();
@@ -42,6 +47,8 @@ class ClientsRepository {
     required String name,
     String? company,
     String? code,
+    bool updateRefPrefix = false,
+    String? refPrefix,
   }) async {
     final row = await _client
         .from('clients')
@@ -49,11 +56,24 @@ class ClientsRepository {
           'name': name,
           'company': company,
           'code': code,
+          // the other callers (saving a first code) leave the letters alone
+          if (updateRefPrefix)
+            'ref_prefix':
+                (refPrefix ?? '').trim().isEmpty ? null : refPrefix!.trim(),
         })
         .eq('id', id)
         .select()
         .single();
     return Client.fromJson(row);
+  }
+
+  /// An employee granted "party_letters" sets only the letters of a sender's
+  /// reference numbers (migration 0071); the party itself stays untouched.
+  Future<void> setPartyLetters(String id, String letters) async {
+    await _client.rpc<void>(
+      'employee_set_party_letters',
+      params: {'p_client_id': id, 'p_letters': letters},
+    );
   }
 
   Future<void> delete(String id) async {

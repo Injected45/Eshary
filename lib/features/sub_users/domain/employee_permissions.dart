@@ -27,48 +27,56 @@ const String kPermClosingsOwn = 'closings_own';
 const String kPermClosingsAll = 'closings_all';
 const String kPermAccountsOwn = 'accounts_own';
 const String kPermAccountsAll = 'accounts_all';
+const String kPermPartyLetters = 'party_letters';
 
 const List<EmployeePermission> kEmployeePermissions = [
   EmployeePermission(
     key: kPermTransfersCreate,
     label: 'تنفيذ خروج حوالة',
-    description: 'تظهر له شاشة الخروج ويستطيع التنفيذ، ويرى رصيد الحساب الذي يحوّل منه ليعرف إن كان يكفي، ويرى عمليات اليوم التي نفّذها هو.',
+    description:
+        'تظهر له شاشة الخروج ويستطيع التنفيذ، ويرى رصيد الحساب الذي يحوّل منه ليعرف إن كان يكفي، ويرى عمليات اليوم التي نفّذها هو.',
     group: 'العمليات',
   ),
   EmployeePermission(
     key: kPermBuysCreate,
     label: 'تنفيذ دخول حوالة',
-    description: 'تظهر له شاشة الدخول ويستطيع التنفيذ، ويرى عمليات اليوم التي نفّذها هو.',
+    description:
+        'تظهر له شاشة الدخول ويستطيع التنفيذ، ويرى عمليات اليوم التي نفّذها هو.',
     group: 'العمليات',
   ),
   EmployeePermission(
     key: kPermViewOwn,
     label: 'عرض سجل عملياتي',
-    description: 'يرى سجل ما نفّذه هو فقط، من النوع المسموح له (خروج أو دخول أو الاثنين)، ولا يرى عمليات غيره.',
+    description:
+        'يرى سجل ما نفّذه هو فقط، من النوع المسموح له (خروج أو دخول أو الاثنين)، ولا يرى عمليات غيره.',
     group: 'العرض',
   ),
   EmployeePermission(
     key: kPermViewAll,
     label: 'عرض جميع العمليات',
-    description: 'يرى عمليات كل الموظفين والمدير، من النوع المسموح له (خروج أو دخول). بدونها لا يرى إلا عملياته.',
+    description:
+        'يرى عمليات كل الموظفين والمدير، من النوع المسموح له (خروج أو دخول). بدونها لا يرى إلا عملياته.',
     group: 'العرض',
   ),
   EmployeePermission(
     key: kPermClosingsOwn,
     label: 'تبويب العمليات: عملياتي فقط',
-    description: 'يظهر له تبويب العمليات (باليوم أو بفترة) ويرى عملياته هو فقط.',
+    description:
+        'يظهر له تبويب العمليات (باليوم أو بفترة) ويرى عملياته هو فقط.',
     group: 'تبويب العمليات',
   ),
   EmployeePermission(
     key: kPermClosingsAll,
     label: 'تبويب العمليات: جميع العمليات',
-    description: 'يظهر له تبويب العمليات ويرى عمليات الجميع. تتضمن الاطلاع على أسماء الحسابات.',
+    description:
+        'يظهر له تبويب العمليات ويرى عمليات الجميع. تتضمن الاطلاع على أسماء الحسابات.',
     group: 'تبويب العمليات',
   ),
   EmployeePermission(
     key: kPermAccountsOwn,
     label: 'حسابي: ما نفّذته أنا فقط',
-    description: 'يظهر له قسم حسابي بملخص ما نفّذه هو على كل حساب، بدون الأرصدة.',
+    description:
+        'يظهر له قسم حسابي بملخص ما نفّذه هو على كل حساب، بدون الأرصدة.',
     group: 'الحساب',
   ),
   EmployeePermission(
@@ -76,6 +84,13 @@ const List<EmployeePermission> kEmployeePermissions = [
     label: 'حسابي: الحساب كاملاً',
     description: 'يظهر له قسم حسابي كاملاً بكل الحسابات والأرصدة.',
     group: 'الحساب',
+  ),
+  EmployeePermission(
+    key: kPermPartyLetters,
+    label: 'تعديل حروف الإشاري الثابتة',
+    description:
+        'يظهر له قلم بجانب الرقم الإشاري في شاشة الدخول ليضيف أو يغيّر الحروف الثابتة لإشاري الجهة المرسلة (مثل TRC). لا يستطيع تغيير أي شيء آخر في الجهة.',
+    group: 'العمليات',
   ),
 ];
 

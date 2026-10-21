@@ -481,7 +481,7 @@ void main() {
     });
 
     testWidgets(
-        'beneficiary complete: it closes and the save button becomes ready',
+        'a beneficiary known by its name only is complete: the code is optional',
         (tester) async {
       await _open(tester, one);
       await tester.enterText(find.byType(TextField).at(2), '100');
@@ -490,24 +490,59 @@ void main() {
       await tester.pumpAndSettle();
       expect(save(tester).onPressed, isNull, reason: 'beneficiary still empty');
 
+      // the company alone is not enough: a name or a code is needed too
       await tester.enterText(
           find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
+      await tester.pump();
+      await tester.pump(pause);
+      expect(find.text('الجهات المحفوظة'), findsOneWidget,
+          reason: 'no name and no code yet: stays open');
+      expect(save(tester).onPressed, isNull);
+
       await tester.enterText(
           find.widgetWithText(TextField, 'اسم حساب المستفيد'), 'علي');
       await tester.pump();
       await tester.pump(pause);
-      expect(find.text('الجهات المحفوظة'), findsOneWidget,
-          reason: 'code still missing: stays open');
-      expect(save(tester).onPressed, isNull);
+      await tester.pumpAndSettle();
+      expect(find.text('الجهات المحفوظة'), findsNothing,
+          reason: 'beneficiary closed by itself, no code needed');
+      expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
+    });
 
+    testWidgets('a name and a code together are complete too', (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '100');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'اسم حساب المستفيد'), 'علي');
       await tester.enterText(
           find.widgetWithText(TextField, 'أدخل كود حساب المستفيد'), 'B-9');
       await tester.pump();
       await tester.pump(pause);
       await tester.pumpAndSettle();
-      expect(find.text('الجهات المحفوظة'), findsNothing,
-          reason: 'beneficiary closed by itself');
       expect(save(tester).onPressed, isNotNull, reason: 'ready to press');
+    });
+
+    testWidgets(
+        'a beneficiary known only by its code is complete without a name',
+        (tester) async {
+      await _open(tester, one);
+      await tester.enterText(find.byType(TextField).at(2), '100');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.widgetWithText(TextField, 'اسم الشركة المستفيدة'), 'شركة س');
+      await tester.enterText(
+          find.widgetWithText(TextField, 'أدخل كود حساب المستفيد'), '5521');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(save(tester).onPressed, isNotNull, reason: 'no name needed');
     });
   });
 }

@@ -35,8 +35,10 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
   final _name = TextEditingController();
   String? _companySelection;
   final _code = TextEditingController();
+  final _refPrefix = TextEditingController();
   bool _busy = false;
   String? _nameError;
+  String? _codeError;
 
   bool get _isEdit => widget.existing != null;
 
@@ -50,6 +52,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
       _name.text = widget.existing!.name;
       _companySelection = widget.existing!.company;
       _code.text = widget.existing!.code ?? '';
+      _refPrefix.text = widget.existing!.refPrefix ?? '';
     }
   }
 
@@ -57,6 +60,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
   void dispose() {
     _name.dispose();
     _code.dispose();
+    _refPrefix.dispose();
     super.dispose();
   }
 
@@ -84,20 +88,51 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
   }
 
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty) return;
+    final typedName = _name.text.trim();
+    final code =
+        _codeLocked ? widget.existing!.code!.trim() : cleanCode(_code.text);
+    // The name is optional when there is a code: most merchants are known by
+    // their code only. Such a party is called by its code.
+    if (typedName.isEmpty && code.isEmpty) {
+      setState(() => _nameError = 'اكتب الكود أو الاسم على الأقل');
+      return;
+    }
+    final name = typedName.isEmpty ? nameForCode(code) : typedName;
     setState(() => _busy = true);
     try {
+      final existing = await ref.read(clientsListProvider.future);
+      final others = existing.where((c) => c.id != widget.existing?.id);
+
+      // A code identifies a party within ONE company: the same code at another
+      // company is another party, the same code twice at one company is not
+      // allowed (the database refuses it too: migration 0068).
+      if (code.isNotEmpty && !_codeLocked) {
+        final clash = others
+            .where(
+              (c) =>
+                  partyKey(c.code) == partyKey(code) &&
+                  partyKey(c.company) == partyKey(_companySelection),
+            )
+            .firstOrNull;
+        if (clash != null) {
+          if (mounted) {
+            setState(() {
+              _busy = false;
+              _codeError = 'هذا الكود مسجّل مسبقًا على نفس الشركة'
+                  '${clash.name.trim().isEmpty ? '' : ' (${clash.name.trim()})'}';
+            });
+          }
+          return;
+        }
+      }
       // Same name under the same company is a duplicate; the same name under
       // a different company is allowed.
-      String norm(String? s) => (s ?? '').trim().toLowerCase();
-      final existing = await ref.read(clientsListProvider.future);
-      final duplicate = existing.any(
-        (c) =>
-            c.id != widget.existing?.id &&
-            norm(c.name) == norm(_name.text) &&
-            norm(c.company) == norm(_companySelection),
-      );
-      if (duplicate) {
+      if (typedName.isNotEmpty &&
+          others.any(
+            (c) =>
+                c.name.trim().toLowerCase() == typedName.toLowerCase() &&
+                partyKey(c.company) == partyKey(_companySelection),
+          )) {
         if (mounted) {
           setState(() {
             _busy = false;
@@ -110,20 +145,23 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
       if (_isEdit) {
         await ref.read(clientsRepositoryProvider).update(
               id: widget.existing!.id,
-              name: _name.text.trim(),
+              name: name,
               company: _companySelection?.trim(),
-              code: _codeLocked
-                  ? widget.existing!.code!.trim()
-                  : _code.text.trim(),
+              code: code,
+              // sent only when it changed (a database without 0069 still saves)
+              updateRefPrefix: _refPrefix.text.trim() !=
+                  (widget.existing!.refPrefix ?? '').trim(),
+              refPrefix: _refPrefix.text,
             );
       } else {
         final ownerId = ref.read(currentUserIdProvider);
         if (ownerId == null) throw StateError('not signed in');
         await ref.read(clientsRepositoryProvider).create(
               ownerId: ownerId,
-              name: _name.text.trim(),
+              name: name,
               company: _companySelection?.trim(),
-              code: _code.text.trim(),
+              code: code,
+              refPrefix: _refPrefix.text,
             );
       }
       widget.onSaved();
@@ -147,7 +185,31 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
       },
       decoration: InputDecoration(
         labelText: cfg.nameLabel,
+        helperText: 'اختياري إذا كتبت الكود',
         errorText: _nameError,
+      ),
+    );
+    final codeField = TextField(
+      controller: _code,
+      // An existing code is official: it cannot be edited here.
+      readOnly: _codeLocked,
+      keyboardType: TextInputType.visiblePassword,
+      autocorrect: false,
+      enableSuggestions: false,
+      onChanged: (_) {
+        if (_codeError != null || _nameError != null) {
+          setState(() {
+            _codeError = null;
+            _nameError = null;
+          });
+        }
+      },
+      decoration: InputDecoration(
+        labelText: 'كود الحساب',
+        helperText: _codeLocked ? 'كود رسمي — لا يمكن تعديله' : null,
+        errorText: _codeError,
+        suffixIcon:
+            _codeLocked ? const Icon(Icons.lock_outline, size: 18) : null,
       ),
     );
     final companyField = ref.watch(exchangeCompaniesListProvider).when(
@@ -172,6 +234,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                 onChanged: (v) => setState(() {
                   _companySelection = v;
                   _nameError = null;
+                  _codeError = null;
                 }),
               ),
               Align(
@@ -242,26 +305,24 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              if (cfg.companyFieldFirst) ...[
-                companyField,
-                const SizedBox(height: 14),
-                nameField,
-              ] else ...[
-                nameField,
-                const SizedBox(height: 14),
-                companyField,
-              ],
+              companyField,
+              const SizedBox(height: 14),
+              codeField,
+              const SizedBox(height: 14),
+              nameField,
               const SizedBox(height: 14),
               TextField(
-                controller: _code,
-                // An existing code is official: it cannot be edited here.
-                readOnly: _codeLocked,
-                decoration: InputDecoration(
-                  labelText: 'كود الحساب',
-                  helperText: _codeLocked ? 'كود رسمي — لا يمكن تعديله' : null,
-                  suffixIcon: _codeLocked
-                      ? const Icon(Icons.lock_outline, size: 18)
-                      : null,
+                key: const ValueKey('ref-prefix'),
+                controller: _refPrefix,
+                maxLength: 20,
+                textDirection: TextDirection.ltr,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(
+                  labelText: 'حروف الرقم الإشاري الثابتة (اختياري)',
+                  hintText: 'مثال: TRC',
+                  helperText: 'تظهر ثابتة في خانة الإشاري ويُكتب الرقم فقط',
+                  counterText: '',
                 ),
               ),
               const SizedBox(height: 20),

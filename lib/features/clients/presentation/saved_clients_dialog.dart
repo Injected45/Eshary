@@ -7,6 +7,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../data/clients_repository.dart';
+import '../domain/client.dart';
 import 'add_client_dialog.dart';
 import 'clients_providers.dart';
 import '../../../shared/top_message.dart';
@@ -17,7 +18,6 @@ class SavedEntitiesConfig {
     this.addTitle = 'إضافة عميل جديد',
     this.editTitle = 'تعديل عميل',
     this.nameLabel = 'اسم العميل',
-    this.companyFieldFirst = false,
     this.emptyMessage = 'ابدأ بإضافة جهة جديدة لبدء عمليات التحويل',
     this.addTooltip = 'إضافة عميل جديد',
   });
@@ -26,7 +26,7 @@ class SavedEntitiesConfig {
   final String addTitle;
   final String editTitle;
   final String nameLabel;
-  final bool companyFieldFirst;
+
   final String emptyMessage;
   final String addTooltip;
 
@@ -35,7 +35,6 @@ class SavedEntitiesConfig {
     addTitle: 'إضافة جهة جديدة',
     editTitle: 'تعديل جهة',
     nameLabel: 'اسم الجهة',
-    companyFieldFirst: true,
     addTooltip: 'إضافة جهة جديدة',
   );
 }
@@ -53,6 +52,8 @@ class SavedClientsDialog extends ConsumerStatefulWidget {
 }
 
 class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
+  /// What the user typed to find a party: a code first, or a name / company.
+  String _query = '';
   Future<void> _openAddSheet() async {
     await showGlassDialog<void>(
       context: context,
@@ -128,10 +129,34 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                 ],
               ),
               const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('party-search'),
+                onChanged: (v) => setState(() => _query = v),
+                decoration: const InputDecoration(
+                  hintText: 'ابحث بالكود أو الاسم أو الشركة',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                ),
+              ),
+              const SizedBox(height: 12),
               listAsync.when(
                 skipLoadingOnReload: true,
                 skipError: true,
-                data: (items) {
+                data: (all) {
+                  final items = filterParties(all, _query);
+                  if (all.isNotEmpty && items.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 18),
+                      child: Center(
+                        child: Text(
+                          'لا توجد جهة بهذا الكود أو الاسم',
+                          style: TextStyle(
+                            color: AppColors.textLow,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   if (items.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(
@@ -195,9 +220,7 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          (item.company?.isEmpty ?? true)
-                                              ? '—'
-                                              : item.company!,
+                                          partySubtitle(item),
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: AppColors.textLow,
@@ -206,6 +229,25 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                                       ],
                                     ),
                                   ),
+                                  if (!isEmployee)
+                                    IconButton(
+                                      key: ValueKey('party-edit-${item.id}'),
+                                      tooltip: 'تعديل الجهة وحروف الإشاري',
+                                      icon: const FaIcon(
+                                        FontAwesomeIcons.penToSquare,
+                                        size: 14,
+                                        color: AppColors.accent,
+                                      ),
+                                      onPressed: () => showGlassDialog<void>(
+                                        context: context,
+                                        builder: (_) => AddClientDialog(
+                                          existing: item,
+                                          config: widget.config,
+                                          onSaved: () => ref
+                                              .invalidate(clientsListProvider),
+                                        ),
+                                      ),
+                                    ),
                                   if (!isEmployee)
                                     IconButton(
                                       icon: const FaIcon(
@@ -263,4 +305,26 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
       ),
     );
   }
+}
+
+/// The saved parties matching what was typed. A code is matched without case,
+/// spaces or digit shape (٥٥٢١ = 5521); a name or a company by what it contains.
+List<Client> filterParties(List<Client> all, String query) {
+  final key = partyKey(query);
+  if (key.isEmpty) return all;
+  final text = query.trim().toLowerCase();
+  return [
+    for (final c in all)
+      if (partyKey(c.code).contains(key) ||
+          partyKey(c.company).contains(key) ||
+          c.name.toLowerCase().contains(text))
+        c,
+  ];
+}
+
+/// "بهار روز · كود 5521": the company and the code a merchant is known by.
+String partySubtitle(Client c) {
+  final company = (c.company ?? '').trim().isEmpty ? '—' : c.company!.trim();
+  final code = (c.code ?? '').trim();
+  return code.isEmpty ? company : '$company · كود $code';
 }

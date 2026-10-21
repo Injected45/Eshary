@@ -170,6 +170,12 @@ String friendlyError(Object e) {
   if (s.contains('branches_name_unique')) {
     return 'اسم الفرع مسجَّل بالفعل. استخدم اسماً مختلفاً.';
   }
+  if (s.contains('letters_too_long')) {
+    return 'الحروف أطول من 20 حرفًا.';
+  }
+  if (s.contains('clients_owner_company_code_uq')) {
+    return 'هذا الكود مسجّل مسبقًا على نفس الشركة.';
+  }
   if (s.contains('23505') || s.contains('duplicate key')) {
     return 'هذا العنصر موجود مسبقًا.';
   }

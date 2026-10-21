@@ -7,7 +7,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/audio_feedback.dart';
 import '../../../shared/background_alerts.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../shared/glass.dart';
+import '../../../shared/pending_dispatch.dart';
 import '../../../shared/realtime_sync.dart';
 import '../../archive/presentation/archive_screen.dart';
 import '../../companies/presentation/accounts_screen.dart';
@@ -62,9 +65,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   void initState() {
     super.initState();
     // Keep the app connected in the background so alerts can ring.
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => BackgroundAlerts.instance.start());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      BackgroundAlerts.instance.start();
+      // Unsent messages are kept for a day, then forgotten.
+      final pending = ref.read(pendingDispatchProvider);
+      if (pending != null &&
+          DateTime.now().difference(pending.savedAt) > _pendingKeep) {
+        ref.read(pendingDispatchProvider.notifier).finish();
+      }
+    });
   }
+
+  static const _pendingKeep = Duration(hours: 24);
 
   @override
   void dispose() {
@@ -139,7 +151,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       IndexedStack(
         index: _sub == null ? 0 : _sub! + 1,
         children: [
-          _TransfersHub(onSelect: (i) => setState(() => _sub = i)),
+          _TransfersHub(
+            onSelect: (i) => setState(() => _sub = i),
+            pending: ref.watch(pendingDispatchProvider),
+            onOpenPending: () => context.push('/messages-dispatch'),
+            onDismissPending: () =>
+                ref.read(pendingDispatchProvider.notifier).finish(),
+          ),
           _tinted(context, _outColor, _transfersScreen),
           _tinted(context, _inColor, _currencyBuyScreen),
         ],
@@ -222,8 +240,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 /// Landing screen of the "الحوالات" tab: two big buttons that open the
 /// existing خروج (transfers) and دخول (currency buy) screens unchanged.
 class _TransfersHub extends StatelessWidget {
-  const _TransfersHub({required this.onSelect});
+  const _TransfersHub({
+    required this.onSelect,
+    this.pending,
+    this.onOpenPending,
+    this.onDismissPending,
+  });
   final ValueChanged<int> onSelect;
+
+  /// Messages of a saved operation that were not sent yet, if any.
+  final PendingDispatch? pending;
+  final VoidCallback? onOpenPending;
+  final VoidCallback? onDismissPending;
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +259,45 @@ class _TransfersHub extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(
           16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
+        if (pending != null) ...[
+          GlassCard(
+            key: const ValueKey('pending-messages'),
+            padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+            child: Row(
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.commentDots,
+                  size: 16,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'لديك رسائل عملية محفوظة لم تُرسَل بعد',
+                    style: TextStyle(
+                      color: AppColors.textHigh,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  key: const ValueKey('pending-open'),
+                  onPressed: onOpenPending,
+                  child: const Text('إكمال'),
+                ),
+                IconButton(
+                  key: const ValueKey('pending-dismiss'),
+                  tooltip: 'تجاهل',
+                  onPressed: onDismissPending,
+                  icon: const FaIcon(FontAwesomeIcons.xmark, size: 14),
+                  color: AppColors.textLow,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         _HubButton(
           icon: FontAwesomeIcons.paperPlane,
           label: 'خروج',

@@ -224,6 +224,83 @@ void main() {
     FilledButton save(WidgetTester t) =>
         t.widget<FilledButton>(find.byKey(const ValueKey('save-buy')));
 
+    testWidgets(
+        'a saved sender with no code can be saved: the code is optional',
+        (tester) async {
+      final noCode = Client(
+        id: 'c3',
+        ownerId: 'o',
+        name: 'تاجر بلا كود',
+        company: 'شركة المرسل',
+        code: null,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      await _open(tester, one, clients: [noCode]);
+      await tester.tap(find.text('دخول لحسابي'));
+      await tester.pumpAndSettle();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('شركة المرسل').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('تاجر بلا كود').last);
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextField);
+      final n = tester.widgetList(fields).length;
+      // only the reference and the value: no code typed
+      await tester.enterText(fields.at(n - 2), 'R-1');
+      await tester.enterText(fields.at(n - 1), '250');
+      await tester.pump();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      expect(save(tester).onPressed, isNotNull, reason: 'no code needed');
+    });
+
+    testWidgets('a sender with fixed letters shows them in the reference field',
+        (tester) async {
+      final trc = Client(
+        id: 'c2',
+        ownerId: 'o',
+        name: 'تاجر',
+        company: 'شركة المرسل',
+        code: 'S-2',
+        createdAt: DateTime(2026, 1, 1),
+        refPrefix: 'TRC',
+      );
+      await _open(tester, one, clients: [client, trc]);
+      await tester.tap(find.text('دخول لحسابي'));
+      await tester.pumpAndSettle();
+      await tester.pump(pause);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('شركة المرسل').last);
+      await tester.pumpAndSettle();
+
+      // a sender without letters: the plain field
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أحمد').last);
+      await tester.pumpAndSettle();
+      expect(find.text('TRC'), findsNothing);
+      expect(find.byKey(const ValueKey('ref-prefix-edit')), findsOneWidget,
+          reason: 'the pencil is there to add letters to this sender');
+      expect(find.text('الإشاري'), findsWidgets);
+
+      // a sender with letters: they stay in front, the number is typed
+      await tester.tap(find.byType(DropdownButtonFormField<Client>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('تاجر').last);
+      await tester.pumpAndSettle();
+      expect(find.text('TRC'), findsOneWidget);
+      // and a pencil beside the label opens the sender to change them
+      expect(find.byKey(const ValueKey('ref-prefix-edit')), findsOneWidget);
+    });
+
     testWidgets('the save button is dim until everything is filled',
         (tester) async {
       await _open(tester, one, clients: [client]);

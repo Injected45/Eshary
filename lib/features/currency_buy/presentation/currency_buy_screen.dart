@@ -21,6 +21,8 @@ import '../../../shared/pending_dispatch.dart';
 import '../../clients/data/clients_repository.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/add_client_dialog.dart';
+import '../../clients/presentation/party_letters_dialog.dart';
+import '../../sub_users/domain/employee_permissions.dart';
 import '../../clients/presentation/clients_providers.dart';
 import '../../clients/presentation/saved_clients_dialog.dart';
 import '../../companies/domain/company.dart';
@@ -94,12 +96,12 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     if (mounted) setState(() {});
   }
 
-  /// The sender is complete: company, account name, its code, the reference and
-  /// the dollar value.
+  /// The sender is complete: company, the saved sender, the reference and the
+  /// dollar value. The code is not required: a sender known by name only is
+  /// as good as one known by code only (the saved party has one of them).
   bool get _senderComplete =>
       _senderCompany != null &&
       _client != null &&
-      (_senderCodeStored || _senderCodeTyped.trim().isNotEmpty) &&
       _reference.text.trim().isNotEmpty &&
       parseMoney(_usd.text) > 0;
 
@@ -236,7 +238,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               usdAmount: parseMoney(_usd.text),
               rate: parseMoney(_rate.text),
               lydAmount: parseMoney(_lyd.text),
-              reference: _reference.text.trim(),
+              reference: _fullReference,
             )
           : await repo.createDaily(
               myCompanyId: _myCompany!.id,
@@ -246,7 +248,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               usdAmount: parseMoney(_usd.text),
               rate: parseMoney(_rate.text),
               lydAmount: parseMoney(_lyd.text),
-              reference: _reference.text.trim(),
+              reference: _fullReference,
             );
 
       await _persistSenderCode();
@@ -294,6 +296,13 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   bool get _senderCodeStored => (_client?.code ?? '').trim().isNotEmpty;
 
+  /// The letters this sender's reference always starts with (TRC ...), shown
+  /// fixed in the reference field.
+  String get _refPrefix => (_client?.refPrefix ?? '').trim();
+
+  /// The reference to record: the fixed letters plus the number typed.
+  String get _fullReference => fullReference(_refPrefix, _reference.text);
+
   /// The code to use for the selected sender: the stored (official) one, or
   /// the one just typed for a sender that has none yet.
   String get _effectiveSenderCode {
@@ -330,23 +339,28 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final senderCompany = (_senderCompany != null && _senderCompany!.isNotEmpty)
         ? _senderCompany!
         : (_client?.company ?? '—');
-    final senderAccount = _client?.name ?? '—';
-    final senderCode =
-        _effectiveSenderCode.isEmpty ? '—' : _effectiveSenderCode;
+    // A sender saved by its code only is called "كود 5521": that is not an
+    // account name, so the "حساب" line is left out (the code line says it).
+    final savedName = (_client?.name ?? '').trim();
+    final senderAccount = (savedName.isEmpty ||
+            savedName == nameForCode((_client?.code ?? '').trim()))
+        ? ''
+        : savedName;
+    // No code: the line is left out, not printed empty.
+    final senderCode = _effectiveSenderCode;
     final myCompany = _myCompany?.name ?? '—';
-    final myCode = _exchange?.ourCode ?? '—';
-    final reference =
-        _reference.text.trim().isEmpty ? '—' : _reference.text.trim();
+    final myCode = (_exchange?.ourCode ?? '').trim();
+    final reference = _fullReference.isEmpty ? '—' : _fullReference;
 
     final m1 = '🇹🇷 السادة شركة $exchangeCompany\n'
         'نرجوا منكم تأكيد الدخول\n'
         'القادم من شركة * $senderCompany *\n'
-        'حساب : $senderAccount\n'
-        'كود : $senderCode\n'
+        '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount\n'}'
+        '${senderCode.isEmpty ? '' : 'كود : $senderCode\n'}'
         'اشاري ( $reference )\n'
         '———————————————-\n'
         '🏦 لحساب: $myCompany\n'
-        '🔢  كود: $myCode\n'
+        '${myCode.isEmpty ? '' : '🔢  كود: $myCode\n'}'
         '💵 المبلغ: ( $amount ) \$🇹🇷\n'
         '———————————————-\n'
         'مع خالص الشكر 🤝';
@@ -354,11 +368,11 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     final m2 = '‏يطلب تسجيل دخول ( $amount ) \$🇹🇷\n'
         '🧾في حسابنا لدى* $exchangeCompany *🇹🇷\n'
         '🏦 لحساب: $myCompany\n'
-        '🔢  كود : $myCode\n'
+        '${myCode.isEmpty ? '' : '🔢  كود : $myCode\n'}'
         '———————————————-\n'
         'مرسلة من شركة $senderCompany 🇹🇷\n'
-        'حساب : $senderAccount 🇹🇷\n'
-        '🔢  كود : $senderCode\n'
+        '${senderAccount.isEmpty ? '' : 'حساب : $senderAccount 🇹🇷\n'}'
+        '${senderCode.isEmpty ? '' : '🔢  كود : $senderCode\n'}'
         'الرقم الإشاري : $reference\n'
         '———————————————-\n'
         'شاكر لكم حسن انتباهكم 🫡';
@@ -617,6 +631,44 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     if (updated.isNotEmpty) {
       _onExchangeCompanyChanged(updated.first.name);
     }
+  }
+
+  /// Opens the selected sender to set or change the letters its references
+  /// start with, then takes the saved version back into the form.
+  Future<void> _editSenderLetters() async {
+    final c = _client;
+    if (c == null) return;
+    if (ref.read(isEmployeeProvider)) {
+      // an employee granted the permission changes the letters only
+      final letters = await showPartyLettersDialog(
+        context,
+        initial: _refPrefix,
+        party: c.name,
+      );
+      if (letters == null || !mounted) return;
+      try {
+        await ref
+            .read(clientsRepositoryProvider)
+            .setPartyLetters(c.id, letters);
+        ref.invalidate(clientsListProvider);
+      } catch (e, st) {
+        AppLogger.error('currencyBuy.setPartyLetters', e, st);
+        if (mounted) _snack(friendlyError(e));
+        return;
+      }
+    } else {
+      await showGlassDialog<void>(
+        context: context,
+        builder: (_) => AddClientDialog(
+          existing: c,
+          onSaved: () => ref.invalidate(clientsListProvider),
+        ),
+      );
+    }
+    if (!mounted) return;
+    final list = await ref.read(clientsListProvider.future);
+    final fresh = list.where((x) => x.id == c.id).firstOrNull;
+    if (fresh != null && mounted) setState(() => _client = fresh);
   }
 
   Future<void> _openSavedClientsDialog() async {
@@ -1038,7 +1090,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         ? 'كود حساب المرسل'
                         : (_senderCodeStored
                             ? 'كود رسمي — لا يمكن تعديله'
-                            : 'أدخل كود المرسل (مرة واحدة)'),
+                            : 'كود المرسل (اختياري)'),
                     suffixIcon: _IconBox(
                       _senderCodeStored
                           ? FontAwesomeIcons.lock
@@ -1057,6 +1109,29 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                   Expanded(
                     child: _LabeledField(
                       label: 'الرقم الإشاري',
+                      // A pencil beside the label sets this sender's fixed
+                      // letters (TRC ...) without leaving the form.
+                      trailing: (_client == null ||
+                              !ref.watch(canProvider(kPermPartyLetters)))
+                          ? null
+                          : Tooltip(
+                              message: _refPrefix.isEmpty
+                                  ? 'إضافة حروف ثابتة للإشاري'
+                                  : 'تعديل الحروف الثابتة للإشاري',
+                              child: InkWell(
+                                key: const ValueKey('ref-prefix-edit'),
+                                onTap: _editSenderLetters,
+                                borderRadius: BorderRadius.circular(8),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(5),
+                                  child: FaIcon(
+                                    FontAwesomeIcons.penToSquare,
+                                    size: 13,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ),
                       child: SizedBox(
                         height: _kFieldHeight,
                         child: TextField(
@@ -1067,9 +1142,16 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                           textAlign: TextAlign.center,
                           textAlignVertical: TextAlignVertical.center,
                           style: _kFieldTextStyle,
-                          decoration: const InputDecoration(
-                            hintText: 'الإشاري',
+                          // The sender's fixed letters stay in front; only the
+                          // changing number is typed.
+                          decoration: InputDecoration(
+                            hintText: _refPrefix.isEmpty ? 'الإشاري' : 'الرقم',
                             hintMaxLines: 1,
+                            prefixText: _refPrefix.isEmpty ? null : _refPrefix,
+                            prefixStyle: _kFieldTextStyle.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
@@ -1300,25 +1382,35 @@ class _AccentSectionTitle extends StatelessWidget {
 }
 
 class _LabeledField extends StatelessWidget {
-  const _LabeledField({required this.label, required this.child});
+  const _LabeledField({
+    required this.label,
+    required this.child,
+    this.trailing,
+  });
   final String label;
   final Widget child;
 
+  /// A small action on the label line, beside the label (outside the box).
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      style: const TextStyle(
+        fontSize: 12,
+        color: AppColors.textMid,
+        fontWeight: FontWeight.w500,
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsetsDirectional.only(start: 4, bottom: 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textMid,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          child: trailing == null
+              ? text
+              : Row(children: [text, const SizedBox(width: 6), trailing!]),
         ),
         child,
       ],
