@@ -18,7 +18,11 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0076) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0077) in order.
+
+## Admin platform (admin-web/)
+
+A separate Next.js + TypeScript web app ("ESHARI Admin") that administers the SAME Supabase project: staff sign in with password + a WhatsApp code, and the code step is enforced in the database (migration 0077: `platform_staff`, `platform_sessions`, `_platform_role()`; `is_caller_admin()` also answers true for a verified super_admin/admin). See `admin-web/README.md`. Commands: `cd admin-web && npm test`, `npx tsc --noEmit`, `npx next build`; DB test: `cd supabase/tests && node platform77_test.mjs`. Never commit `.env*` or the service-role key. When a migration re-creates a CHECK constraint (e.g. `wa_challenges_purpose_check`) keep every value earlier migrations added.
 
 ## Architecture
 
@@ -30,7 +34,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0076    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0077    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.

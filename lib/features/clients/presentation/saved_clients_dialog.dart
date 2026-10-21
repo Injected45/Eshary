@@ -302,9 +302,14 @@ List<Client> filterParties(List<Client> all, String query) {
 
 /// "بهار روز · كود 5521": the company and the code a merchant is known by.
 String partySubtitle(Client c) {
+  // whatever the merchant gave, in one line: company · code · reference letters
   final company = (c.company ?? '').trim();
   final code = (c.code ?? '').trim();
-  if (company.isEmpty && code.isEmpty) return '—';
-  if (company.isEmpty) return 'كود $code';
-  return code.isEmpty ? company : '$company · كود $code';
+  final letters = (c.refPrefix ?? '').trim();
+  final parts = [
+    if (company.isNotEmpty) company,
+    if (code.isNotEmpty) 'كود $code',
+    if (letters.isNotEmpty) 'إشاري $letters',
+  ];
+  return parts.isEmpty ? '—' : parts.join(' · ');
 }

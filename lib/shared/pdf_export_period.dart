@@ -418,6 +418,9 @@ extension PeriodReports on PdfExport {
     required Map<String, Client> clientById,
     required DateTime start,
     required DateTime end,
+    double openingBalance = 0,
+    String title = 'تفاصيل حركة الدخول والخروج للحوالات',
+    String? scopeLabel,
     String? exportedBy,
     String? notificationText,
     String? employeeName,
@@ -477,10 +480,11 @@ extension PeriodReports on PdfExport {
     final exportedAtTime = DateTime.now();
     final logo = await _loadLogo();
     final header = _periodHeader(
-      title: 'تفاصيل حركة الدخول والخروج للحوالات',
+      title: title,
       period: periodLabel(start, end),
       logo: logo,
       notificationText: notificationText,
+      extraLines: [if (scopeLabel != null) scopeLabel],
     );
 
     if (ops.isEmpty) {
@@ -515,13 +519,15 @@ extension PeriodReports on PdfExport {
 
     final ledger = ledgerOf([
       for (final o in ops) (isIncome: o.isIncome, amount: o.amount),
-    ]);
+    ], opening: openingBalance);
 
     final incomeTotal =
         ops.where((o) => o.isIncome).fold<double>(0, (s, o) => s + o.amount);
     final outgoingTotal =
         ops.where((o) => !o.isIncome).fold<double>(0, (s, o) => s + o.amount);
-    final balance = incomeTotal - outgoingTotal;
+    // رصيد افتتاحي: a first row and a first tile, when there is one.
+    final showOpening = openingBalance != 0;
+    final balance = openingBalance + incomeTotal - outgoingTotal;
 
     _addReportPages(
       doc,
@@ -535,6 +541,19 @@ extension PeriodReports on PdfExport {
           headers: headers,
           widths: widths,
           rows: [
+            if (showOpening)
+              [
+                '',
+                '',
+                '',
+                '',
+                '',
+                'رصيد افتتاحي',
+                '',
+                '',
+                '',
+                formatMoney(openingBalance),
+              ],
             for (var i = 0; i < ops.length; i++)
               [
                 '${i + 1}',
@@ -551,7 +570,11 @@ extension PeriodReports on PdfExport {
                 formatMoney(ledger[i].balance),
               ],
           ],
-          colorOf: (row, column) {
+          colorOf: (rowIndex, column) {
+            if (showOpening && rowIndex == 0) {
+              return column == 9 ? PdfColors.grey800 : null;
+            }
+            final row = showOpening ? rowIndex - 1 : rowIndex;
             if (ops[row].cancelled && column != 9) return _cancelledColor;
             if (column == 7) return PdfColors.green800; // دخول
             if (column == 8) return PdfColors.red800; // خروج
@@ -565,6 +588,12 @@ extension PeriodReports on PdfExport {
         ),
         pw.SizedBox(height: 12),
         _statRow([
+          if (showOpening)
+            _statTile(
+              'رصيد افتتاحي',
+              '${openingBalance >= 0 ? '' : '-'}\$${formatMoney(openingBalance.abs())}',
+              PdfColors.grey800,
+            ),
           _statTile(
             'إجمالي الدخول',
             '+\$${formatMoney(incomeTotal)}',

@@ -13,6 +13,8 @@ import '../../../shared/pdf_file_name.dart';
 import '../../../shared/transaction_details.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
+import '../../companies/domain/account_statement.dart';
+import '../../companies/presentation/account_statement_providers.dart';
 import '../../companies/domain/company.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/companies_providers.dart';
@@ -192,6 +194,32 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     final diff = incomeTotal - outgoingTotal;
     final hasAny = filteredBuys.isNotEmpty || filteredTransfers.isNotEmpty;
 
+    // رصيد افتتاحي: what the accounts held when the period began, so the
+    // closing balance matches the real balance. Only for the whole treasury:
+    // a single person's operations have no opening balance of their own.
+    var opening = 0.0;
+    final wholeTreasury = !ref.watch(isEmployeeProvider) &&
+        (widget.creatorFilter == null || widget.creatorFilter == kCreatorAll);
+    if (wholeTreasury) {
+      final data = ref
+          .watch(statementDataProvider(
+            DateTimeRange(start: r.start, end: r.end),
+          ))
+          .valueOrNull;
+      final exchanges =
+          ref.watch(allExchangesProvider).valueOrNull ?? const <Exchange>[];
+      if (data != null && exchanges.isNotEmpty) {
+        opening = openingBalanceAt(
+          currentBalance: exchanges.fold<double>(0, (s, e) => s + e.balance),
+          buys: data.buys,
+          transfers: data.transfers,
+          expenses: data.expenses,
+          start: r.start,
+        );
+        if (opening.abs() < 0.005) opening = 0;
+      }
+    }
+
     final buckets = _bucketize(
       buys: filteredBuys,
       transfers: filteredTransfers,
@@ -215,6 +243,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
                       transfers: filteredTransfers,
                       start: r.start,
                       end: r.end,
+                      opening: opening,
                     )
                 : null,
             icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
@@ -253,6 +282,10 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
             outgoingTotal: outgoingTotal,
             diff: diff,
           ),
+          if (opening != 0) ...[
+            const SizedBox(height: 8),
+            _OpeningRow(opening: opening, closing: opening + diff),
+          ],
           const SizedBox(height: 14),
           _OperationsTable(
             buys: filteredBuys,
@@ -271,6 +304,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     required List<Transfer> transfers,
     required DateTime start,
     required DateTime end,
+    double opening = 0,
   }) async {
     try {
       final companies =
@@ -307,6 +341,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         clientById: {for (final c in clients) c.id: c},
         start: start,
         end: end,
+        openingBalance: opening,
         exportedBy: exportedBy,
         notificationText: notif,
         employeeName: employeeName,
@@ -853,8 +888,46 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+/// رصيد افتتاحي and the closing balance (الرصيد) under the movement totals.
+class _OpeningRow extends StatelessWidget {
+  const _OpeningRow({required this.opening, required this.closing});
+
+  final double opening;
+  final double closing;
+
+  String _signed(double v) => '${v >= 0 ? '' : '-'}\$${formatMoney(v.abs())}';
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryTile(
+              key: const ValueKey('opening-balance'),
+              label: 'رصيد افتتاحي',
+              value: _signed(opening),
+              tint: AppColors.textHigh,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _SummaryTile(
+              key: const ValueKey('closing-balance'),
+              label: 'الرصيد',
+              value: _signed(closing),
+              tint: closing >= 0 ? AppColors.positive : AppColors.negative,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SummaryTile extends StatelessWidget {
   const _SummaryTile({
+    super.key,
     required this.label,
     required this.value,
     required this.tint,

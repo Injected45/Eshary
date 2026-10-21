@@ -96,15 +96,26 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
     // The name is optional when there is a code: most merchants are known by
     // their code only. Such a party is called by its code.
     final company = (_companySelection ?? '').trim();
-    // Merchants give different things: company + account + code, company +
-    // code, account + code. Any one of the three is enough to save.
-    if (typedName.isEmpty && code.isEmpty && company.isEmpty) {
-      setState(() => _nameError = 'اكتب الكود أو الاسم أو الشركة على الأقل');
+    final letters = _refPrefix.text.trim();
+    // Merchants give different things. ANY ONE of the four fields is enough to
+    // save a party: the company, the code, the name or the reference letters.
+    // It is then called by what was given: the name, else "كود …", else the
+    // company, else the letters.
+    if (typedName.isEmpty &&
+        code.isEmpty &&
+        company.isEmpty &&
+        letters.isEmpty) {
+      setState(
+        () => _nameError =
+            'اكتب أي حقل واحد على الأقل: الشركة أو الكود أو الاسم أو حروف الإشاري',
+      );
       return;
     }
     final name = typedName.isNotEmpty
         ? typedName
-        : (code.isNotEmpty ? nameForCode(code) : company);
+        : (code.isNotEmpty
+            ? nameForCode(code)
+            : (company.isNotEmpty ? company : letters));
     setState(() => _busy = true);
     try {
       final existing = await ref.read(clientsListProvider.future);
@@ -134,10 +145,11 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
       }
       // Same name under the same company is a duplicate; the same name under
       // a different company is allowed.
-      if (typedName.isNotEmpty &&
+      // (A party without a code is told apart by its name, typed or not.)
+      if ((typedName.isNotEmpty || code.isEmpty) &&
           others.any(
             (c) =>
-                c.name.trim().toLowerCase() == typedName.toLowerCase() &&
+                c.name.trim().toLowerCase() == name.toLowerCase() &&
                 partyKey(c.company) == partyKey(_companySelection),
           )) {
         if (mounted) {

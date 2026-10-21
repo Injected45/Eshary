@@ -249,7 +249,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(fake.created, isEmpty);
       expect(
-          find.text('اكتب الكود أو الاسم أو الشركة على الأقل'), findsOneWidget);
+          find.text(
+              'اكتب أي حقل واحد على الأقل: الشركة أو الكود أو الاسم أو حروف الإشاري'),
+          findsOneWidget);
     });
 
     testWidgets('a merchant with account name + code and no company is saved',
@@ -279,6 +281,62 @@ void main() {
       expect(partySubtitle(_client('9', 'س', null, '5521')), 'كود 5521');
       expect(partySubtitle(_client('9', 'س', 'أنزار', '5521')),
           'أنزار · كود 5521');
+    });
+
+    // Any ONE of the four fields is enough to save a party.
+    testWidgets('only the reference letters: saved, named by them',
+        (tester) async {
+      final fake = await _openAdd(tester);
+      await tester.enterText(find.byKey(const ValueKey('ref-prefix')), 'TRC');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created, [
+        {'name': 'TRC', 'company': null, 'code': '', 'ref': 'TRC'},
+      ]);
+    });
+
+    testWidgets('only the name: saved', (tester) async {
+      final fake = await _openAdd(tester);
+      await tester.enterText(_field('اسم العميل'), 'ابوبكر');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created, [
+        {'name': 'ابوبكر', 'company': null, 'code': ''},
+      ]);
+    });
+
+    testWidgets('only the code: saved as "كود …"', (tester) async {
+      final fake = await _openAdd(tester);
+      await tester.enterText(_field('كود الحساب'), '8123');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created, [
+        {'name': 'كود 8123', 'company': null, 'code': '8123'},
+      ]);
+    });
+
+    testWidgets('the same letters-only party twice is refused', (tester) async {
+      final fake = await _openAdd(tester);
+      await tester.enterText(find.byKey(const ValueKey('ref-prefix')), 'ZZZ');
+      await tester.tap(find.text('حفظ'));
+      await tester.pumpAndSettle();
+      expect(fake.created.length, 1);
+    });
+
+    test('a row shows the letters too', () {
+      Client c(String? company, String? code, String? letters) => Client(
+            id: '1',
+            ownerId: 'u',
+            name: 'x',
+            company: company,
+            code: code,
+            createdAt: DateTime(2026, 1, 1),
+            refPrefix: letters,
+          );
+      expect(partySubtitle(c(null, null, 'TRC')), 'إشاري TRC');
+      expect(partySubtitle(c('أنزار', '5521', 'TRC')),
+          'أنزار · كود 5521 · إشاري TRC');
+      expect(partySubtitle(c(null, null, null)), '—');
     });
 
     testWidgets('the fields run company, code, name', (tester) async {

@@ -18,6 +18,8 @@ import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/presentation/currency_buy_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../employee_alerts/presentation/employee_alerts_providers.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../reports/presentation/reports_screen.dart';
 import '../../employee_alerts/presentation/employee_alerts_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
@@ -45,6 +47,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     'الإعدادات',
   ];
 
+  /// The admin has one more tab, "التقارير", after "العمليات".
+  static const _adminTitles = [
+    'الحوالات',
+    'العمليات',
+    'التقارير',
+    'حساباتي',
+    'الإعدادات',
+  ];
+
   static const _subTitles = [
     'تنفيذ خروج حوالة',
     'تنفيذ دخول حوالة',
@@ -55,6 +66,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static final _otherScreens = <Widget>[
     const ArchiveScreen(),
+    const AccountsScreen(),
+    const SettingsScreen(),
+  ];
+
+  static final _adminOtherScreens = <Widget>[
+    const ArchiveScreen(),
+    const ReportsScreen(),
     const AccountsScreen(),
     const SettingsScreen(),
   ];
@@ -145,6 +163,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   Widget _buildScaffold(BuildContext context) {
+    // Reports hold the whole treasury: the admin's tab only.
+    final showReports = !ref.watch(isEmployeeProvider);
     // Inner IndexedStack keeps both entry forms alive so they retain their
     // state when switching between hub / خروج / دخول.
     final screens = <Widget>[
@@ -162,8 +182,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           _tinted(context, _inColor, _currencyBuyScreen),
         ],
       ),
-      ..._otherScreens,
+      ...(showReports ? _adminOtherScreens : _otherScreens),
     ];
+    final titles = showReports ? _adminTitles : _titles;
+    final index = _index < titles.length ? _index : 0;
     // Each entry screen has its own accent: خروج red, دخول green.
     final subColor = _inSub ? (_sub == 0 ? _outColor : _inColor) : null;
     return Scaffold(
@@ -176,7 +198,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
             child: AppBar(
-              title: Text(_inSub ? _subTitles[_sub!] : _titles[_index]),
+              title: Text(_inSub ? _subTitles[_sub!] : titles[index]),
               leading: _inSub
                   ? BackButton(onPressed: () => setState(() => _sub = null))
                   : null,
@@ -223,10 +245,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: IndexedStack(index: _index, children: screens),
+        child: IndexedStack(index: index, children: screens),
       ),
       bottomNavigationBar: _GlassBottomNav(
-        index: _index,
+        index: index,
+        showReports: showReports,
         onChanged: (i) => setState(() {
           // Tapping "الحوالات" again returns to the hub.
           if (i == 0) _sub = null;
@@ -354,8 +377,13 @@ class _HubButton extends StatelessWidget {
 }
 
 class _GlassBottomNav extends StatelessWidget {
-  const _GlassBottomNav({required this.index, required this.onChanged});
+  const _GlassBottomNav({
+    required this.index,
+    required this.onChanged,
+    this.showReports = false,
+  });
   final int index;
+  final bool showReports;
   final ValueChanged<int> onChanged;
 
   @override
@@ -391,19 +419,24 @@ class _GlassBottomNav extends StatelessWidget {
                 selectedIndex: index,
                 onDestinationSelected: onChanged,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                destinations: const [
-                  NavigationDestination(
+                destinations: [
+                  const NavigationDestination(
                     icon: FaIcon(
                       FontAwesomeIcons.moneyBillTransfer,
                       size: 18,
                     ),
                     label: 'الحوالات',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.boxArchive, size: 18),
                     label: 'العمليات',
                   ),
-                  NavigationDestination(
+                  if (showReports)
+                    const NavigationDestination(
+                      icon: FaIcon(FontAwesomeIcons.chartColumn, size: 18),
+                      label: 'التقارير',
+                    ),
+                  const NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.wallet, size: 18),
                     label: 'حساباتي',
                   ),

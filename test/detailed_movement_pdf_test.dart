@@ -351,6 +351,41 @@ void main() {
       expect(bytes.length, greaterThan(2000));
       expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
     });
+
+    test('with an opening balance (negative too)', () async {
+      final pdf = await PdfExport.load();
+      for (final opening in [5000.0, -2500.0]) {
+        final Uint8List bytes = await pdf.buildDetailedTransfersReport(
+          buys: [buy],
+          transfers: [transfer],
+          companyById: {'c1': company},
+          exchangeById: {'e1': exchange},
+          clientById: {'k1': client},
+          start: DateTime(2026, 10, 8),
+          end: DateTime(2026, 10, 8, 23, 59),
+          openingBalance: opening,
+        );
+        expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+      }
+    });
+
+    test('the running balance and the totals start from the opening balance',
+        () {
+      final code = between('Future<Uint8List> buildDetailedTransfersReport',
+          'Future<Uint8List> buildAccountStatement');
+      expect(code, contains('opening: openingBalance'));
+      expect(code, contains('openingBalance + incomeTotal - outgoingTotal'));
+      expect(code, contains("'رصيد افتتاحي'"));
+    });
+
+    test('the screen works the opening balance out for the whole treasury', () {
+      final screen = File(
+        'lib/features/archive/presentation/diff_details_screen.dart',
+      ).readAsStringSync();
+      expect(screen, contains('openingBalanceAt('));
+      expect(screen, contains('openingBalance: opening'));
+      expect(screen, contains('opening + diff'));
+    });
   });
 }
 
