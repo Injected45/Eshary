@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:eshary/core/supabase_provider.dart';
 import 'package:eshary/features/notifications/domain/app_notification.dart';
+import 'package:eshary/features/notifications/presentation/notifications_bell.dart';
 import 'package:eshary/features/notifications/presentation/notifications_providers.dart';
 import 'package:eshary/features/notifications/presentation/notifications_screen.dart';
 import 'package:eshary/features/notifications/presentation/platform_notifications_listener.dart';
@@ -96,8 +97,9 @@ void main() {
 
     testWidgets('the close button removes it', (tester) async {
       await show(tester);
-      await tester
-          .tap(find.byKey(const ValueKey('notification-dropdown-close')));
+      await tester.tap(
+        find.byKey(const ValueKey('notification-dropdown-close')),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(
@@ -292,13 +294,14 @@ void main() {
     Future<ProviderContainer> container(
       List<AppNotification> list, {
       Map<String, Object> prefs = const {},
+      String uid = 'u1',
     }) async {
       SharedPreferences.setMockInitialValues(prefs);
       final p = await SharedPreferences.getInstance();
       final c = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(p),
-          currentUserIdProvider.overrideWithValue('u1'),
+          currentUserIdProvider.overrideWithValue(uid),
           notificationsListProvider.overrideWith((ref) async => list),
         ],
       );
@@ -312,64 +315,94 @@ void main() {
       _n('a', 'أ', _t0),
     ];
 
-    test('everything is unread before the first visit', () async {
+    test('everything is unread at first', () async {
       final c = await container(list);
       expect(c.read(unreadNotificationsProvider), 2);
     });
 
-    test('opening the list marks them read, and it is remembered', () async {
+    test('each opened notification takes one off, until none is left',
+        () async {
       final c = await container(list);
-      await c.read(notificationsSeenProvider.notifier).markSeen(list);
+      await c.read(notificationsReadProvider.notifier).markRead('a');
+      expect(c.read(unreadNotificationsProvider), 1);
+      await c.read(notificationsReadProvider.notifier).markRead('a');
+      expect(c.read(unreadNotificationsProvider), 1, reason: 'same one twice');
+      await c.read(notificationsReadProvider.notifier).markRead('b');
       expect(c.read(unreadNotificationsProvider), 0);
-      final stored = c.read(jsonCacheProvider).readString('notif_seen:u1');
+    });
+
+    test('what was opened is remembered; a later one is unread again',
+        () async {
+      final c = await container(list);
+      await c.read(notificationsReadProvider.notifier).markRead('a');
+      await c.read(notificationsReadProvider.notifier).markRead('b');
+      final stored = c.read(jsonCacheProvider).readString('notif_read:u1');
       expect(stored, isNotNull);
 
-      // a later notification is unread again; a restart keeps what was read
       final again = await container(
         [_n('c', 'ج', _t0.add(const Duration(hours: 3))), ...list],
-        prefs: {'notif_seen:u1': stored!},
+        prefs: {'notif_read:u1': stored!},
       );
       expect(again.read(unreadNotificationsProvider), 1);
     });
 
     test('each account keeps its own', () async {
       final c = await container(list);
-      await c.read(notificationsSeenProvider.notifier).markSeen(list);
-      expect(
-        c.read(jsonCacheProvider).readString('notif_seen:other'),
-        isNull,
+      await c.read(notificationsReadProvider.notifier).markRead('a');
+      final stored = c.read(jsonCacheProvider).readString('notif_read:u1')!;
+      final other = await container(
+        list,
+        prefs: {'notif_read:u1': stored},
+        uid: 'u2',
       );
+      expect(other.read(unreadNotificationsProvider), 2);
+    });
+
+    test('a notification switched off no longer counts', () async {
+      final c = await container([_n('a', 'أ', _t0)]);
+      expect(c.read(unreadNotificationsProvider), 1);
+      final none = await container(const []);
+      expect(none.read(unreadNotificationsProvider), 0);
     });
   });
 
-  group('the screen', () {
+  group('the screen and the bell', () {
+    final list = [
+      _n('b', 'نص الثاني', _t0.add(const Duration(hours: 1)), title: 'عنوان'),
+      _n('a', 'نص الأول', _t0),
+    ];
+
     Future<void> pump(
       WidgetTester tester,
-      List<AppNotification> list, {
-      Map<String, Object> prefs = const {},
+      List<AppNotification> items, {
+      bool withBell = false,
     }) async {
-      SharedPreferences.setMockInitialValues(prefs);
+      SharedPreferences.setMockInitialValues({});
       final p = await SharedPreferences.getInstance();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             sharedPreferencesProvider.overrideWithValue(p),
             currentUserIdProvider.overrideWithValue('u1'),
-            notificationsListProvider.overrideWith((ref) async => list),
+            notificationsListProvider.overrideWith((ref) async => items),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: NotificationsView(topPadding: 8)),
+          child: MaterialApp(
+            home: Scaffold(
+              appBar: withBell
+                  ? AppBar(actions: const [NotificationsBell()])
+                  : null,
+              body: const NotificationsView(topPadding: 8),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
     }
 
+    const unreadDot = ValueKey('notification-unread');
+
     testWidgets('lists title, text and time, newest first', (tester) async {
-      await pump(tester, [
-        _n('b', 'نص الثاني', _t0.add(const Duration(hours: 1)), title: 'عنوان'),
-        _n('a', 'نص الأول', _t0),
-      ]);
+      await pump(tester, list);
       expect(find.text('عنوان'), findsOneWidget);
       expect(find.text('نص الثاني'), findsOneWidget);
       expect(find.text('نص الأول'), findsOneWidget);
@@ -379,44 +412,83 @@ void main() {
       );
     });
 
-    testWidgets('a dot marks what arrived after the last visit', (
+    testWidgets('a dot marks the ones not opened; a tap opens one', (
       tester,
     ) async {
-      await pump(
-        tester,
-        [
-          _n('b', 'جديد', _t0.add(const Duration(hours: 2))),
-          _n('a', 'قديم', _t0),
-        ],
-        prefs: {
-          'notif_seen:u1': _t0.add(const Duration(hours: 1)).toIso8601String(),
-        },
-      );
-      expect(find.byKey(const ValueKey('notification-unread')), findsOne);
+      await pump(tester, list);
+      expect(find.byKey(unreadDot), findsNWidgets(2));
+      await tester.tap(find.byKey(const ValueKey('notification-a')));
+      await tester.pump();
+      expect(find.byKey(unreadDot), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('notification-b')));
+      await tester.pump();
+      expect(find.byKey(unreadDot), findsNothing);
     });
 
     testWidgets('empty says so', (tester) async {
       await pump(tester, const []);
       expect(find.text('لا توجد إشعارات حاليًا'), findsOneWidget);
     });
+
+    testWidgets('the bell shows the red number, which drops as they are read',
+        (tester) async {
+      await pump(tester, list, withBell: true);
+      Finder count() => find.byKey(const ValueKey('notifications-bell-count'));
+      expect(tester.widget<Text>(count()).data, '2');
+      final badge = tester.widget<Badge>(find.byType(Badge));
+      expect(badge.backgroundColor, Colors.red);
+
+      await tester.tap(find.byKey(const ValueKey('notification-a')));
+      await tester.pump();
+      expect(tester.widget<Text>(count()).data, '1');
+
+      await tester.tap(find.byKey(const ValueKey('notification-b')));
+      await tester.pump();
+      expect(count(), findsNothing, reason: 'number and red are gone at zero');
+    });
+
+    testWidgets('the bell opens the list', (tester) async {
+      await pump(tester, list, withBell: true);
+      await tester.tap(find.byKey(const ValueKey('notifications-bell')));
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificationsPage), findsOneWidget);
+    });
+
+    testWidgets('opening the page reads nothing by itself', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final p = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(p),
+            currentUserIdProvider.overrideWithValue('u1'),
+            notificationsListProvider.overrideWith((ref) async => list),
+          ],
+          child: const MaterialApp(home: NotificationsPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(unreadDot), findsNWidgets(2));
+    });
   });
 
   group('the app', () {
     final shell = File('lib/features/home/presentation/home_shell.dart')
         .readAsStringSync();
+    final settings =
+        File('lib/features/settings/presentation/settings_screen.dart')
+            .readAsStringSync();
 
-    test('has an "الإشعارات" tab with a badge', () {
-      expect(shell, contains("label: 'الإشعارات'"));
-      expect(shell, contains('unreadNotificationsProvider'));
-      expect(shell, contains('const NotificationsView()'));
+    test('the notifications are inside الإعدادات, not a tab of their own', () {
+      expect(shell, isNot(contains("label: 'الإشعارات'")));
+      expect(shell, isNot(contains("'الإشعارات',")));
+      expect(settings, contains("title: 'الإشعارات'"));
+      expect(settings, contains('NotificationsPage()'));
+      expect(settings, contains('ref.watch(unreadNotificationsProvider)'));
     });
 
-    test(
-        'the tab sits after "التقارير" for the admin, after "العمليات" otherwise',
-        () {
-      expect(shell, contains("'التقارير',\n    'الإشعارات',"));
-      expect(shell, contains("'العمليات',\n    'الإشعارات',"));
-      expect(shell, contains('showReports ? 3 : 2'));
+    test('the bell is at the top of the app', () {
+      expect(shell, contains('NotificationsBell()'));
     });
 
     test('rings in both shells and the sync re-reads every few seconds', () {

@@ -1,3 +1,5 @@
+import '../../notifications/presentation/notifications_providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -125,6 +127,20 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ],
+          const SizedBox(height: 12),
+          // Notifications from the platform: the list is reached from here (and
+          // from the bell at the top of the app).
+          _SettingsRow(
+            key: const ValueKey('settings-notifications'),
+            icon: FontAwesomeIcons.bell,
+            title: 'الإشعارات',
+            badge: ref.watch(unreadNotificationsProvider),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationsPage(),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           // Everything about the transfers in one place: the exchange
           // companies, my accounts, the clients and the employees.
@@ -604,6 +620,7 @@ class _ModeChoice extends StatelessWidget {
 
 class _SettingsRow extends StatelessWidget {
   const _SettingsRow({
+    super.key,
     required this.icon,
     required this.title,
     required this.onTap,

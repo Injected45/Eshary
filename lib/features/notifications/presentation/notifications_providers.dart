@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/supabase_provider.dart';
@@ -19,44 +21,52 @@ final notificationsListProvider =
   return ref.watch(notificationsRepositoryProvider).listActive();
 });
 
-/// When this person last opened the notifications (kept on the phone, per
-/// account). Anything newer is "unread".
-class NotificationsSeen extends StateNotifier<DateTime?> {
-  NotificationsSeen(this._ref, this._uid) : super(_read(_ref, _uid));
+/// The notifications this person has opened (kept on the phone, per account).
+/// Opening one reads it; the bell counts only the ones not opened yet.
+class NotificationsRead extends StateNotifier<Set<String>> {
+  NotificationsRead(this._ref, this._uid) : super(_load(_ref, _uid));
 
   final Ref _ref;
   final String? _uid;
 
-  static String _key(String? uid) => 'notif_seen:${uid ?? 'anon'}';
+  static const _keep = 300;
 
-  static DateTime? _read(Ref ref, String? uid) {
+  static String _key(String? uid) => 'notif_read:${uid ?? 'anon'}';
+
+  static Set<String> _load(Ref ref, String? uid) {
     final raw = ref.read(jsonCacheProvider).readString(_key(uid));
-    return raw == null ? null : DateTime.tryParse(raw);
+    if (raw == null) return <String>{};
+    try {
+      return (jsonDecode(raw) as List<dynamic>).cast<String>().toSet();
+    } catch (_) {
+      return <String>{};
+    }
   }
 
-  /// Marks everything shown so far as read.
-  Future<void> markSeen(Iterable<AppNotification> shown) async {
-    if (shown.isEmpty) return;
-    final newest =
-        shown.map((n) => n.createdAt).reduce((a, b) => a.isAfter(b) ? a : b);
-    if (state != null && !newest.isAfter(state!)) return;
-    state = newest;
+  /// Marks one notification as opened.
+  Future<void> markRead(String id) async {
+    if (state.contains(id)) return;
+    final next = {...state, id};
+    // an old id no one lists any more is not worth keeping forever
+    final kept = next.length > _keep
+        ? next.toList().sublist(next.length - _keep).toSet()
+        : next;
+    state = kept;
     await _ref
         .read(jsonCacheProvider)
-        .writeString(_key(_uid), newest.toUtc().toIso8601String());
+        .writeString(_key(_uid), jsonEncode(kept.toList()));
   }
 }
 
-final notificationsSeenProvider =
-    StateNotifierProvider<NotificationsSeen, DateTime?>((ref) {
-  return NotificationsSeen(ref, ref.watch(currentUserIdProvider));
+final notificationsReadProvider =
+    StateNotifierProvider<NotificationsRead, Set<String>>((ref) {
+  return NotificationsRead(ref, ref.watch(currentUserIdProvider));
 });
 
-/// How many notifications arrived after the last time they were opened.
+/// How many notifications have not been opened yet: the red number on the bell.
 final unreadNotificationsProvider = Provider<int>((ref) {
   final list = ref.watch(notificationsListProvider).valueOrNull;
   if (list == null) return 0;
-  final seen = ref.watch(notificationsSeenProvider);
-  if (seen == null) return list.length;
-  return list.where((n) => n.createdAt.isAfter(seen)).length;
+  final read = ref.watch(notificationsReadProvider);
+  return list.where((n) => !read.contains(n.id)).length;
 });
