@@ -23,7 +23,12 @@ export const env = {
     if (s.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters');
     return s;
   },
+  /**
+   * Secure cookies (the `__Host-` kind) whenever the site is served over
+   * HTTPS in production. LOCAL_HTTP=1 (set only in the local .env.local, never
+   * on a host) is for running it on this computer at http://localhost.
+   */
   get isProd() {
-    return process.env.NODE_ENV === 'production';
+    return process.env.NODE_ENV === 'production' && process.env.LOCAL_HTTP !== '1';
   },
 };

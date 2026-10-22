@@ -21,6 +21,9 @@ import '../../employee_alerts/presentation/employee_alerts_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../reports/presentation/reports_screen.dart';
 import '../../employee_alerts/presentation/employee_alerts_screen.dart';
+import '../../notifications/presentation/notifications_providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
+import '../../notifications/presentation/platform_notifications_listener.dart';
 import '../../settings/presentation/settings_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
 import '../../transfers/presentation/transfers_screen.dart';
@@ -43,6 +46,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _titles = [
     'الحوالات',
     'العمليات',
+    'الإشعارات',
     'حساباتي',
     'الإعدادات',
   ];
@@ -52,6 +56,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     'الحوالات',
     'العمليات',
     'التقارير',
+    'الإشعارات',
     'حساباتي',
     'الإعدادات',
   ];
@@ -66,6 +71,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static final _otherScreens = <Widget>[
     const ArchiveScreen(),
+    const NotificationsView(),
     const AccountsScreen(),
     const SettingsScreen(),
   ];
@@ -73,6 +79,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static final _adminOtherScreens = <Widget>[
     const ArchiveScreen(),
     const ReportsScreen(),
+    const NotificationsView(),
     const AccountsScreen(),
     const SettingsScreen(),
   ];
@@ -153,13 +160,41 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         SnackBar(duration: const Duration(seconds: 6), content: Text(text)),
       );
     });
-    return PopScope(
-      canPop: !_inSub,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _inSub) setState(() => _sub = null);
-      },
-      child: _buildScaffold(context),
+    final notificationsTab =
+        _notificationsIndex(!ref.watch(isEmployeeProvider));
+    // A notification that arrives while its tab is open is read at once.
+    ref.listen(notificationsListProvider, (_, next) {
+      final list = next.valueOrNull;
+      if (list != null && _index == notificationsTab && !_inSub) {
+        ref.read(notificationsSeenProvider.notifier).markSeen(list);
+      }
+    });
+    return PlatformNotificationsListener(
+      // a tap on the dropdown opens the notifications tab
+      onOpen: () => _openNotifications(notificationsTab),
+      child: PopScope(
+        canPop: !_inSub,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _inSub) setState(() => _sub = null);
+        },
+        child: _buildScaffold(context),
+      ),
     );
+  }
+
+  /// Position of the "الإشعارات" tab: after "التقارير" for the admin.
+  int _notificationsIndex(bool showReports) => showReports ? 3 : 2;
+
+  void _openNotifications(int tab) {
+    if (!mounted) return;
+    setState(() {
+      _sub = null;
+      _index = tab;
+    });
+    final list = ref.read(notificationsListProvider).valueOrNull;
+    if (list != null) {
+      ref.read(notificationsSeenProvider.notifier).markSeen(list);
+    }
   }
 
   Widget _buildScaffold(BuildContext context) {
@@ -250,11 +285,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       bottomNavigationBar: _GlassBottomNav(
         index: index,
         showReports: showReports,
-        onChanged: (i) => setState(() {
-          // Tapping "الحوالات" again returns to the hub.
-          if (i == 0) _sub = null;
-          _index = i;
-        }),
+        unread: ref.watch(unreadNotificationsProvider),
+        onChanged: (i) {
+          if (i == _notificationsIndex(showReports)) {
+            _openNotifications(i);
+            return;
+          }
+          setState(() {
+            // Tapping "الحوالات" again returns to the hub.
+            if (i == 0) _sub = null;
+            _index = i;
+          });
+        },
       ),
     );
   }
@@ -381,9 +423,13 @@ class _GlassBottomNav extends StatelessWidget {
     required this.index,
     required this.onChanged,
     this.showReports = false,
+    this.unread = 0,
   });
   final int index;
   final bool showReports;
+
+  /// Notifications not opened yet (the badge on the "الإشعارات" tab).
+  final int unread;
   final ValueChanged<int> onChanged;
 
   @override
@@ -436,6 +482,14 @@ class _GlassBottomNav extends StatelessWidget {
                       icon: FaIcon(FontAwesomeIcons.chartColumn, size: 18),
                       label: 'التقارير',
                     ),
+                  NavigationDestination(
+                    icon: Badge(
+                      isLabelVisible: unread > 0,
+                      label: Text(unread > 9 ? '9+' : '$unread'),
+                      child: const FaIcon(FontAwesomeIcons.bell, size: 18),
+                    ),
+                    label: 'الإشعارات',
+                  ),
                   const NavigationDestination(
                     icon: FaIcon(FontAwesomeIcons.wallet, size: 18),
                     label: 'حساباتي',

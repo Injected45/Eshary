@@ -8,6 +8,7 @@ import '../features/cancellations/presentation/cancellations_providers.dart';
 import '../features/companies/presentation/companies_providers.dart';
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
 import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
+import '../features/notifications/presentation/notifications_providers.dart';
 import '../features/transfers/presentation/transfers_providers.dart';
 import 'logger.dart';
 
@@ -52,6 +53,8 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(employeeInboxProvider);
     // Cancellation requests (admin: waiting list; employee: own status).
     ref.invalidate(cancelRequestsProvider);
+    // Notifications published from the platform.
+    ref.invalidate(notificationsListProvider);
   }
 
   // Coalesce bursts (e.g. an INSERT echoing back to this client). 400ms is
@@ -94,7 +97,8 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         schema: 'public',
         table: 'currency_buys',
         callback: (payload) {
-          AppLogger.info('[realtime] currency_buys event: ${payload.eventType}');
+          AppLogger.info(
+              '[realtime] currency_buys event: ${payload.eventType}');
           scheduleInvalidate();
         },
       )
@@ -135,8 +139,8 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         },
       )
       .subscribe((status, [error]) {
-        AppLogger.info('[realtime] subscribe status=$status error=$error');
-      });
+    AppLogger.info('[realtime] subscribe status=$status error=$error');
+  });
 
   ref.onDispose(() {
     debounce?.cancel();

@@ -24,8 +24,7 @@ export default async function NotificationsPage({
       <form action={createNotificationAction} className="card stack">
         <h3>إشعار جديد لجميع المستخدمين</h3>
         <p className="muted">
-          يظهر الإشعار النشط في رأس تقارير PDF داخل تطبيق إشاري. الإرسال الفوري إلى هاتف
-          مستخدم محدد (Push) لم يُربط بعد — يحتاج خدمة Firebase للتطبيق.
+          يصل الإشعار إلى تطبيق إشاري خلال ثوانٍ وهو مفتوح: قائمة منسدلة بصوت جرس تبقى 15 ثانية، ويُحفظ في تبويب «الإشعارات». كما يظهر آخر إشعار نشط في رأس تقارير PDF. إن كان التطبيق في الخلفية يصل كإشعار نظام. الإرسال لمستخدم محدد والإرسال والتطبيق مغلق تمامًا يحتاجان Firebase (لم يُربط بعد).
         </p>
         <input name="title" placeholder="العنوان (اختياري)" maxLength={120} />
         <textarea name="body" placeholder="نص الإشعار" required minLength={2} maxLength={600} />

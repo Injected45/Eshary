@@ -26,6 +26,8 @@ import 'employee_records_screen.dart';
 import '../data/employee_auth_repository.dart';
 import 'employee_auth_providers.dart';
 import '../../../shared/top_message.dart';
+import '../../notifications/presentation/notifications_screen.dart';
+import '../../notifications/presentation/platform_notifications_listener.dart';
 
 /// Role-aware shell shown after a successful employee login.
 ///
@@ -122,7 +124,7 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
     });
     final async = ref.watch(currentEmployeeProvider);
 
-    return async.when(
+    final body = async.when(
       skipLoadingOnReload: true,
       skipError: true,
       loading: () => const Scaffold(
@@ -239,6 +241,17 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
                 ),
         );
       },
+    );
+    // Notifications from the platform ring here too; a tap on the dropdown
+    // opens the list as its own page (an employee has no tab for it).
+    return PlatformNotificationsListener(
+      onOpen: () {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const NotificationsPage()),
+        );
+      },
+      child: body,
     );
   }
 

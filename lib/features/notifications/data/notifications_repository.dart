@@ -15,6 +15,27 @@ class NotificationsRepository {
     return 'cache:notifications:$uid:active';
   }
 
+  /// The notifications the platform has published and not switched off, newest
+  /// first (what the "الإشعارات" tab lists). Falls back to the last copy this
+  /// phone read when the network is down.
+  Future<List<AppNotification>> listActive({int limit = 30}) async {
+    final key = '${_cacheKey()}:list';
+    try {
+      final rows = await _client
+          .from('notifications')
+          .select()
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      final list = (rows as List).cast<Map<String, dynamic>>();
+      await _cache.writeList(key, list);
+      return [for (final r in list) AppNotification.fromJson(r)];
+    } catch (_) {
+      final cached = _cache.readList(key) ?? const <Map<String, dynamic>>[];
+      return [for (final r in cached) AppNotification.fromJson(r)];
+    }
+  }
+
   Future<AppNotification?> latestActive() async {
     final key = _cacheKey();
     try {

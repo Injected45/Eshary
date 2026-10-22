@@ -53,11 +53,11 @@ const get = async (key, question, opts) => {
 };
 
 const url = (await get('SUPABASE_URL', 'Supabase URL: ')).replace(/\/+$/, '');
-const key = await get('SUPABASE_SERVICE_ROLE_KEY', 'service_role key (Dashboard > Settings > API): ', { hidden: true });
+const key = await get('SUPABASE_SERVICE_ROLE_KEY', 'service_role key (Dashboard > Settings > API): ');
 const email = (await get('BOOTSTRAP_EMAIL', 'Admin e-mail: ')).toLowerCase();
 const name = await get('BOOTSTRAP_NAME', 'Full name: ');
 const phone = (await get('BOOTSTRAP_PHONE', 'WhatsApp number with country code (+218912345678): ')).replace(/[\s\-()]/g, '');
-const password = await get('BOOTSTRAP_PASSWORD', 'Password (12+ characters, hidden): ', { hidden: true });
+const password = await get('BOOTSTRAP_PASSWORD', 'Password (12+ characters, it will be visible): ');
 
 if (password.length < 12) {
   console.error('The password must be at least 12 characters.');
@@ -109,4 +109,4 @@ if (e2) {
 }
 
 console.log(`\nSuper admin created: ${email}`);
-console.log('Open http://localhost:8000 and sign in; the first WhatsApp code proves the number.');
+console.log('Open http://localhost:8100 and sign in; the first WhatsApp code proves the number.');

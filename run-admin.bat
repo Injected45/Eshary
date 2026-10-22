@@ -1,7 +1,7 @@
 @echo off
 REM ================================================================
 REM  ESHARI Admin - open the platform on this computer.
-REM  Link:  http://localhost:8000   (also http://localhost:8000/support)
+REM  Link:  http://localhost:8100   (also http://localhost:8100/support)
 REM  Needs admin-web\.env.local with the service_role key (see README).
 REM  Close this window to stop it.
 REM ================================================================
@@ -13,7 +13,7 @@ if not exist node_modules (
   call npm install
 )
 
-findstr /R /C:"^SUPABASE_SERVICE_ROLE_KEY=.\+" .env.local >nul 2>&1
+findstr /R /C:"^SUPABASE_SERVICE_ROLE_KEY=[^ ]" .env.local >nul 2>&1
 if errorlevel 1 (
   echo.
   echo  admin-web\.env.local has no SUPABASE_SERVICE_ROLE_KEY yet.
@@ -25,6 +25,6 @@ if errorlevel 1 (
   exit /b 1
 )
 
-start "" http://localhost:8000/login
+start "" http://localhost:8100/login
 call npm run dev
 pause
