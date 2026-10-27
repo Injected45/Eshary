@@ -185,6 +185,15 @@ String friendlyError(Object e) {
   if (s.contains('branches_name_unique')) {
     return 'اسم الفرع مسجَّل بالفعل. استخدم اسماً مختلفاً.';
   }
+  if (s.contains('party_code_exists')) {
+    return 'هذا الكود مسجّل مسبقًا على نفس الشركة.';
+  }
+  if (s.contains('party_name_invalid')) {
+    return 'اكتب اسم الجهة (أو الكود أو الشركة).';
+  }
+  if (s.contains('party_text_too_long')) {
+    return 'أحد الحقول أطول من المسموح.';
+  }
   if (s.contains('letters_too_long')) {
     return 'الحروف أطول من 20 حرفًا.';
   }

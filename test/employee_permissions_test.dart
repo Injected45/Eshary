@@ -32,8 +32,8 @@ void main() {
       }
     });
 
-    test('matches the keys the database accepts (migration 0071)', () {
-      final sql = File('supabase/migrations/0071_party_letters_permission.sql')
+    test('matches the keys the database accepts (migration 0078)', () {
+      final sql = File('supabase/migrations/0078_employee_add_party.sql')
           .readAsStringSync();
       final body = RegExp(
         r"_employee_permission_keys\(\)[\s\S]*?select array\[([\s\S]*?)\]",

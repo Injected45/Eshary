@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../sub_users/domain/employee_permissions.dart';
 import '../data/clients_repository.dart';
 import '../domain/client.dart';
 import 'add_client_dialog.dart';
@@ -115,8 +116,10 @@ class _SavedClientsDialogState extends ConsumerState<SavedClientsDialog> {
                       ),
                     ),
                   ),
-                  if (!isEmployee)
+                  // the administrator, or an employee granted "clients_add"
+                  if (!isEmployee || ref.watch(canProvider(kPermClientsAdd)))
                     IconButton(
+                      key: const ValueKey('party-add'),
                       tooltip: cfg.addTooltip,
                       onPressed: _openAddSheet,
                       icon: const FaIcon(FontAwesomeIcons.plus, size: 14),

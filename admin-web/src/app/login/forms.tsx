@@ -9,11 +9,11 @@ export function LoginForm() {
     <form action={action} className="stack">
       <label>
         البريد الإلكتروني
-        <input name="email" type="email" autoComplete="username" required dir="ltr" />
+        <input name="email" type="email" autoComplete="off" required dir="ltr" spellCheck={false} autoCapitalize="none" />
       </label>
       <label>
         كلمة المرور
-        <input name="password" type="password" autoComplete="current-password" required dir="ltr" />
+        <input name="password" type="password" autoComplete="new-password" required dir="ltr" />
       </label>
       {state?.error ? <p className="flash bad">{state.error}</p> : null}
       <button type="submit" className="btn primary" disabled={pending}>

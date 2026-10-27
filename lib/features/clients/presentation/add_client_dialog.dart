@@ -6,6 +6,7 @@ import '../../../core/supabase_provider.dart';
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart';
@@ -172,6 +173,15 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                   (widget.existing!.refPrefix ?? '').trim(),
               refPrefix: _refPrefix.text,
             );
+      } else if (ref.read(isEmployeeProvider)) {
+        // an employee granted "clients_add": the database adds it to their
+        // administrator's parties (migration 0078)
+        await ref.read(clientsRepositoryProvider).createAsEmployee(
+              name: name,
+              company: _companySelection?.trim(),
+              code: code,
+              refPrefix: _refPrefix.text,
+            );
       } else {
         final ownerId = ref.read(currentUserIdProvider);
         if (ownerId == null) throw StateError('not signed in');
@@ -258,14 +268,16 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
                   _codeError = null;
                 }),
               ),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton.icon(
-                  onPressed: _busy ? null : _addNewCompany,
-                  icon: const FaIcon(FontAwesomeIcons.plus, size: 12),
-                  label: const Text('إضافة شركة جديدة'),
+              // an employee cannot create companies (only the administrator)
+              if (!ref.watch(isEmployeeProvider))
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: _busy ? null : _addNewCompany,
+                    icon: const FaIcon(FontAwesomeIcons.plus, size: 12),
+                    label: const Text('إضافة شركة جديدة'),
+                  ),
                 ),
-              ),
             ],
           ),
           loading: () => const LinearProgressIndicator(),

@@ -900,6 +900,26 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (ref.watch(isEmployeeProvider) &&
+                  ref.watch(canProvider(kPermClientsAdd))) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('employee-add-party'),
+                    onPressed: _openAddClientDialog,
+                    icon: const FaIcon(FontAwesomeIcons.userPlus, size: 14),
+                    label: const Text('إضافة جهة جديدة'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
               if (!ref.watch(isEmployeeProvider)) ...[
                 SizedBox(
                   width: double.infinity,
@@ -1384,7 +1404,8 @@ class _EmptyClientsState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(isEmployeeProvider)) {
+    if (ref.watch(isEmployeeProvider) &&
+        !ref.watch(canProvider(kPermClientsAdd))) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),

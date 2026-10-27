@@ -27,6 +27,7 @@ class SubUser {
   final String employeeName;
   final String phoneNumber;
   final bool loginCodeUsed;
+
   /// Granted permissions (keys from employee_permissions.dart). Empty for a
   /// new employee: they see an empty app until the admin grants some.
   final List<String> permissions;

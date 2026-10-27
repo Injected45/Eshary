@@ -28,6 +28,7 @@ const String kPermClosingsAll = 'closings_all';
 const String kPermAccountsOwn = 'accounts_own';
 const String kPermAccountsAll = 'accounts_all';
 const String kPermPartyLetters = 'party_letters';
+const String kPermClientsAdd = 'clients_add';
 
 const List<EmployeePermission> kEmployeePermissions = [
   EmployeePermission(
@@ -90,6 +91,13 @@ const List<EmployeePermission> kEmployeePermissions = [
     label: 'تعديل حروف الإشاري الثابتة',
     description:
         'يظهر له قلم بجانب الرقم الإشاري في شاشة الدخول ليضيف أو يغيّر الحروف الثابتة لإشاري الجهة المرسلة (مثل TRC). لا يستطيع تغيير أي شيء آخر في الجهة.',
+    group: 'العمليات',
+  ),
+  EmployeePermission(
+    key: kPermClientsAdd,
+    label: 'إضافة جهات محفوظة',
+    description:
+        'يستطيع إضافة جهة جديدة (مرسل أو مستفيد) من شاشتي الدخول والخروج. لا يستطيع تعديل الجهات الموجودة أو حذفها ولا إضافة شركات صرافة.',
     group: 'العمليات',
   ),
 ];

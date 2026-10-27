@@ -76,6 +76,8 @@ Future<_FakeClients> _openAdd(WidgetTester tester) async {
           (ref) async => [_company('c1', 'بهار روز'), _company('c2', 'أنزار')],
         ),
         currentUserIdProvider.overrideWithValue('u1'),
+        // the dialog asks whether the user is an employee (an administrator here)
+        currentEmployeeProvider.overrideWith((ref) async => null),
       ],
       child: MaterialApp(
         theme: buildAppTheme(),

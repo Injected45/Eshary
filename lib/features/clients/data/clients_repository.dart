@@ -42,6 +42,26 @@ class ClientsRepository {
     return Client.fromJson(row);
   }
 
+  /// An employee granted "clients_add" adds a party for their administrator
+  /// (migration 0078): the owner is decided by the database, never sent.
+  Future<Client> createAsEmployee({
+    required String name,
+    String? company,
+    String? code,
+    String? refPrefix,
+  }) async {
+    final row = await _client.rpc<Map<String, dynamic>>(
+      'employee_add_party',
+      params: {
+        'p_name': name,
+        'p_company': company,
+        'p_code': code,
+        'p_ref_prefix': (refPrefix ?? '').trim().isEmpty ? null : refPrefix,
+      },
+    );
+    return Client.fromJson(row);
+  }
+
   Future<Client> update({
     required String id,
     required String name,
