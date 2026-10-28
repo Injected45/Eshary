@@ -39,6 +39,7 @@ class CurrencyBuy {
     required this.archivedAt,
     required this.createdByEmployeeId,
     this.cancelledAt,
+    this.lydMethod,
   });
 
   final String id;
@@ -54,6 +55,9 @@ class CurrencyBuy {
   /// without a real rate (before 0081 the app sent a hidden rate of 1).
   final double? rate;
   final double? lydAmount;
+
+  /// How the dinars were paid: 'cash' or 'bank' (migration 0086).
+  final String? lydMethod;
   final String reference;
   final CurrencyBuyStatus status;
   final DateTime createdAt;
@@ -88,6 +92,7 @@ class CurrencyBuy {
         usdAmount: (json['usd_amount'] as num).toDouble(),
         rate: (json['rate'] as num?)?.toDouble(),
         lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
+        lydMethod: json['lyd_method'] as String?,
         reference: (json['reference'] as String?) ?? '',
         status: _parseStatus(json['status'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),

@@ -209,6 +209,7 @@ class _AccountStatementScreenState
           buys: data.buys,
           transfers: data.transfers,
           expenses: data.expenses,
+          adjustments: data.adjustments,
           start: r.start,
           exchangeId: _exchangeId,
         );
@@ -218,6 +219,7 @@ class _AccountStatementScreenState
         buys: data.buys,
         transfers: data.transfers,
         expenses: data.expenses,
+        adjustments: data.adjustments,
         start: r.start,
         end: r.end,
         scope: _scope,

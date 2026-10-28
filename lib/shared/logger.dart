@@ -235,6 +235,34 @@ String friendlyError(Object e) {
   if (s.contains('rate_not_set')) {
     return 'لم يحدد المدير سعر الصرف بعد. تواصل مع المدير.';
   }
+  // Balance adjustments and the dinar treasury (0086).
+  if (s.contains('balance_direct_edit')) {
+    return 'لا يُعدَّل رصيد الحساب مباشرة. استخدم «تسوية الرصيد» من الخزينة.';
+  }
+  if (s.contains('adjust_no_change')) {
+    return 'الرصيد الجديد مثل الحالي، لا يوجد ما يُسوّى.';
+  }
+  if (s.contains('adjust_reason_required')) {
+    return 'اكتب سبب التسوية (3 أحرف على الأقل).';
+  }
+  if (s.contains('adjust_amount_invalid')) {
+    return 'الرصيد الجديد غير صحيح.';
+  }
+  if (s.contains('lyd_already_open')) {
+    return 'خزينة الدينار مفتوحة مسبقًا.';
+  }
+  if (s.contains('lyd_not_open')) {
+    return 'افتتح خزينة الدينار أولًا.';
+  }
+  if (s.contains('lyd_insufficient')) {
+    return 'المبلغ أكبر مما في الصندوق أو المصرف.';
+  }
+  if (s.contains('lyd_amount_invalid')) {
+    return 'المبلغ غير صحيح.';
+  }
+  if (s.contains('lyd_kind_invalid') || s.contains('lyd_method_invalid')) {
+    return 'اختر الصندوق أو المصرف.';
+  }
   if (s.contains('rate_out_of_range')) {
     return 'سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.';
   }

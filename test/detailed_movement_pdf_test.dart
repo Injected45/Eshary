@@ -151,6 +151,9 @@ void main() {
         'إشاري',
         'الجهة',
         'القيمة',
+        // the exchange rate and the dinars (migration 0081), after the value
+        'السعر',
+        'بالدينار',
       ]);
       expect(t.indexOf('كود الحساب'), lessThan(t.indexOf('إشاري')));
     });

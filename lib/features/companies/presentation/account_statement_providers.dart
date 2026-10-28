@@ -1,3 +1,5 @@
+import '../../adjustments/data/adjustments_repository.dart';
+import '../../adjustments/domain/balance_adjustment.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,6 +15,7 @@ typedef StatementData = ({
   List<Transfer> transfers,
   List<CurrencyBuy> buys,
   List<AccountExpense> expenses,
+  List<BalanceAdjustment> adjustments,
 });
 
 /// Posted exits and entries from the start of [range] up to now (or to the
@@ -39,5 +42,19 @@ final statementDataProvider = FutureProvider.autoDispose
   } catch (_) {
     expenses = const <AccountExpense>[];
   }
-  return (transfers: transfers, buys: buys, expenses: expenses);
+  // The documented balance adjustments (0086), the same way.
+  var adjustments = const <BalanceAdjustment>[];
+  try {
+    adjustments = await ref
+        .watch(adjustmentsRepositoryProvider)
+        .listSince(range.start);
+  } catch (_) {
+    adjustments = const <BalanceAdjustment>[];
+  }
+  return (
+    transfers: transfers,
+    buys: buys,
+    expenses: expenses,
+    adjustments: adjustments,
+  );
 });

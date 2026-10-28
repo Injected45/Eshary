@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0085) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0086) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0085    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0086    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -74,6 +74,10 @@ Weighted average cost **per account** (`account_costs`, `numeric(16,6)`), admini
 ### Profit and loss (migration 0085)
 
 Administrator only: `profit_report(from, to)` per account — realized profit = sell dinars − round(amount × cost at that exit, 2), exits without a rate or a cost counted apart; `treasury_positions()` adds `market_rate` (the last sell rate) and `unrealized` = balance × (market − cost); `account_cost_history()`. UI: «الخزينة» shows the period's profit (`profit_section.dart`), the break-even and unrealized per account and the cost history; the exit screen warns and asks before selling below the account's cost, the entry screen shows the cost after the buy (both admin only, via `accountCostsProvider`).
+
+### Balance adjustments and the dinar treasury (migration 0086)
+
+A dollar balance moves only inside the database's functions: a trigger refuses a direct `update exchanges set balance` from the app (`balance_direct_edit`), and `ExchangesRepository.update` no longer sends the balance (it used to send back the value read when the dialog opened, undoing any operation saved meanwhile). The administrator corrects a balance with `admin_adjust_balance(account, new balance, reason, password)` (same 5-tries lock as cancellations); `balance_adjustments` is append-only, shown in the account statement (`buildAccountStatement` / `openingBalanceAt` take `adjustments`), and leaves the cost alone. Every rated exit / entry stores `lyd_method` ('cash' / 'bank'; an older build = cash). The dinar treasury (`lyd_treasury`, `lyd_movements`, `lyd_counts`; `lyd_open`, `lyd_add_movement`, `lyd_record_count`, `lyd_summary`) is computed from the opening: box/bank + exits − entries by method ± movements; the end-of-day count may post the difference. UI: «الخزينة» → «خزينة الدينار», «تسوية الرصيد» per account, the cash/bank selector under the rate. PDFs: rate and dinar columns + a dinar total in the daily and period entry/exit reports; `pdf_export_treasury.dart` (part of `pdf_export.dart`) has the profit report and the treasury report. The WhatsApp messages never change.
 
 ### Database
 

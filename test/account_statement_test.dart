@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:eshary/features/adjustments/domain/balance_adjustment.dart';
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/companies/domain/account_statement.dart';
 import 'package:eshary/features/expenses/domain/account_expense.dart';
@@ -341,6 +342,7 @@ void main() {
         _out('t2', 75, today(13), by: 'omar'),
       ],
       expenses: <AccountExpense>[],
+      adjustments: <BalanceAdjustment>[],
     );
 
     Future<void> open(WidgetTester tester) async {

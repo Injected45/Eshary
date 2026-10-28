@@ -1,4 +1,5 @@
 import '../../../shared/ledger.dart';
+import '../../adjustments/domain/balance_adjustment.dart';
 import '../../currency_buy/domain/currency_buy.dart';
 import '../../expenses/domain/account_expense.dart';
 import '../../transfers/domain/transfer.dart';
@@ -101,6 +102,7 @@ AccountStatement buildAccountStatement({
   String? exchangeId,
   double openingBalance = 0,
   List<AccountExpense> expenses = const [],
+  List<BalanceAdjustment> adjustments = const [],
 }) {
   bool wanted(String? by, String exchange, DateTime at) {
     if (at.isBefore(start) || at.isAfter(end)) return false;
@@ -213,6 +215,20 @@ AccountStatement buildAccountStatement({
             note: x.label,
           ),
       ],
+    // a documented balance adjustment (0086): one side, its reason as the note
+    for (final x in adjustments)
+      if (wanted(null, x.exchangeId, x.createdAt))
+        (
+          at: x.createdAt,
+          isIncome: x.delta > 0,
+          amount: x.delta.abs(),
+          by: null,
+          exchange: x.exchangeId,
+          id: x.id,
+          cancelled: false,
+          reversal: false,
+          note: x.label,
+        ),
   ]..sort((a, b) {
       final c = a.at.compareTo(b.at);
       return c != 0 ? c : a.id.compareTo(b.id);
@@ -265,6 +281,7 @@ double openingBalanceAt({
   required DateTime start,
   String? exchangeId,
   List<AccountExpense> expenses = const [],
+  List<BalanceAdjustment> adjustments = const [],
 }) {
   var net = 0.0;
   for (final b in buys) {
@@ -293,6 +310,11 @@ double openingBalanceAt({
     if (x.cancelledAt != null && !x.cancelledAt!.isBefore(start)) {
       net += x.amount;
     }
+  }
+  for (final x in adjustments) {
+    if (x.createdAt.isBefore(start)) continue;
+    if (exchangeId != null && x.exchangeId != exchangeId) continue;
+    net += x.delta;
   }
   return currentBalance - net;
 }

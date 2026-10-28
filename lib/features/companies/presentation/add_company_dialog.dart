@@ -7,10 +7,13 @@ import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
+import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog, kExchangeCompanyCountries;
+import '../../treasury/data/treasury_repository.dart';
+import '../../treasury/presentation/treasury_providers.dart';
 import '../data/companies_repository.dart';
 import '../data/exchanges_repository.dart';
 import '../domain/company.dart';
@@ -31,6 +34,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
   final _name = TextEditingController();
   final _exName = TextEditingController();
   final _balance = TextEditingController();
+  final _cost = TextEditingController();
   final _ourCode = TextEditingController();
   final _ref = TextEditingController();
   final _country = TextEditingController();
@@ -41,6 +45,38 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
 
   bool get _isEdit => widget.existing != null;
   bool get _locked => _isEdit && _hasTx;
+
+  /// The opening cost is typed only for a new account, by the administrator
+  /// (set_account_cost refuses an employee). Later corrections are made in
+  /// «الخزينة وسعر التكلفة».
+  bool get _withCost => !_isEdit && !ref.read(isEmployeeProvider);
+
+  /// The typed cost, or null when the field is empty.
+  double? get _costRate =>
+      _cost.text.trim().isEmpty ? null : parseRate(_cost.text);
+
+  /// What the opening dollars cost in dinars, for the line under the field.
+  double? get _costTotal {
+    final balance = parseMoney(_balance.text);
+    final rate = _costRate;
+    if (balance <= 0 || rate == null || !rateInRange(rate)) return null;
+    return lydFor(balance, rate);
+  }
+
+  /// Why the cost cannot be saved, or null when it can.
+  String? _costProblem() {
+    if (!_withCost) return null;
+    final rate = _costRate;
+    if (rate == null) {
+      return parseMoney(_balance.text) > 0
+          ? 'اكتب تكلفة الإفتتاحي: سعر الدولار بالدينار'
+          : null;
+    }
+    if (!rateInRange(rate)) {
+      return 'تكلفة الإفتتاحي يجب أن تكون أكبر من 1 وحتى 100 د.ل للدولار';
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -77,6 +113,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
     _name.dispose();
     _exName.dispose();
     _balance.dispose();
+    _cost.dispose();
     _ourCode.dispose();
     _ref.dispose();
     _country.dispose();
@@ -85,6 +122,11 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty || _exName.text.trim().isEmpty) return;
+    final problem = _costProblem();
+    if (problem != null) {
+      showTopSnackBar(context, SnackBar(content: Text(problem)));
+      return;
+    }
     setState(() => _busy = true);
     try {
       if (_isEdit) {
@@ -97,7 +139,6 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
           await ref.read(exchangesRepositoryProvider).update(
                 id: _existingExchange!.id,
                 name: _existingExchange!.name,
-                balance: _existingExchange!.balance,
                 ourCode: _ourCode.text.trim(),
                 country: _existingExchange!.country,
               );
@@ -119,7 +160,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
               name: _name.text.trim(),
               startRef: _ref.text.trim(),
             );
-        await ref.read(exchangesRepositoryProvider).create(
+        final exchange = await ref.read(exchangesRepositoryProvider).create(
               companyId: company.id,
               name: _exName.text.trim(),
               balance: parseMoney(_balance.text),
@@ -127,6 +168,8 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
               country:
                   _country.text.trim().isEmpty ? null : _country.text.trim(),
             );
+        final rate = _withCost ? _costRate : null;
+        if (rate != null) await _saveCost(exchange.id, rate);
       }
       widget.onSaved();
       if (mounted) Navigator.of(context).pop();
@@ -136,6 +179,29 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
       showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The account is already saved: a failure here must not keep the dialog
+  /// open (a second «حفظ» would create the account twice), so it is reported
+  /// and the cost is left to be set from the treasury.
+  Future<void> _saveCost(String exchangeId, double rate) async {
+    try {
+      await ref.read(treasuryRepositoryProvider).setCost(exchangeId, rate);
+      ref.invalidate(treasuryProvider);
+      ref.invalidate(accountCostsProvider);
+    } catch (e, st) {
+      AppLogger.error('companies.addCompany.cost', e, st);
+      if (!mounted) return;
+      showTopSnackBar(
+        context,
+        SnackBar(
+          content: Text(
+            'حُفظ الحساب ولم تُحفظ تكلفة الإفتتاحي (${friendlyError(e)}). '
+            'حدّدها من «الخزينة وسعر التكلفة».',
+          ),
+        ),
+      );
     }
   }
 
@@ -237,6 +303,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                           controller: _balance,
                           enabled: !_isEdit,
                           keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
                           decoration: const InputDecoration(
                             labelText: 'الرصيد الإفتتاحي',
                           ),
@@ -253,6 +320,11 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                         ),
                       ),
                     ]),
+                    if (_withCost) ...[
+                      const SizedBox(height: 14),
+                      // Row 4: [تكلفة الإفتتاحي | إجمالي التكلفة]
+                      _buildCostRow(),
+                    ],
                     const SizedBox(height: 20),
                     if (_locked)
                       Center(
@@ -292,6 +364,43 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _buildCostRow() {
+    final total = _costTotal;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: TextField(
+            key: const ValueKey('opening-cost'),
+            controller: _cost,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'تكلفة الإفتتاحي',
+              hintText: 'د.ل للدولار',
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: 'إجمالي التكلفة',
+              enabled: false,
+            ),
+            child: Text(
+              total == null ? '—' : '${formatMoney(total)} د.ل',
+              key: const ValueKey('opening-cost-total'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textHigh),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

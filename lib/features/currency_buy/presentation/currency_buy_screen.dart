@@ -32,6 +32,7 @@ import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../../exchange_rates/presentation/exchange_rates_providers.dart';
+import '../../exchange_rates/presentation/lyd_method_selector.dart';
 import '../../exchange_rates/presentation/rate_fields.dart';
 import '../../treasury/presentation/treasury_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
@@ -80,6 +81,9 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   final _usd = TextEditingController();
   final _rate = TextEditingController();
+
+  /// How the dinars are paid (migration 0086).
+  String _lydMethod = kLydCash;
   final _reference = TextEditingController();
 
   bool _busy = false;
@@ -142,6 +146,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _senderCompany = null;
     _usd.clear();
     _rate.clear();
+    _lydMethod = kLydCash;
     _reference.clear();
     _activeSection = null;
     _autoPicked = false; // a single account is filled in again
@@ -230,6 +235,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               usdAmount: parseMoney(_usd.text),
               rate: _buyRate,
               reference: _fullReference,
+              lydMethod: _lydMethod,
             );
 
       await _persistSenderCode();
@@ -1211,6 +1217,12 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                         .watch(accountCostsProvider)
                         .valueOrNull?[_exchange!.id]
                         ?.balance,
+              ),
+              const SizedBox(height: 10),
+              LydMethodSelector(
+                value: _lydMethod,
+                sell: false,
+                onChanged: (m) => setState(() => _lydMethod = m),
               ),
             ],
           ),

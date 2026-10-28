@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
+import '../domain/lyd_treasury.dart';
 import '../domain/profit_report.dart';
 import '../domain/treasury_position.dart';
 
@@ -41,6 +42,65 @@ class TreasuryRepository {
     return (rows as List)
         .map((r) => CostEvent.fromJson(r as Map<String, dynamic>))
         .toList();
+  }
+
+  /// The dinar treasury: balances now and the period's flows (0086).
+  Future<LydSummary> lydSummary(DateTime from, DateTime to) async {
+    final res = await _client.rpc<dynamic>(
+      'lyd_summary',
+      params: {
+        'p_from': from.toUtc().toIso8601String(),
+        'p_to': to.toUtc().toIso8601String(),
+      },
+    );
+    return LydSummary.fromJson(res as Map<String, dynamic>);
+  }
+
+  /// The opening of the dinar treasury (once).
+  Future<void> lydOpen({required double cash, required double bank}) async {
+    await _client.rpc<dynamic>(
+      'lyd_open',
+      params: {'p_cash': cash, 'p_bank': bank},
+    );
+  }
+
+  /// A deposit / withdrawal ([kind] in / out, with a [pocket]) or a transfer
+  /// between the box and the bank (cash_to_bank / bank_to_cash).
+  Future<void> lydMove({
+    required String kind,
+    String? pocket,
+    required double amount,
+    String? note,
+  }) async {
+    await _client.rpc<dynamic>(
+      'lyd_add_movement',
+      params: {
+        'p_kind': kind,
+        'p_pocket': pocket,
+        'p_amount': amount,
+        'p_note': note,
+      },
+    );
+  }
+
+  /// The end-of-day count of the box; [post] books the difference.
+  Future<LydCount> lydCount({
+    required double counted,
+    String? note,
+    bool post = true,
+  }) async {
+    final res = await _client.rpc<dynamic>(
+      'lyd_record_count',
+      params: {'p_counted': counted, 'p_note': note, 'p_post': post},
+    ) as Map<String, dynamic>;
+    return LydCount(
+      expected: (res['expected'] as num).toDouble(),
+      counted: (res['counted'] as num).toDouble(),
+      difference: (res['difference'] as num).toDouble(),
+      posted: post && (res['difference'] as num) != 0,
+      note: note,
+      createdAt: DateTime.now(),
+    );
   }
 
   /// The opening cost of the dollars the account holds now, or a correction.

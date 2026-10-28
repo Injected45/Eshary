@@ -393,6 +393,8 @@ class _KindRow {
     required this.party,
     required this.amount,
     this.cancelled = false,
+    this.rate,
+    this.lyd,
   });
   final DateTime t;
   final String code;
@@ -403,6 +405,10 @@ class _KindRow {
 
   /// Shown in dark amber, marked "ملغاة", and left out of the total.
   final bool cancelled;
+
+  /// The exchange rate and the dinars (migration 0081); null before it.
+  final double? rate;
+  final double? lyd;
 }
 
 extension PeriodReports on PdfExport {
@@ -831,6 +837,8 @@ extension PeriodReports on PdfExport {
             ),
             amount: b.usdAmount,
             cancelled: b.isCancelled,
+            rate: b.rate,
+            lyd: b.lydAmount,
           );
         }(),
     ];
@@ -876,6 +884,8 @@ extension PeriodReports on PdfExport {
           party: _slash(t.beneficiaryAccountCompany, t.beneficiaryName),
           amount: t.amount,
           cancelled: t.isCancelled,
+          rate: t.rate,
+          lyd: t.lydAmount,
         ),
     ];
     return _buildKindReport(
@@ -942,14 +952,24 @@ extension PeriodReports on PdfExport {
       'إشاري',
       'الجهة',
       'القيمة',
+      'السعر',
+      'بالدينار',
     ];
-    const widths = <double>[0.5, 0.9, 1.1, 1.3, 2.2, 1.4, 2.6, 1.5];
+    const widths = <double>[0.5, 0.9, 1.1, 1.2, 2.0, 1.3, 2.3, 1.4, 0.9, 1.5];
 
     // A cancelled operation is listed (dark amber, "ملغاة") but not counted.
     final total = sorted
         .where((r) => !r.cancelled)
         .fold<double>(0, (s, r) => s + r.amount);
     final cancelledCount = sorted.where((r) => r.cancelled).length;
+    // the dinars of the operations that have a rate, cancelled ones left out
+    final hasLyd = sorted.any((r) => r.lyd != null);
+    final lydTotal = (sorted
+                    .where((r) => !r.cancelled)
+                    .fold<double>(0, (s, r) => s + (r.lyd ?? 0)) *
+                100)
+            .round() /
+        100;
     final color = income ? PdfColors.green800 : PdfColors.red800;
     final sign = income ? '+' : '-';
 
@@ -977,6 +997,10 @@ extension PeriodReports on PdfExport {
                 sorted[i].cancelled
                     ? '${formatMoney(sorted[i].amount)} \$ ملغاة'
                     : '$sign${formatMoney(sorted[i].amount)} \$',
+                sorted[i].rate == null ? '—' : formatRate(sorted[i].rate!),
+                sorted[i].lyd == null
+                    ? '—'
+                    : '${formatMoney(sorted[i].lyd!)} د.ل',
               ],
           ],
           colorOf: (row, column) => sorted[row].cancelled
@@ -992,6 +1016,12 @@ extension PeriodReports on PdfExport {
             '$sign\$${formatMoney(total)}',
             color,
           ),
+          if (hasLyd)
+            _statTile(
+              'إجمالي الدينار',
+              '${formatMoney(lydTotal)} د.ل',
+              PdfColors.grey800,
+            ),
           _statTile(
             'عدد المعاملات',
             '${sorted.length - cancelledCount}',

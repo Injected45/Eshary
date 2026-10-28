@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
@@ -7,6 +8,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../archive/presentation/archive_filters.dart';
 import '../domain/profit_report.dart';
+import 'treasury_pdf.dart';
 import 'treasury_providers.dart';
 import 'treasury_screen.dart' show formatCost, formatProfit, profitColor;
 
@@ -57,16 +59,35 @@ class _ProfitSectionState extends ConsumerState<ProfitSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsetsDirectional.only(start: 4, bottom: 8),
-          child: Text(
-            'الأرباح المحققة',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textHigh,
+        Row(
+          children: [
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(start: 4, bottom: 8),
+                child: Text(
+                  'الأرباح المحققة',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textHigh,
+                  ),
+                ),
+              ),
             ),
-          ),
+            if ((async.valueOrNull ?? const <ProfitRow>[]).isNotEmpty)
+              TextButton.icon(
+                key: const ValueKey('profit-pdf'),
+                onPressed: () => exportProfitPdf(
+                  context,
+                  ref,
+                  rows: async.valueOrNull!,
+                  start: r.start,
+                  end: r.end,
+                ),
+                icon: const FaIcon(FontAwesomeIcons.filePdf, size: 12),
+                label: const Text('PDF'),
+              ),
+          ],
         ),
         DateFilterBar(
           mode: _mode,

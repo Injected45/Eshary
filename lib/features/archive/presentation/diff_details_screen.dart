@@ -214,6 +214,7 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
           buys: data.buys,
           transfers: data.transfers,
           expenses: data.expenses,
+          adjustments: data.adjustments,
           start: r.start,
         );
         if (opening.abs() < 0.005) opening = 0;

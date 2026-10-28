@@ -1,3 +1,4 @@
+import '../features/exchange_rates/presentation/lyd_method_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -76,6 +77,8 @@ void showTransferDetails(
                     ? '—'
                     : '${formatMoney(transfer.lydAmount!)} د.ل',
               ),
+              if (transfer.lydAmount != null)
+                _Kv('استلام الدينار', lydMethodLabel(transfer.lydMethod)),
             ],
           ),
           _DetailSection(
@@ -205,6 +208,8 @@ void showCurrencyBuyDetails(
                     ? '—'
                     : '${formatMoney(buy.lydAmount!)} د.ل',
               ),
+              if (buy.lydAmount != null)
+                _Kv('دفع الدينار', lydMethodLabel(buy.lydMethod)),
             ],
           ),
           _DetailSection(

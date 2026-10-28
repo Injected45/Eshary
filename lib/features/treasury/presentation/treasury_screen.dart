@@ -7,9 +7,13 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/top_message.dart';
+import '../../adjustments/presentation/adjust_balance_dialog.dart';
+import '../../companies/presentation/companies_providers.dart';
 import '../data/treasury_repository.dart';
 import '../domain/treasury_position.dart';
 import 'cost_history_screen.dart';
+import 'dinar_treasury_screen.dart';
+import 'treasury_pdf.dart';
 import 'profit_section.dart';
 import 'treasury_providers.dart';
 
@@ -41,6 +45,12 @@ class TreasuryScreen extends ConsumerWidget {
         elevation: 0,
         actions: [
           IconButton(
+            key: const ValueKey('treasury-pdf'),
+            tooltip: 'تقرير الخزينة PDF',
+            icon: const FaIcon(FontAwesomeIcons.filePdf, size: 15),
+            onPressed: () => exportTreasuryPdf(context, ref),
+          ),
+          IconButton(
             tooltip: 'تحديث',
             icon: const FaIcon(FontAwesomeIcons.arrowsRotate, size: 14),
             onPressed: () {
@@ -68,6 +78,21 @@ class TreasuryScreen extends ConsumerWidget {
             padding:
                 EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
+              // the dinars: the cash box and the bank (0086)
+              FilledButton.icon(
+                key: const ValueKey('open-dinar-treasury'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DinarTreasuryScreen(),
+                  ),
+                ),
+                icon: const FaIcon(FontAwesomeIcons.moneyBillWave, size: 13),
+                label: const Text('خزينة الدينار (الصندوق والمصرف)'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+              const SizedBox(height: 12),
               _SummaryCard(totals: totals),
               const SizedBox(height: 16),
               const ProfitSection(),
@@ -271,13 +296,13 @@ class _AccountCostCard extends ConsumerWidget {
               onPressed: () => _setCost(context, ref, p),
               icon: const FaIcon(FontAwesomeIcons.scaleBalanced, size: 12),
               label: const Text('تحديد سعر أول المدة'),
-            )
-          else
-            // two buttons: on a narrow phone the second one wraps under
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              children: [
+            ),
+          // on a narrow phone the buttons wrap under each other
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 8,
+            children: [
+              if (p.hasCost) ...[
                 TextButton.icon(
                   key: ValueKey('cost-history-${p.exchangeId}'),
                   onPressed: () => Navigator.of(context).push(
@@ -296,7 +321,27 @@ class _AccountCostCard extends ConsumerWidget {
                   label: const Text('تصحيح السعر'),
                 ),
               ],
-            ),
+              // a documented correction of the dollar balance (0086)
+              TextButton.icon(
+                key: ValueKey('adjust-balance-${p.exchangeId}'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.warning),
+                onPressed: () async {
+                  final done = await showAdjustBalanceDialog(
+                    context,
+                    exchangeId: p.exchangeId,
+                    accountName: p.accountName,
+                    balance: p.balance,
+                  );
+                  if (done) {
+                    ref.invalidate(treasuryProvider);
+                    ref.invalidate(allExchangesProvider);
+                  }
+                },
+                icon: const FaIcon(FontAwesomeIcons.scaleUnbalanced, size: 11),
+                label: const Text('تسوية الرصيد'),
+              ),
+            ],
+          ),
         ],
       ),
     );

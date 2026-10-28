@@ -24,6 +24,7 @@ class Transfer {
     this.cancelledAt,
     this.rate,
     this.lydAmount,
+    this.lydMethod,
   });
 
   final String id;
@@ -53,6 +54,9 @@ class Transfer {
   /// before 0081 or by an older build.
   final double? rate;
   final double? lydAmount;
+
+  /// How the customer paid the dinars: 'cash' or 'bank' (migration 0086).
+  final String? lydMethod;
 
   bool get isCancelled => cancelledAt != null;
 
@@ -86,5 +90,6 @@ class Transfer {
             : DateTime.parse(json['cancelled_at'] as String),
         rate: (json['rate'] as num?)?.toDouble(),
         lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
+        lydMethod: json['lyd_method'] as String?,
       );
 }

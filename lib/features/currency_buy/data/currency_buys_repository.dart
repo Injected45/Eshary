@@ -107,6 +107,7 @@ class CurrencyBuysRepository {
     required double usdAmount,
     required double rate,
     required String reference,
+    String lydMethod = 'cash',
   }) async {
     final res = await _client.rpc(
       'record_currency_buy',
@@ -120,6 +121,8 @@ class CurrencyBuysRepository {
         // the database computes the dinars from the rate (migration 0081)
         'p_lyd_amount': null,
         'p_reference': reference,
+        // how the dinars were paid: the box or the bank (migration 0086)
+        'p_lyd_method': lydMethod,
       },
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);

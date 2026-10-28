@@ -31,6 +31,7 @@ import '../../exchange_companies/presentation/exchange_companies_providers.dart'
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
 import '../../exchange_rates/presentation/exchange_rates_providers.dart';
+import '../../exchange_rates/presentation/lyd_method_selector.dart';
 import '../../exchange_rates/presentation/rate_fields.dart';
 import '../../treasury/presentation/treasury_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
@@ -68,6 +69,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   final _amount = TextEditingController();
   final _rate = TextEditingController();
+
+  /// How the customer pays the dinars (migration 0086).
+  String _lydMethod = kLydCash;
   final _beneficiaryName = TextEditingController();
   final _beneficiaryAccount = TextEditingController();
   final _beneficiaryCode = TextEditingController();
@@ -181,6 +185,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     setState(() {
       _amount.clear();
       _rate.clear();
+      _lydMethod = kLydCash;
       _beneficiaryName.clear();
       _beneficiaryAccount.clear();
       _beneficiaryCode.clear();
@@ -354,6 +359,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             amount: amount,
             reference: _reference!,
             rate: rate,
+            lydMethod: _lydMethod,
           );
       await _persistBeneficiaryCode();
       ref.invalidate(exchangeRatesProvider);
@@ -897,6 +903,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         .valueOrNull?[_exchange!.id]
                         ?.costRate,
               ),
+              if (_outgoingFieldsEnabled) ...[
+                const SizedBox(height: 10),
+                LydMethodSelector(
+                  value: _lydMethod,
+                  sell: true,
+                  onChanged: (m) => setState(() => _lydMethod = m),
+                ),
+              ],
             ],
           ),
         ),

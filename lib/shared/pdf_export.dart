@@ -12,12 +12,16 @@ import '../features/companies/domain/company.dart';
 import '../features/companies/domain/exchange.dart';
 import '../features/currency_buy/domain/currency_buy.dart';
 import '../features/transfers/domain/transfer.dart';
+import '../features/treasury/domain/lyd_treasury.dart';
+import '../features/treasury/domain/profit_report.dart';
+import '../features/treasury/domain/treasury_position.dart';
 import 'formatters.dart';
 import 'libya_time.dart';
 import 'ledger.dart';
 import 'period_label.dart';
 
 part 'pdf_export_period.dart';
+part 'pdf_export_treasury.dart';
 
 /// Almarai (the PDF body font) has no proper isolated form of the letter ي:
 /// after ا د ذ ر ز و it is drawn as a zero-width stub, so "إشاري" prints as
@@ -503,6 +507,8 @@ class PdfExport {
       'من حسابي',
       'في شركة',
       'المبلغ',
+      'السعر',
+      'بالدينار',
       'في شركة',
       'الى المستفيد',
       'كود رقم',
@@ -518,6 +524,10 @@ class PdfExport {
           rows[i].isCancelled
               ? '${formatMoney(rows[i].amount)} \$ ملغاة'
               : '${formatMoney(rows[i].amount)} \$',
+          rows[i].rate == null ? '—' : formatRate(rows[i].rate!),
+          rows[i].lydAmount == null
+              ? '—'
+              : '${formatMoney(rows[i].lydAmount!)} د.ل',
           (rows[i].beneficiaryAccountCompany?.isEmpty ?? true)
               ? '—'
               : rows[i].beneficiaryAccountCompany!,
@@ -608,16 +618,18 @@ class PdfExport {
                 width: 0.5,
               ),
             ),
-            // Reversed indices: 0 = leftmost (كود رقم) … 7 = rightmost (ت).
+            // Reversed indices: 0 = leftmost (كود رقم) … 9 = rightmost (ت).
             columnWidths: const {
               0: pw.FlexColumnWidth(1.2), // كود رقم
               1: pw.FlexColumnWidth(2.0), // الى المستفيد
               2: pw.FlexColumnWidth(1.8), // في شركة (المستفيد)
-              3: pw.FlexColumnWidth(1.2), // المبلغ
-              4: pw.FlexColumnWidth(1.8), // في شركة (المنفِّذة)
-              5: pw.FlexColumnWidth(2.0), // من حسابي
-              6: pw.FlexColumnWidth(1.5), // الإشاري
-              7: pw.FlexColumnWidth(0.6), // ت
+              3: pw.FlexColumnWidth(1.4), // بالدينار
+              4: pw.FlexColumnWidth(0.9), // السعر
+              5: pw.FlexColumnWidth(1.2), // المبلغ
+              6: pw.FlexColumnWidth(1.8), // في شركة (المنفِّذة)
+              7: pw.FlexColumnWidth(2.0), // من حسابي
+              8: pw.FlexColumnWidth(1.5), // الإشاري
+              9: pw.FlexColumnWidth(0.6), // ت
             },
             children: tableChildren,
           ),
@@ -712,6 +724,9 @@ class PdfExport {
               ),
             ),
           ),
+          // the dinars of the operations that have a rate (migration 0081)
+          if (rows.any((r) => r.lydAmount != null))
+            _lydTotalLine(rows.fold<double>(0, (a, r) => a + r.netLyd)),
         ],
       ),
     );
@@ -873,6 +888,8 @@ class PdfExport {
       'حساب',
       'الإشاري',
       'القيمة',
+      'السعر',
+      'بالدينار',
       'لشركة',
       'حسابي',
       'كود',
@@ -896,6 +913,10 @@ class PdfExport {
           rows[i].isCancelled
               ? '${formatMoney(rows[i].usdAmount)} \$ ملغاة'
               : '${formatMoney(rows[i].usdAmount)} \$',
+          rows[i].rate == null ? '—' : formatRate(rows[i].rate!),
+          rows[i].lydAmount == null
+              ? '—'
+              : '${formatMoney(rows[i].lydAmount!)} د.ل',
           exchangeById[rows[i].exchangeId]?.name ?? '—',
           companyNameById[rows[i].myCompanyId] ?? '—',
           (exchangeById[rows[i].exchangeId]?.ourCode ?? '').trim().isEmpty
@@ -989,11 +1010,13 @@ class PdfExport {
               0: pw.FlexColumnWidth(0.9), // كود
               1: pw.FlexColumnWidth(1.6), // حسابي
               2: pw.FlexColumnWidth(1.8), // لشركة
-              3: pw.FlexColumnWidth(1.2), // القيمة
-              4: pw.FlexColumnWidth(1.5), // الإشاري
-              5: pw.FlexColumnWidth(1.6), // حساب
-              6: pw.FlexColumnWidth(2.0), // دخول من شركة
-              7: pw.FlexColumnWidth(0.6), // ت
+              3: pw.FlexColumnWidth(1.4), // بالدينار
+              4: pw.FlexColumnWidth(0.9), // السعر
+              5: pw.FlexColumnWidth(1.2), // القيمة
+              6: pw.FlexColumnWidth(1.5), // الإشاري
+              7: pw.FlexColumnWidth(1.6), // حساب
+              8: pw.FlexColumnWidth(2.0), // دخول من شركة
+              9: pw.FlexColumnWidth(0.6), // ت
             },
             children: tableChildren,
           ),
@@ -1088,6 +1111,9 @@ class PdfExport {
               ),
             ),
           ),
+          // the dinars of the operations that have a rate (migration 0081)
+          if (rows.any((r) => r.lydAmount != null))
+            _lydTotalLine(rows.fold<double>(0, (a, r) => a + r.netLyd)),
         ],
       ),
     );
@@ -1100,6 +1126,25 @@ class PdfExport {
     await Printing.sharePdf(bytes: bytes, filename: filename);
   }
 }
+
+/// "إجمالي الدينار" under a report's dollar total: the dinars of the
+/// operations that have a rate, cancelled ones left out.
+pw.Widget _lydTotalLine(double lyd) => pw.Container(
+      margin: const pw.EdgeInsets.only(top: 8),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      decoration: pw.BoxDecoration(
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+        border: pw.Border.all(color: PdfColors.grey500, width: 0.8),
+      ),
+      child: pw.Directionality(
+        textDirection: pw.TextDirection.rtl,
+        child: _ArText(
+          'إجمالي الدينار: ${formatMoney((lyd * 100).round() / 100)} د.ل',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
+          textDirection: pw.TextDirection.rtl,
+        ),
+      ),
+    );
 
 pw.Widget _notificationBox(String text) => pw.Container(
       width: 150,

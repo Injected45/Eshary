@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../employee_auth/presentation/employee_auth_providers.dart';
 import '../data/treasury_repository.dart';
+import '../domain/lyd_treasury.dart';
 import '../domain/profit_report.dart';
 import '../domain/treasury_position.dart';
 
@@ -31,6 +32,13 @@ final profitReportProvider = FutureProvider.autoDispose
   return ref
       .watch(treasuryRepositoryProvider)
       .profitReport(range.start, range.end);
+});
+
+final lydSummaryProvider =
+    FutureProvider.autoDispose.family<LydSummary, DateTimeRange>((ref, range) {
+  return ref
+      .watch(treasuryRepositoryProvider)
+      .lydSummary(range.start, range.end);
 });
 
 final costHistoryProvider = FutureProvider.autoDispose

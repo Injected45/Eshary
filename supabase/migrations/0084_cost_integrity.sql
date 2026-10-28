@@ -26,6 +26,15 @@
 
 begin;
 
+-- superseded-guard: a later migration redefined what this file defines; running
+-- it again would undo that, so it refuses.
+do $$
+begin
+  if to_regclass('public.lyd_treasury') is not null then
+    raise exception 'هذا الملف (0084) طُبّق سابقًا وجاءت بعده ترحيلات أحدث، وإعادة تشغيله تلغي إصلاحاتها. لم يتغير شيء.';
+  end if;
+end $$;
+
 do $$
 begin
   if to_regclass('public.account_costs') is null

@@ -1,5 +1,6 @@
 import 'package:eshary/core/theme.dart';
 import 'package:eshary/features/treasury/data/treasury_repository.dart';
+import 'package:eshary/features/treasury/domain/lyd_treasury.dart';
 import 'package:eshary/features/treasury/domain/profit_report.dart';
 import 'package:eshary/features/treasury/domain/treasury_position.dart';
 import 'package:eshary/features/treasury/presentation/treasury_providers.dart';
@@ -37,6 +38,25 @@ class _FakeRepo implements TreasuryRepository {
       const [];
   @override
   Future<List<CostEvent>> costHistory(String exchangeId) async => const [];
+  @override
+  Future<LydSummary> lydSummary(DateTime from, DateTime to) async =>
+      const LydSummary(open: false);
+  @override
+  Future<void> lydOpen({required double cash, required double bank}) async {}
+  @override
+  Future<void> lydMove({
+    required String kind,
+    String? pocket,
+    required double amount,
+    String? note,
+  }) async {}
+  @override
+  Future<LydCount> lydCount({
+    required double counted,
+    String? note,
+    bool post = true,
+  }) async =>
+      throw UnimplementedError();
 }
 
 /// Real app fonts, so widths match a phone instead of the wide test font.

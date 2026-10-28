@@ -50,10 +50,13 @@ class ExchangesRepository {
     return Exchange.fromJson(row);
   }
 
+  /// The account's name, code and country. Never its balance: a balance
+  /// moves only through an operation or a documented adjustment (migration
+  /// 0086 refuses a direct change). Sending back the balance read when the
+  /// screen opened used to undo any operation saved meanwhile.
   Future<Exchange> update({
     required String id,
     required String name,
-    required double balance,
     String? ourCode,
     String? country,
   }) async {
@@ -61,7 +64,6 @@ class ExchangesRepository {
         .from('exchanges')
         .update({
           'name': name,
-          'balance': balance,
           'our_code': ourCode,
           'country': country,
         })
@@ -73,16 +75,6 @@ class ExchangesRepository {
 
   Future<void> delete(String id) async {
     await _client.from('exchanges').delete().eq('id', id);
-  }
-
-  Future<Exchange> updateBalance(String exchangeId, double newBalance) async {
-    final row = await _client
-        .from('exchanges')
-        .update({'balance': newBalance})
-        .eq('id', exchangeId)
-        .select()
-        .single();
-    return Exchange.fromJson(row);
   }
 
   Future<bool> hasTransactions(String exchangeId) async {

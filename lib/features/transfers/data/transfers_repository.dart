@@ -111,6 +111,7 @@ class TransfersRepository {
     required double amount,
     required String reference,
     required double rate,
+    String lydMethod = 'cash',
   }) async {
     final res = await _client.rpc(
       'record_transfer',
@@ -125,6 +126,8 @@ class TransfersRepository {
         // the database computes the dinars and may use the administrator's
         // last rate instead (an employee without "rate_edit"), migration 0081
         'p_rate': rate,
+        // how the dinars came in: the box or the bank (migration 0086)
+        'p_lyd_method': lydMethod,
       },
     );
     return Transfer.fromJson(res as Map<String, dynamic>);
