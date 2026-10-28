@@ -98,7 +98,8 @@ class EmployeeAlertsScreen extends ConsumerWidget {
           final unreadAll = alerts.where((a) => !a.isRead).length;
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
               SizedBox(
                 height: 48,
@@ -340,7 +341,8 @@ class EmployeeAlertsListScreen extends ConsumerWidget {
                     await ref.read(employeeAlertsProvider.future);
                   },
                   child: ListView.separated(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+                    padding: EdgeInsets.fromLTRB(
+                        16, 16, 16, contentBottomPadding(context)),
                     itemCount: alerts.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) => _AlertTile(
@@ -457,8 +459,8 @@ class _AlertTile extends ConsumerWidget {
           .markAlertsRead([alert.id])
           .then((_) => ref.invalidate(employeeAlertsProvider))
           .catchError((Object e) {
-        AppLogger.warning('[alerts] mark read failed: $e');
-      });
+            AppLogger.warning('[alerts] mark read failed: $e');
+          });
     }
     await showGlassDialog<void>(
       context: context,
@@ -588,7 +590,8 @@ class SentMessagesScreen extends ConsumerWidget {
           }
           final items = byBroadcast.values.toList();
           return ListView.separated(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
+            padding:
+                EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, i) {

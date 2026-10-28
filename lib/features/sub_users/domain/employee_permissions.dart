@@ -29,6 +29,8 @@ const String kPermAccountsOwn = 'accounts_own';
 const String kPermAccountsAll = 'accounts_all';
 const String kPermPartyLetters = 'party_letters';
 const String kPermClientsAdd = 'clients_add';
+const String kPermRateEditSell = 'rate_edit_sell';
+const String kPermRateEditBuy = 'rate_edit_buy';
 
 const List<EmployeePermission> kEmployeePermissions = [
   EmployeePermission(
@@ -98,6 +100,20 @@ const List<EmployeePermission> kEmployeePermissions = [
     label: 'إضافة جهات محفوظة',
     description:
         'يستطيع إضافة جهة جديدة (مرسل أو مستفيد) من شاشتي الدخول والخروج. لا يستطيع تعديل الجهات الموجودة أو حذفها ولا إضافة شركات صرافة.',
+    group: 'العمليات',
+  ),
+  EmployeePermission(
+    key: kPermRateEditSell,
+    label: 'إدخال سعر البيع في الخروج',
+    description:
+        'يكتب سعر البيع بنفسه في كل عملية خروج (مع صلاحية تنفيذ خروج حوالة). بدونها يُحفظ خروجه بآخر سعر بيع استخدمه المدير ولا يستطيع تغييره.',
+    group: 'العمليات',
+  ),
+  EmployeePermission(
+    key: kPermRateEditBuy,
+    label: 'إدخال سعر الشراء في الدخول',
+    description:
+        'يكتب سعر الشراء بنفسه في كل عملية دخول (مع صلاحية تنفيذ دخول حوالة). بدونها يُحفظ دخوله بآخر سعر شراء استخدمه المدير ولا يستطيع تغييره.',
     group: 'العمليات',
   ),
 ];

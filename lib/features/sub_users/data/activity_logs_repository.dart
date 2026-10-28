@@ -27,8 +27,7 @@ class ActivityLogsRepository {
   }
 }
 
-final activityLogsRepositoryProvider =
-    Provider<ActivityLogsRepository>((ref) {
+final activityLogsRepositoryProvider = Provider<ActivityLogsRepository>((ref) {
   return ActivityLogsRepository(ref.watch(supabaseClientProvider));
 });
 
@@ -36,7 +35,5 @@ final activityLogsRepositoryProvider =
 /// screen — invalidate after any new employee action to refresh.
 final subUserActivityLogsProvider =
     FutureProvider.family<List<ActivityLog>, String>((ref, subUserId) async {
-  return ref
-      .watch(activityLogsRepositoryProvider)
-      .listForSubUser(subUserId);
+  return ref.watch(activityLogsRepositoryProvider).listForSubUser(subUserId);
 });

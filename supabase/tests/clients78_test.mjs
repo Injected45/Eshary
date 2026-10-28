@@ -37,7 +37,7 @@ const add = (uid, ...args) =>
 
 console.log('— the key is accepted by the database');
 const keys = (await q(`select _employee_permission_keys() k`))[0].k;
-ok(keys.includes('clients_add') && keys.includes('party_letters') && keys.length === 10, 'ten keys, none lost', JSON.stringify(keys));
+ok(keys.includes('clients_add') && keys.includes('party_letters') && keys.length >= 10, 'all ten keys still there (later migrations may add more)', JSON.stringify(keys));
 await as(db, ADMIN, (tx) => tx.query(`select admin_set_employee_permissions($1, array['buys_create','clients_add'])`, [without.id]));
 ok((await q(`select permissions p from sub_users where id = $1`, [without.id]))[0].p.includes('clients_add'), 'the administrator can grant it');
 await as(db, ADMIN, (tx) => tx.query(`select admin_set_employee_permissions($1, array['buys_create'])`, [without.id]));

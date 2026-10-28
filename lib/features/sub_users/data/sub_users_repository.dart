@@ -75,7 +75,8 @@ class SubUsersRepository {
 
   /// Replaces the employee's permissions. Enforced by the database; takes
   /// effect at once. Returns the saved (sorted, de-duplicated) list.
-  Future<List<String>> setPermissions(String id, List<String> permissions) async {
+  Future<List<String>> setPermissions(
+      String id, List<String> permissions) async {
     final res = await _client.rpc<List<dynamic>>(
       'admin_set_employee_permissions',
       params: {'p_sub_user_id': id, 'p_permissions': permissions},
@@ -85,7 +86,9 @@ class SubUsersRepository {
 
   /// Changes the employee's registered phone (the number WhatsApp codes go to).
   Future<void> updatePhone(String id, String phone) async {
-    await _client.from('sub_users').update({'phone_number': phone}).eq('id', id);
+    await _client
+        .from('sub_users')
+        .update({'phone_number': phone}).eq('id', id);
   }
 
   /// Issues a one-time sign-in QR token for [id], valid for 10 minutes.

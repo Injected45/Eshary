@@ -27,8 +27,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
   DateTime? _from;
   DateTime? _to;
 
-  bool get _rangeReady =>
-      _from != null && _to != null && !_from!.isAfter(_to!);
+  bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -69,14 +68,12 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
         .where((t) => inDateRange(t.archivedAt, r.start, r.end))
         .toList();
 
-    final incomeTotal =
-        filteredBuys.fold<double>(0, (s, b) => s + b.netAmount);
+    final incomeTotal = filteredBuys.fold<double>(0, (s, b) => s + b.netAmount);
     final outgoingTotal =
         filteredTransfers.fold<double>(0, (s, t) => s + t.netAmount);
     final diff = incomeTotal - outgoingTotal;
 
-    final showRangeSuffix =
-        _mode == DateFilterMode.range && _rangeReady;
+    final showRangeSuffix = _mode == DateFilterMode.range && _rangeReady;
     final titleSuffix = showRangeSuffix
         ? ' — ${archiveFilterDateFmt.format(_from!)} → ${archiveFilterDateFmt.format(_to!)}'
         : '';
@@ -84,7 +81,8 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
     final detailsRange = DateTimeRange(start: r.start, end: r.end);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         DateFilterBar(
           mode: _mode,
@@ -103,8 +101,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
           }),
           onPickFrom: _pickFrom,
           onPickTo: _pickTo,
-          showInvalidHint:
-              _mode == DateFilterMode.range && !_rangeReady,
+          showInvalidHint: _mode == DateFilterMode.range && !_rangeReady,
         ),
         const SizedBox(height: 12),
         // An employee sees only the type(s) they are allowed to execute or
@@ -302,9 +299,7 @@ class _DiffNavTile extends StatelessWidget {
         ? 'لا توجد إقفالات بعد'
         : (diff == 0
             ? 'متوازن'
-            : (isPositive
-                ? 'الدخول أكثر من الخروج'
-                : 'الخروج أكثر من الدخول'));
+            : (isPositive ? 'الدخول أكثر من الخروج' : 'الخروج أكثر من الدخول'));
 
     return Material(
       color: Colors.transparent,
@@ -495,9 +490,7 @@ class _DetailNavTile extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  income
-                      ? 'عرض تفاصيل الدخول'
-                      : 'عرض تفاصيل الخروج',
+                  income ? 'عرض تفاصيل الدخول' : 'عرض تفاصيل الخروج',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: tint,

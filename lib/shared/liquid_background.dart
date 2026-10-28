@@ -42,7 +42,8 @@ class _LiquidBackgroundState extends ConsumerState<LiquidBackground>
   @override
   Widget build(BuildContext context) {
     final mode = ref.watch(visualModeProvider);
-    final base = mode == AppVisualMode.calm ? AppColors.bgCalm : AppColors.bgDeep;
+    final base =
+        mode == AppVisualMode.calm ? AppColors.bgCalm : AppColors.bgDeep;
     return Stack(
       fit: StackFit.expand,
       children: [

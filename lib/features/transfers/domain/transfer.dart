@@ -22,6 +22,8 @@ class Transfer {
     required this.archivedAt,
     required this.createdByEmployeeId,
     this.cancelledAt,
+    this.rate,
+    this.lydAmount,
   });
 
   final String id;
@@ -36,6 +38,7 @@ class Transfer {
   final TransferStatus status;
   final DateTime createdAt;
   final DateTime? archivedAt;
+
   /// Sub-user (employee) who authored this row, or null when the admin
   /// created it directly. Stamped by `record_transfer` from
   /// `current_employee_id()` (see migration 0025).
@@ -45,10 +48,21 @@ class Transfer {
   /// keeps all its values; a reversing entry moved the balance back.
   final DateTime? cancelledAt;
 
+  /// The sell rate (dinars per dollar) and the dinars the customer pays
+  /// (migration 0081; computed by the database). Both null on an exit saved
+  /// before 0081 or by an older build.
+  final double? rate;
+  final double? lydAmount;
+
   bool get isCancelled => cancelledAt != null;
 
   /// What it counts for in a total: nothing once cancelled.
   double get netAmount => isCancelled ? 0 : amount;
+
+  bool get hasRate => rate != null && lydAmount != null;
+
+  /// Its dinars in a total: nothing once cancelled or without a rate.
+  double get netLyd => isCancelled ? 0 : (lydAmount ?? 0);
 
   factory Transfer.fromJson(Map<String, dynamic> json) => Transfer(
         id: json['id'] as String,
@@ -70,5 +84,7 @@ class Transfer {
         cancelledAt: json['cancelled_at'] == null
             ? null
             : DateTime.parse(json['cancelled_at'] as String),
+        rate: (json['rate'] as num?)?.toDouble(),
+        lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
       );
 }

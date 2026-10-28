@@ -12,6 +12,7 @@ import '../../exchange_companies/domain/exchange_company.dart';
 import '../../expenses/presentation/account_expense_dialog.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../treasury/presentation/treasury_screen.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
@@ -59,15 +60,19 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: Padding(
-          padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16,
-              contentBottomPadding(context)),
-          child: Center(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            contentTopPadding(context),
+            16,
+            contentBottomPadding(context),
+          ),
+          child: const Center(
             child: GlassCard(
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 horizontal: 24,
                 vertical: 28,
               ),
-              child: const Text(
+              child: Text(
                 'لا توجد إقفالات بعد',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -124,7 +129,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
     return ListView(
       padding: EdgeInsets.fromLTRB(
-          16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        16,
+        contentTopPadding(context),
+        16,
+        contentBottomPadding(context),
+      ),
       children: [
         // Admin: كشف حساب and الإلغاءات, side by side and equal, in a card like
         // the ones below it.
@@ -132,44 +141,72 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
           GlassCard(
             key: const ValueKey('accounts-actions'),
             padding: const EdgeInsets.all(12),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AccountStatementScreen(),
-                      ),
-                    ),
-                    icon: const FaIcon(FontAwesomeIcons.fileInvoice, size: 12),
-                    label: const Text('كشف حساب'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(44),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  // The badge counts the employees' requests waiting.
-                  child: Badge(
-                    isLabelVisible:
-                        ref.watch(pendingCancelRequestsProvider).isNotEmpty,
-                    label: Text(
-                      '${ref.watch(pendingCancelRequestsProvider).length}',
-                    ),
-                    child: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CancellationsScreen(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AccountStatementScreen(),
+                          ),
+                        ),
+                        icon: const FaIcon(
+                          FontAwesomeIcons.fileInvoice,
+                          size: 12,
+                        ),
+                        label: const Text('كشف حساب'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(44),
                         ),
                       ),
-                      icon: const FaIcon(FontAwesomeIcons.rotateLeft, size: 12),
-                      label: const Text('الإلغاءات'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.cancelled,
-                        minimumSize: const Size.fromHeight(44),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      // The badge counts the employees' requests waiting.
+                      child: Badge(
+                        isLabelVisible:
+                            ref.watch(pendingCancelRequestsProvider).isNotEmpty,
+                        label: Text(
+                          '${ref.watch(pendingCancelRequestsProvider).length}',
+                        ),
+                        child: FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const CancellationsScreen(),
+                            ),
+                          ),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.rotateLeft,
+                            size: 12,
+                          ),
+                          label: const Text('الإلغاءات'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.cancelled,
+                            minimumSize: const Size.fromHeight(44),
+                          ),
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // the dollar's cost price, per account (migration 0082)
+                FilledButton.icon(
+                  key: const ValueKey('open-treasury'),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TreasuryScreen(),
+                    ),
+                  ),
+                  icon: const FaIcon(FontAwesomeIcons.vault, size: 12),
+                  label: const Text('الخزينة وسعر التكلفة'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.positive,
+                    foregroundColor: Colors.black,
+                    minimumSize: const Size.fromHeight(44),
                   ),
                 ),
               ],
@@ -230,7 +267,11 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
 
   Widget _errorBody(Object? e) => Padding(
         padding: EdgeInsets.fromLTRB(
-            16, contentTopPadding(context), 16, contentBottomPadding(context)),
+          16,
+          contentTopPadding(context),
+          16,
+          contentBottomPadding(context),
+        ),
         child: Center(
           child: Text(
             '$e',
@@ -486,7 +527,7 @@ class _ExchangesTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                Expanded(
+                const Expanded(
                   child: Text(
                     'اسم الحساب',
                     textAlign: TextAlign.center,
@@ -497,7 +538,7 @@ class _ExchangesTable extends StatelessWidget {
                     ),
                   ),
                 ),
-                Expanded(
+                const Expanded(
                   child: Text(
                     'رقم الحساب',
                     textAlign: TextAlign.center,
@@ -508,7 +549,7 @@ class _ExchangesTable extends StatelessWidget {
                     ),
                   ),
                 ),
-                Expanded(
+                const Expanded(
                   child: Text(
                     'الرصيد',
                     textAlign: TextAlign.center,

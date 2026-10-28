@@ -446,8 +446,11 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
                 : (row.clientFromAccount ?? '—'),
           ],
           ['القيمة بالدولار', '${formatMoney(row.usdAmount)} \$'],
-          ['سعر الصرف', formatMoney(row.rate)],
-          ['القيمة بالدينار', formatMoney(row.lydAmount)],
+          ['سعر الشراء', row.rate == null ? '—' : formatRate(row.rate!)],
+          [
+            'القيمة بالدينار',
+            row.lydAmount == null ? '—' : formatMoney(row.lydAmount!),
+          ],
         ];
       } else if (row is Transfer) {
         title = 'تفاصيل الخروج — سجل واحد';
@@ -476,6 +479,11 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
             (row.beneficiaryCode?.isEmpty ?? true) ? '—' : row.beneficiaryCode!,
           ],
           ['القيمة بالدولار', '${formatMoney(row.amount)} \$'],
+          ['سعر البيع', row.rate == null ? '—' : formatRate(row.rate!)],
+          [
+            'القيمة بالدينار',
+            row.lydAmount == null ? '—' : formatMoney(row.lydAmount!),
+          ],
         ];
       } else {
         return;

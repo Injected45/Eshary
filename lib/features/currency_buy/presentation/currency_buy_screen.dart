@@ -31,6 +31,9 @@ import '../../companies/presentation/companies_providers.dart';
 import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../exchange_rates/presentation/exchange_rates_providers.dart';
+import '../../exchange_rates/presentation/rate_fields.dart';
+import '../../treasury/presentation/treasury_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
 import '../../notifications/presentation/notifications_providers.dart';
@@ -76,8 +79,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   String? _senderCodeFor;
 
   final _usd = TextEditingController();
-  final _rate = TextEditingController(text: '1');
-  final _lyd = TextEditingController(text: '0.00');
+  final _rate = TextEditingController();
   final _reference = TextEditingController();
 
   bool _busy = false;
@@ -88,8 +90,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   @override
   void initState() {
     super.initState();
-    _usd.addListener(_recomputeLyd);
-    _rate.addListener(_recomputeLyd);
+    _rate.addListener(_onFormTyped);
     _usd.addListener(_onFormTyped);
     _reference.addListener(_onFormTyped);
   }
@@ -103,7 +104,18 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   /// only is as good as one known by code only, and not every merchant has a
   /// reference number.
   bool get _senderSaveable =>
-      _senderCompany != null && _client != null && parseMoney(_usd.text) > 0;
+      _senderCompany != null &&
+      _client != null &&
+      parseMoney(_usd.text) > 0 &&
+      _buyRate > 0;
+
+  /// The buy rate this entry is saved with (the administrator's last one for
+  /// an employee who may not edit it), 0 when none.
+  double get _buyRate => effectiveRate(
+        _rate,
+        ref.read(exchangeRatesProvider).valueOrNull,
+        sell: false,
+      );
 
   /// Everything needed to save: my account and the sender. Only then the save
   /// button is ready.
@@ -112,18 +124,12 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   @override
   void dispose() {
     _usd.removeListener(_onFormTyped);
+    _rate.removeListener(_onFormTyped);
     _reference.removeListener(_onFormTyped);
     _usd.dispose();
     _rate.dispose();
-    _lyd.dispose();
     _reference.dispose();
     super.dispose();
-  }
-
-  void _recomputeLyd() {
-    final u = parseMoney(_usd.text);
-    final r = parseMoney(_rate.text);
-    _lyd.text = formatMoney(u * r);
   }
 
   void _resetBuyForm() {
@@ -135,8 +141,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _exchangeCompanyName = null;
     _senderCompany = null;
     _usd.clear();
-    _rate.text = '1';
-    _lyd.text = '0.00';
+    _rate.clear();
     _reference.clear();
     _activeSection = null;
     _autoPicked = false; // a single account is filled in again
@@ -175,6 +180,28 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   Future<void> _saveDailyAndOpenMessages() async {
     if (!_validateBuyForm()) return;
+    final rates = ref.read(exchangeRatesProvider).valueOrNull;
+    if (rates == null) {
+      _snack('تعذّر جلب سعر الصرف. تحقق من الاتصال وحاول مرة أخرى.');
+      ref.invalidate(exchangeRatesProvider);
+      return;
+    }
+    final rate = _buyRate;
+    if (rate <= 0) {
+      _snack(rates.canEditBuy
+          ? 'اكتب سعر الصرف'
+          : 'لم يحدد المدير سعر الشراء بعد. تواصل مع المدير.');
+      return;
+    }
+    if (!rateInRange(rate)) {
+      _snack('سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.');
+      return;
+    }
+    if (rates.canEditBuy && rateLooksWrong(rate, rates.buy)) {
+      final sure =
+          await confirmUnusualRate(context, rate: rate, last: rates.buy!);
+      if (!sure || !mounted) return;
+    }
     await _saveAndOpenBuyMessages(kind: _PendingBuyKind.execute);
   }
 
@@ -191,8 +218,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               clientId: _client?.id,
               clientFromAccount: _client?.company,
               usdAmount: parseMoney(_usd.text),
-              rate: parseMoney(_rate.text),
-              lydAmount: parseMoney(_lyd.text),
+              rate: _buyRate,
+              lydAmount: lydFor(parseMoney(_usd.text), _buyRate),
               reference: _fullReference,
             )
           : await repo.createDaily(
@@ -201,8 +228,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               clientId: _client?.id,
               clientFromAccount: _client?.company,
               usdAmount: parseMoney(_usd.text),
-              rate: parseMoney(_rate.text),
-              lydAmount: parseMoney(_lyd.text),
+              rate: _buyRate,
               reference: _fullReference,
             );
 
@@ -211,6 +237,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       if (kind == _PendingBuyKind.pending) {
         ref.invalidate(pendingBuysProvider);
       } else {
+        ref.invalidate(exchangeRatesProvider);
+        ref.invalidate(accountCostsProvider);
         ref.invalidate(todayBuysProvider);
         ref.invalidate(archivedBuysProvider);
         ref.invalidate(allExchangesProvider);
@@ -1161,6 +1189,29 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              RateFields(
+                controller: _rate,
+                usd: parseMoney(_usd.text),
+                rates: ref.watch(exchangeRatesProvider).valueOrNull,
+                sell: false,
+                enabled: true,
+                onDisabledTap: () {},
+                height: _kFieldHeight,
+                textStyle: _kFieldTextStyle,
+                accountCost: _exchange == null
+                    ? null
+                    : ref
+                        .watch(accountCostsProvider)
+                        .valueOrNull?[_exchange!.id]
+                        ?.costRate,
+                accountBalance: _exchange == null
+                    ? null
+                    : ref
+                        .watch(accountCostsProvider)
+                        .valueOrNull?[_exchange!.id]
+                        ?.balance,
+              ),
             ],
           ),
         ),
@@ -1581,6 +1632,8 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
                 DataColumn(label: Text('من شركة')),
                 DataColumn(label: Text('المرسل')),
                 DataColumn(label: Text('القيمة')),
+                DataColumn(label: Text('السعر')),
+                DataColumn(label: Text('بالدينار')),
                 DataColumn(label: Text('في حسابي')),
                 DataColumn(label: Text('التوقيت')),
                 DataColumn(label: Text('المنفّذ')),
@@ -1607,6 +1660,19 @@ class _DailyBuysTableState extends ConsumerState<_DailyBuysTable> {
                                     ? AppColors.cancelled
                                     : AppColors.positive,
                                 fontWeight: FontWeight.w700,
+                              ),
+                            )),
+                            DataCell(Text(
+                              b.rate == null ? '—' : formatRate(b.rate!),
+                            )),
+                            DataCell(Text(
+                              b.lydAmount == null
+                                  ? '—'
+                                  : '${formatMoney(b.lydAmount!)} د.ل',
+                              style: TextStyle(
+                                color: b.isCancelled
+                                    ? AppColors.cancelled
+                                    : AppColors.textHigh,
                               ),
                             )),
                             DataCell(Text(companyById[b.myCompanyId] ?? '—')),

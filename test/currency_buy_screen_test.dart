@@ -9,6 +9,8 @@ import 'package:eshary/features/currency_buy/presentation/currency_buy_screen.da
 import 'package:eshary/features/currency_buy/presentation/currency_buys_providers.dart';
 import 'package:eshary/features/employee_auth/data/employee_auth_repository.dart';
 import 'package:eshary/features/employee_auth/presentation/employee_auth_providers.dart';
+import 'package:eshary/features/exchange_rates/domain/exchange_rates.dart';
+import 'package:eshary/features/exchange_rates/presentation/exchange_rates_providers.dart';
 import 'package:eshary/features/exchange_companies/domain/exchange_company.dart';
 import 'package:eshary/features/exchange_companies/presentation/exchange_companies_providers.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +70,10 @@ Future<void> _open(
   List<Exchange> exchanges, {
   EmployeeIdentity? identity,
   List<Client> clients = const <Client>[],
+  // A fixed buy rate shown locked, so the older tests stay about what they
+  // test; the rate tests pass their own.
+  ExchangeRates rates =
+      const ExchangeRates(sell: 7.25, buy: 7.1, canEdit: false),
 }) async {
   await _loadFonts();
   await tester.binding.setSurfaceSize(const Size(400, 1800));
@@ -76,6 +82,7 @@ Future<void> _open(
     ProviderScope(
       overrides: [
         currentEmployeeProvider.overrideWith((ref) async => identity),
+        exchangeRatesProvider.overrideWith((ref) async => rates),
         allExchangesProvider.overrideWith((ref) async => exchanges),
         companiesListProvider.overrideWith(
           (ref) async => [for (final e in exchanges) _company(e.companyId)],

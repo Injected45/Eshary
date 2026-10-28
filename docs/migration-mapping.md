@@ -47,6 +47,15 @@ from the selected company only as the prefix. **Confirm before Phase 2**
 whether this should switch to per-company counting; if so, change the
 `select count(*)` in `next_reference` to filter by `company_id`.
 
+**Changed 2026-10-28 (migration 0080, asked for by the user):** cancelled
+transfers are left out of the count. The companies we send to number our
+transfers in sequence and never see a cancelled one, so cancelling the last
+transfer (RH0102) gives RH0102 to the next one (the cancelled row keeps it
+too). The result is `greatest(start + active count, highest active number with
+the same letters + 1)`, so cancelling an earlier transfer never makes the
+number go back or repeat an active one. With no cancellation it equals the
+old formula. Test: `supabase/tests/reference80_test.mjs`.
+
 ## 3. Enforcement added beyond source
 
 - `archive_daily_buys` raises if any `pending` currency buys exist for the

@@ -7,6 +7,8 @@ import 'package:eshary/features/exchange_companies/domain/exchange_company.dart'
 import 'package:eshary/features/exchange_companies/presentation/exchange_companies_providers.dart';
 import 'package:eshary/features/employee_auth/data/employee_auth_repository.dart';
 import 'package:eshary/features/employee_auth/presentation/employee_auth_providers.dart';
+import 'package:eshary/features/exchange_rates/domain/exchange_rates.dart';
+import 'package:eshary/features/exchange_rates/presentation/exchange_rates_providers.dart';
 import 'package:eshary/features/transfers/domain/transfer.dart';
 import 'package:eshary/features/transfers/presentation/transfers_providers.dart';
 import 'package:eshary/features/transfers/presentation/transfers_screen.dart';
@@ -83,6 +85,10 @@ Future<void> _open(
   List<Transfer> today = const <Transfer>[],
   // The containers start closed; most tests need the first one open.
   bool openFirst = true,
+  // A fixed sell rate shown locked, so the older tests stay about what they
+  // test; the rate tests pass their own.
+  ExchangeRates rates =
+      const ExchangeRates(sell: 7.25, buy: 7.1, canEdit: false),
 }) async {
   await _loadFonts();
   _liveExchanges = exchanges;
@@ -99,6 +105,7 @@ Future<void> _open(
           (ref) async => [for (final e in exchanges) _ec(e.name)],
         ),
         currentEmployeeProvider.overrideWith((ref) async => identity),
+        exchangeRatesProvider.overrideWith((ref) async => rates),
         todayTransfersProvider.overrideWith((ref) async => today),
         dailyTransfersProvider.overrideWith((ref) async => const <Transfer>[]),
         companiesRepositoryProvider.overrideWithValue(_FakeCompaniesRepo()),

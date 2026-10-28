@@ -35,11 +35,10 @@ final archivedTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.archived,
-        createdByEmployeeId:
-            (employee != null &&
-                    !employee.permissions.contains(kPermViewAll) &&
-                    !employee.permissions.contains(kPermClosingsAll))
-                ? employee.subUserId
-                : null,
+        createdByEmployeeId: (employee != null &&
+                !employee.permissions.contains(kPermViewAll) &&
+                !employee.permissions.contains(kPermClosingsAll))
+            ? employee.subUserId
+            : null,
       );
 });

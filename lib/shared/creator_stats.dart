@@ -45,7 +45,8 @@ class CreatorStats<T> extends ConsumerWidget {
     final subUsers = ref.watch(subUsersListProvider).value ?? const [];
     String labelFor(String? id) {
       if (id == null) return 'أنا';
-      final match = subUsers.where((s) => s.id == id).map((s) => s.employeeName);
+      final match =
+          subUsers.where((s) => s.id == id).map((s) => s.employeeName);
       return match.isEmpty ? 'موظف محذوف' : match.first;
     }
 
@@ -119,9 +120,7 @@ class _StatTile extends StatelessWidget {
               border: Border.all(color: tint.withValues(alpha: 0.4)),
             ),
             child: FaIcon(
-              isAdmin
-                  ? FontAwesomeIcons.userShield
-                  : FontAwesomeIcons.userTie,
+              isAdmin ? FontAwesomeIcons.userShield : FontAwesomeIcons.userTie,
               size: 11,
               color: tint,
             ),

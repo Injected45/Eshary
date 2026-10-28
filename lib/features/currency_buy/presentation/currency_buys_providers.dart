@@ -43,11 +43,10 @@ final archivedBuysProvider = FutureProvider<List<CurrencyBuy>>((ref) async {
   final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(currencyBuysRepositoryProvider).listByStatus(
         CurrencyBuyStatus.archived,
-        createdByEmployeeId:
-            (employee != null &&
-                    !employee.permissions.contains(kPermViewAll) &&
-                    !employee.permissions.contains(kPermClosingsAll))
-                ? employee.subUserId
-                : null,
+        createdByEmployeeId: (employee != null &&
+                !employee.permissions.contains(kPermViewAll) &&
+                !employee.permissions.contains(kPermClosingsAll))
+            ? employee.subUserId
+            : null,
       );
 });

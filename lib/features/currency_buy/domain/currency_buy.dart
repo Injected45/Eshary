@@ -48,12 +48,17 @@ class CurrencyBuy {
   final String? clientId;
   final String? clientFromAccount;
   final double usdAmount;
-  final double rate;
-  final double lydAmount;
+
+  /// The buy rate (dinars per dollar) and the dinars paid for the dollars
+  /// (computed by the database, migration 0081). Null on an entry saved
+  /// without a real rate (before 0081 the app sent a hidden rate of 1).
+  final double? rate;
+  final double? lydAmount;
   final String reference;
   final CurrencyBuyStatus status;
   final DateTime createdAt;
   final DateTime? archivedAt;
+
   /// Sub-user (employee) who authored this row, or null when the admin
   /// created it directly. Stamped by `record_currency_buy` /
   /// `record_pending_buy` from `current_employee_id()` (migration 0025).
@@ -68,6 +73,11 @@ class CurrencyBuy {
   /// What it counts for in a total: nothing once cancelled.
   double get netAmount => isCancelled ? 0 : usdAmount;
 
+  bool get hasRate => rate != null && lydAmount != null;
+
+  /// Its dinars in a total: nothing once cancelled or without a rate.
+  double get netLyd => isCancelled ? 0 : (lydAmount ?? 0);
+
   factory CurrencyBuy.fromJson(Map<String, dynamic> json) => CurrencyBuy(
         id: json['id'] as String,
         ownerId: json['owner_id'] as String,
@@ -76,8 +86,8 @@ class CurrencyBuy {
         clientId: json['client_id'] as String?,
         clientFromAccount: json['client_from_account'] as String?,
         usdAmount: (json['usd_amount'] as num).toDouble(),
-        rate: (json['rate'] as num).toDouble(),
-        lydAmount: (json['lyd_amount'] as num).toDouble(),
+        rate: (json['rate'] as num?)?.toDouble(),
+        lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
         reference: (json['reference'] as String?) ?? '',
         status: _parseStatus(json['status'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),

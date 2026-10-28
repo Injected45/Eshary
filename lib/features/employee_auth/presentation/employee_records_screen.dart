@@ -32,8 +32,7 @@ class EmployeeRecordsScreen extends ConsumerStatefulWidget {
 
 enum _OpenSection { outgoing, incoming }
 
-class _EmployeeRecordsScreenState
-    extends ConsumerState<EmployeeRecordsScreen> {
+class _EmployeeRecordsScreenState extends ConsumerState<EmployeeRecordsScreen> {
   // Mutually exclusive: only one section is open at a time. `null` means
   // both are closed.
   _OpenSection? _open = _OpenSection.outgoing;
@@ -46,11 +45,11 @@ class _EmployeeRecordsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final dailyT = ref.watch(dailyTransfersProvider).value ?? const <Transfer>[];
+    final dailyT =
+        ref.watch(dailyTransfersProvider).value ?? const <Transfer>[];
     final archT =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
-    final dailyB =
-        ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[];
+    final dailyB = ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[];
     final archB =
         ref.watch(archivedBuysProvider).value ?? const <CurrencyBuy>[];
 
@@ -61,7 +60,8 @@ class _EmployeeRecordsScreenState
     final allIncoming = [...dailyB, ...archB]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    final outgoingTotal = allOutgoing.fold<double>(0, (s, t) => s + t.netAmount);
+    final outgoingTotal =
+        allOutgoing.fold<double>(0, (s, t) => s + t.netAmount);
     final incomingTotal =
         allIncoming.fold<double>(0, (s, b) => s + b.netAmount);
 
@@ -76,7 +76,8 @@ class _EmployeeRecordsScreenState
             : _open;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+      padding: EdgeInsets.fromLTRB(
+          16, contentTopPadding(context), 16, contentBottomPadding(context)),
       children: [
         _SummaryRow(
           showOutgoing: seesExits,
@@ -102,28 +103,28 @@ class _EmployeeRecordsScreenState
         // The movement difference compares entries with exits, so it needs
         // both types.
         if (seesExits && seesEntries)
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const DiffDetailsScreen(
-                    includeDaily: true,
-                    title: 'فرق حركة عملياتي',
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DiffDetailsScreen(
+                      includeDaily: true,
+                      title: 'فرق حركة عملياتي',
+                    ),
                   ),
-                ),
-              );
-            },
-            icon: const FaIcon(FontAwesomeIcons.chartLine, size: 14),
-            label: const Text('فرق الحركة (مع الرسم البياني والتفاصيل)'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+                );
+              },
+              icon: const FaIcon(FontAwesomeIcons.chartLine, size: 14),
+              label: const Text('فرق الحركة (مع الرسم البياني والتفاصيل)'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
           ),
-        ),
         const SizedBox(height: 14),
         if (seesExits)
           _Section(
@@ -326,8 +327,7 @@ class _Section extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
-                    border:
-                        Border.all(color: accent.withValues(alpha: 0.3)),
+                    border: Border.all(color: accent.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '$count',
@@ -382,7 +382,8 @@ class _TransferList extends ConsumerWidget {
         ),
       );
     }
-    final exchanges = ref.watch(allExchangesProvider).value ?? const <Exchange>[];
+    final exchanges =
+        ref.watch(allExchangesProvider).value ?? const <Exchange>[];
     final exchangeById = <String, Exchange>{
       for (final e in exchanges) e.id: e,
     };
@@ -390,7 +391,8 @@ class _TransferList extends ConsumerWidget {
       for (final e in exchanges) e.id: e.name,
     };
     final fmt = LibyaDateFormat('yyyy-MM-dd  HH:mm');
-    final companies = ref.watch(companiesListProvider).value ?? const <Company>[];
+    final companies =
+        ref.watch(companiesListProvider).value ?? const <Company>[];
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
     };
@@ -437,7 +439,8 @@ class _CurrencyBuyList extends ConsumerWidget {
       );
     }
     final clients = ref.watch(clientsListProvider).value ?? const [];
-    final companies = ref.watch(companiesListProvider).value ?? const <Company>[];
+    final companies =
+        ref.watch(companiesListProvider).value ?? const <Company>[];
     final clientById = {for (final c in clients) c.id: c};
     final companyNameById = <String, String>{
       for (final c in companies) c.id: c.name,
@@ -447,9 +450,7 @@ class _CurrencyBuyList extends ConsumerWidget {
       children: [
         for (final b in rows)
           _RecordTile(
-            top: clientById[b.clientId]?.name ??
-                b.clientFromAccount ??
-                '—',
+            top: clientById[b.clientId]?.name ?? b.clientFromAccount ?? '—',
             middle: companyNameById[b.myCompanyId] ?? '—',
             bottom:
                 '${b.reference.isEmpty ? '—' : b.reference} • ${fmt.format(b.createdAt.toLocal())}',
@@ -515,75 +516,75 @@ class _RecordTile extends StatelessWidget {
 
   Widget _buildContent() {
     return Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        top,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textHigh,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      top,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textHigh,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 6),
-                    if (cancelled)
-                      const _StatusPill(
-                        label: 'ملغاة',
-                        color: AppColors.cancelled,
-                      )
-                    else if (archived)
-                      _StatusPill(
-                        label: 'مرحّلة',
-                        color: AppColors.textLow,
-                      ),
-                    if (pending)
-                      _StatusPill(
-                        label: 'قيد التنفيذ',
-                        color: AppColors.warning,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  middle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMid,
                   ),
-                  overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 6),
+                  if (cancelled)
+                    const _StatusPill(
+                      label: 'ملغاة',
+                      color: AppColors.cancelled,
+                    )
+                  else if (archived)
+                    _StatusPill(
+                      label: 'مرحّلة',
+                      color: AppColors.textLow,
+                    ),
+                  if (pending)
+                    _StatusPill(
+                      label: 'قيد التنفيذ',
+                      color: AppColors.warning,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                middle,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textMid,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  bottom,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textLow,
-                    fontFamily: 'monospace',
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                bottom,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textLow,
+                  fontFamily: 'monospace',
                 ),
-              ],
-            ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            '\$${formatMoney(amount)}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: amountColor,
-            ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '\$${formatMoney(amount)}',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: amountColor,
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 }
 
@@ -612,4 +613,3 @@ class _StatusPill extends StatelessWidget {
     );
   }
 }
-

@@ -409,13 +409,11 @@ class _ScenePainter extends CustomPainter {
       Offset(-20, -130),
     ];
     for (final s in starPositions) {
-      final twinkle =
-          0.5 + 0.5 * math.sin(idle * 2 * math.pi + s.dx * 0.05);
+      final twinkle = 0.5 + 0.5 * math.sin(idle * 2 * math.pi + s.dx * 0.05);
       canvas.drawCircle(
         Offset(cx + s.dx + parallax * 6, cy + s.dy),
         2.0,
-        Paint()
-          ..color = AppColors.glassBorderStrong.withValues(alpha: twinkle),
+        Paint()..color = AppColors.glassBorderStrong.withValues(alpha: twinkle),
       );
     }
 
@@ -653,8 +651,7 @@ class _ScenePainter extends CustomPainter {
 
     for (var i = 0; i < 8; i++) {
       final a = i * (math.pi * 2 / 8);
-      final p =
-          bodyCenter + Offset(math.cos(a), math.sin(a)) * (bodyR - 12);
+      final p = bodyCenter + Offset(math.cos(a), math.sin(a)) * (bodyR - 12);
       canvas.drawCircle(
         p,
         3.5,

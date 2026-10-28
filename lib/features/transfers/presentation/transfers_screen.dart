@@ -30,6 +30,9 @@ import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
+import '../../exchange_rates/presentation/exchange_rates_providers.dart';
+import '../../exchange_rates/presentation/rate_fields.dart';
+import '../../treasury/presentation/treasury_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
@@ -64,6 +67,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   bool _autoPicked = false;
 
   final _amount = TextEditingController();
+  final _rate = TextEditingController();
   final _beneficiaryName = TextEditingController();
   final _beneficiaryAccount = TextEditingController();
   final _beneficiaryCode = TextEditingController();
@@ -75,6 +79,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void initState() {
     super.initState();
     _amount.addListener(_onAmountChanged);
+    _rate.addListener(_onFormTyped);
     _beneficiaryName.addListener(_onFormTyped);
     _beneficiaryAccount.addListener(_onFormTyped);
     _beneficiaryCode.addListener(_onFormTyped);
@@ -140,6 +145,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     _beneficiaryCode.removeListener(_onFormTyped);
     _amount.removeListener(_onAmountChanged);
     _amount.dispose();
+    _rate.removeListener(_onFormTyped);
+    _rate.dispose();
     _beneficiaryName.dispose();
     _beneficiaryAccount.dispose();
     _beneficiaryCode.dispose();
@@ -173,6 +180,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   void _resetTransferForm() {
     setState(() {
       _amount.clear();
+      _rate.clear();
       _beneficiaryName.clear();
       _beneficiaryAccount.clear();
       _beneficiaryCode.clear();
@@ -267,6 +275,20 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return [card1, card2, card3];
   }
 
+  /// The chosen account's cost price: the administrator only, null for an
+  /// employee or an account without one.
+  double? get _accountCost => _exchange == null
+      ? null
+      : ref.read(accountCostsProvider).valueOrNull?[_exchange!.id]?.costRate;
+
+  /// The sell rate this exit is saved with (the administrator's last one for
+  /// an employee who may not edit it), 0 when none.
+  double get _sellRate => effectiveRate(
+        _rate,
+        ref.read(exchangeRatesProvider).valueOrNull,
+        sell: true,
+      );
+
   Future<void> _saveAndOpenMessages() async {
     if (_company == null || _exchange == null || _reference == null) {
       _snack('اختر الشركة وشركة الصرافة أولاً');
@@ -275,6 +297,40 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     if (parseMoney(_amount.text) <= 0) {
       _snack('المبلغ غير صحيح');
       return;
+    }
+    final rates = ref.read(exchangeRatesProvider).valueOrNull;
+    if (rates == null) {
+      _snack('تعذّر جلب سعر الصرف. تحقق من الاتصال وحاول مرة أخرى.');
+      ref.invalidate(exchangeRatesProvider);
+      return;
+    }
+    final rate = _sellRate;
+    if (rate <= 0) {
+      _snack(rates.canEditSell
+          ? 'اكتب سعر الصرف'
+          : 'لم يحدد المدير سعر البيع بعد. تواصل مع المدير.');
+      return;
+    }
+    if (!rateInRange(rate)) {
+      _snack('سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.');
+      return;
+    }
+    if (rates.canEditSell && rateLooksWrong(rate, rates.sell)) {
+      final sure =
+          await confirmUnusualRate(context, rate: rate, last: rates.sell!);
+      if (!sure || !mounted) return;
+    }
+    // the administrator: selling below the account's cost loses money
+    final cost = _accountCost;
+    if (cost != null && rate < cost) {
+      final usd = parseMoney(_amount.text);
+      final sure = await confirmBelowCost(
+        context,
+        rate: rate,
+        cost: cost,
+        loss: lydFor(usd, cost) - lydFor(usd, rate),
+      );
+      if (!sure || !mounted) return;
     }
     final amount = parseMoney(_amount.text);
     final balance = _available;
@@ -297,8 +353,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
             beneficiaryCode: _beneficiaryCode.text.trim(),
             amount: amount,
             reference: _reference!,
+            rate: rate,
           );
       await _persistBeneficiaryCode();
+      ref.invalidate(exchangeRatesProvider);
+      ref.invalidate(accountCostsProvider);
       ref.invalidate(todayTransfersProvider);
       ref.invalidate(archivedTransfersProvider);
       ref.invalidate(allExchangesProvider);
@@ -348,7 +407,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _outgoingFieldsEnabled &&
       _company != null &&
       (_reference ?? '').isNotEmpty &&
-      parseMoney(_amount.text) > 0;
+      parseMoney(_amount.text) > 0 &&
+      _sellRate > 0;
 
   /// The beneficiary section opens only after the transfer data is complete
   /// and the account can cover the amount (the account's balance decides, not
@@ -820,6 +880,23 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                     style: TextStyle(fontSize: 12, color: AppColors.negative),
                   ),
                 ),
+              const SizedBox(height: 12),
+              RateFields(
+                controller: _rate,
+                usd: parseMoney(_amount.text),
+                rates: ref.watch(exchangeRatesProvider).valueOrNull,
+                sell: true,
+                enabled: _outgoingFieldsEnabled,
+                onDisabledTap: _showOutgoingValidation,
+                height: _kFieldHeight,
+                textStyle: _kFieldTextStyle,
+                accountCost: _exchange == null
+                    ? null
+                    : ref
+                        .watch(accountCostsProvider)
+                        .valueOrNull?[_exchange!.id]
+                        ?.costRate,
+              ),
             ],
           ),
         ),
@@ -1321,6 +1398,8 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
                     DataColumn(label: Text('من حسابي')),
                     DataColumn(label: Text('الإشاري')),
                     DataColumn(label: Text('القيمة')),
+                    DataColumn(label: Text('السعر')),
+                    DataColumn(label: Text('بالدينار')),
                     DataColumn(label: Text('المستفيد')),
                     DataColumn(label: Text('المنفّذ')),
                   ],
@@ -1347,6 +1426,19 @@ class _DailyTransfersTableState extends ConsumerState<_DailyTransfersTable> {
                                       ? AppColors.cancelled
                                       : AppColors.negative,
                                   fontWeight: FontWeight.w700,
+                                ),
+                              )),
+                              DataCell(Text(
+                                t.rate == null ? '—' : formatRate(t.rate!),
+                              )),
+                              DataCell(Text(
+                                t.lydAmount == null
+                                    ? '—'
+                                    : '${formatMoney(t.lydAmount!)} د.ل',
+                                style: TextStyle(
+                                  color: t.isCancelled
+                                      ? AppColors.cancelled
+                                      : AppColors.textHigh,
                                 ),
                               )),
                               DataCell(Text(

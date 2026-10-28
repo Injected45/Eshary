@@ -142,8 +142,7 @@ class _LogEntryCardState extends State<_LogEntryCard> {
                     minWidth: 28,
                     minHeight: 28,
                   ),
-                  onPressed: () =>
-                      setState(() => _expanded = !_expanded),
+                  onPressed: () => setState(() => _expanded = !_expanded),
                   icon: FaIcon(
                     _expanded
                         ? FontAwesomeIcons.chevronUp

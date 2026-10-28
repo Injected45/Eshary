@@ -1,4 +1,3 @@
-
 enum AlertKind {
   transfer,
   buy,

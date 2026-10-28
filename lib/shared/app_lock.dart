@@ -174,10 +174,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
                       TextButton(
                         key: const ValueKey('lock-sign-out'),
                         onPressed: () async {
-                          await ref
-                              .read(supabaseClientProvider)
-                              .auth
-                              .signOut();
+                          await ref.read(supabaseClientProvider).auth.signOut();
                           if (mounted) setState(() => _locked = true);
                         },
                         child: const Text('تسجيل الخروج'),

@@ -48,10 +48,8 @@ class _EmployeeQrScanScreenState extends ConsumerState<EmployeeQrScanScreen> {
 
   Future<void> _onDetect(BarcodeCapture capture) async {
     if (_handling) return;
-    final raw = capture.barcodes
-        .map((b) => b.rawValue)
-        .whereType<String>()
-        .firstOrNull;
+    final raw =
+        capture.barcodes.map((b) => b.rawValue).whereType<String>().firstOrNull;
     if (raw == null) return;
 
     final token = employeeTokenFromQrPayload(raw);
@@ -70,7 +68,8 @@ class _EmployeeQrScanScreenState extends ConsumerState<EmployeeQrScanScreen> {
       final confirmed = await _confirm(preview);
       if (!mounted) return;
       if (confirmed == true) {
-        Navigator.of(context).pop(ScannedEmployeeQr(token, preview.employeeName));
+        Navigator.of(context)
+            .pop(ScannedEmployeeQr(token, preview.employeeName));
         return;
       }
       // Declined: drop the preview session and let the user scan again.

@@ -241,7 +241,8 @@ class _UpdateScreen extends ConsumerWidget {
         return [
           const Text(
             'تم تنزيل التحديث والتحقق منه. اضغط «تثبيت» ثم افتح إشاري من جديد '
-            'بعد انتهاء التثبيت.',
+            'بعد انتهاء التثبيت. إن ظهرت رسالة حماية Google Play فاضغط فيها '
+            '«تثبيت» (Install).',
             key: ValueKey('update-status'),
             textAlign: TextAlign.center,
             style: TextStyle(

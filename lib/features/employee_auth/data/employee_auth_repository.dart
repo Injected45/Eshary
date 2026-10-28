@@ -269,10 +269,7 @@ class EmployeeAuthRepository {
   /// The signed-in employee's own work per account (permission accounts_own).
   Future<List<MyAccountRow>> myAccount() async {
     final res = await _client.rpc<List<dynamic>>('employee_my_account');
-    return res
-        .cast<Map<String, dynamic>>()
-        .map(MyAccountRow.fromJson)
-        .toList();
+    return res.cast<Map<String, dynamic>>().map(MyAccountRow.fromJson).toList();
   }
 
   /// Returns the active session's identity, or null if no active session.

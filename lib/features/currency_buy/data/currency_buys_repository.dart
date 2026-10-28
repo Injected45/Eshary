@@ -12,7 +12,8 @@ class CurrencyBuysRepository {
 
   String _cacheKey(CurrencyBuyStatus status, String? createdByEmployeeId) {
     final uid = _client.auth.currentUser?.id ?? 'anon';
-    final suffix = createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
+    final suffix =
+        createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
     return 'cache:currency_buys:$uid:${currencyBuyStatusToDb(status)}$suffix';
   }
 
@@ -105,7 +106,6 @@ class CurrencyBuysRepository {
     String? clientFromAccount,
     required double usdAmount,
     required double rate,
-    required double lydAmount,
     required String reference,
   }) async {
     final res = await _client.rpc(
@@ -117,7 +117,8 @@ class CurrencyBuysRepository {
         'p_client_from_account': clientFromAccount,
         'p_usd_amount': usdAmount,
         'p_rate': rate,
-        'p_lyd_amount': lydAmount,
+        // the database computes the dinars from the rate (migration 0081)
+        'p_lyd_amount': null,
         'p_reference': reference,
       },
     );
@@ -149,7 +150,6 @@ class CurrencyBuysRepository {
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);
   }
-
 }
 
 final currencyBuysRepositoryProvider = Provider<CurrencyBuysRepository>((ref) {

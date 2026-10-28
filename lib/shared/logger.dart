@@ -231,6 +231,19 @@ String friendlyError(Object e) {
   if (s.contains('invalid_qr')) {
     return 'رمز QR غير صالح أو منتهي أو مستخدم. اطلب من المدير إصدار رمز جديد.';
   }
+  // The dinar exchange rate (0081).
+  if (s.contains('rate_not_set')) {
+    return 'لم يحدد المدير سعر الصرف بعد. تواصل مع المدير.';
+  }
+  if (s.contains('rate_out_of_range')) {
+    return 'سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.';
+  }
+  if (s.contains('period_invalid')) {
+    return 'الفترة غير صحيحة.';
+  }
+  if (s.contains('rate_invalid')) {
+    return 'سعر الصرف غير صحيح.';
+  }
   if (s.contains('permission_denied')) {
     return 'ليست لديك صلاحية لهذا الإجراء. تواصل مع المدير.';
   }

@@ -33,8 +33,7 @@ class _EmployeesOperationsScreenState
   DateTime? _from;
   DateTime? _to;
 
-  bool get _rangeReady =>
-      _from != null && _to != null && !_from!.isAfter(_to!);
+  bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   Future<void> _pickFrom() async {
     final picked = await showDatePicker(
@@ -136,8 +135,7 @@ class _EmployeesOperationsScreenState
             }),
             onPickFrom: _pickFrom,
             onPickTo: _pickTo,
-            showInvalidHint:
-                _mode == DateFilterMode.range && !_rangeReady,
+            showInvalidHint: _mode == DateFilterMode.range && !_rangeReady,
           ),
           const SizedBox(height: 14),
           if (keys.isEmpty)
@@ -205,8 +203,7 @@ class _CreatorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final diff = income - outgoing;
-    final diffColor =
-        diff >= 0 ? AppColors.positive : AppColors.negative;
+    final diffColor = diff >= 0 ? AppColors.positive : AppColors.negative;
     final avatarColor = isAdmin ? AppColors.accent : AppColors.warning;
     return Material(
       color: Colors.transparent,

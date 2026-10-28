@@ -183,7 +183,8 @@ class _EmployeeLoginScreenState extends ConsumerState<EmployeeLoginScreen> {
                           const SizedBox(height: 24),
                           FilledButton.icon(
                             onPressed: _busy ? null : _scanQr,
-                            icon: const FaIcon(FontAwesomeIcons.qrcode, size: 16),
+                            icon:
+                                const FaIcon(FontAwesomeIcons.qrcode, size: 16),
                             label: const Text('مسح QR'),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -259,8 +260,8 @@ class _EmployeeLoginScreenState extends ConsumerState<EmployeeLoginScreen> {
                                     AppColors.negative.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: AppColors.negative
-                                      .withValues(alpha: 0.4),
+                                  color:
+                                      AppColors.negative.withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Text(

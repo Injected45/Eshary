@@ -86,7 +86,8 @@ class OperationCancelBar extends ConsumerWidget {
             minimumSize: const Size.fromHeight(46),
           ),
           icon: const Icon(Icons.undo_rounded, size: 18),
-          label: Text(pending != null ? 'الموافقة وإلغاء العملية' : 'إلغاء العملية'),
+          label: Text(
+              pending != null ? 'الموافقة وإلغاء العملية' : 'إلغاء العملية'),
           onPressed: () async {
             final done = await showAdminCancelDialog(
               context,

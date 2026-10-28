@@ -38,5 +38,7 @@ String _period(DateTime? start, DateTime? end) {
   final a = start ?? end ?? DateTime.now();
   final b = end ?? a;
   final sameDay = a.year == b.year && a.month == b.month && a.day == b.day;
-  return sameDay ? _day.format(a) : 'من ${_day.format(a)} إلى ${_day.format(b)}';
+  return sameDay
+      ? _day.format(a)
+      : 'من ${_day.format(a)} إلى ${_day.format(b)}';
 }

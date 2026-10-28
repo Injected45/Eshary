@@ -5,8 +5,7 @@ import '../data/cancellations_repository.dart';
 import '../domain/cancellation.dart';
 
 /// Every cancellation request visible to the caller, newest first.
-final cancelRequestsProvider =
-    FutureProvider<List<CancellationRequest>>((ref) {
+final cancelRequestsProvider = FutureProvider<List<CancellationRequest>>((ref) {
   return ref.watch(cancellationsRepositoryProvider).listRequests();
 });
 

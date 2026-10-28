@@ -162,11 +162,8 @@ class CreatorFilter<T> extends ConsumerWidget {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected
-                        ? AppColors.accent
-                        : AppColors.textHigh,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? AppColors.accent : AppColors.textHigh,
                   ),
                 ),
                 const SizedBox(height: 2),

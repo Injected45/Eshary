@@ -197,8 +197,7 @@ class _DateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final display =
-        value == null ? '—' : archiveFilterDateFmt.format(value!);
+    final display = value == null ? '—' : archiveFilterDateFmt.format(value!);
     return Material(
       color: Colors.transparent,
       child: InkWell(

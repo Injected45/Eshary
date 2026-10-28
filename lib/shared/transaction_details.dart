@@ -66,6 +66,16 @@ void showTransferDetails(
                 '\$ ${formatMoney(transfer.amount)}',
                 color: AppColors.negative,
               ),
+              _Kv(
+                'سعر البيع',
+                transfer.rate == null ? '—' : formatRate(transfer.rate!),
+              ),
+              _Kv(
+                'الإجمالي بالدينار',
+                transfer.lydAmount == null
+                    ? '—'
+                    : '${formatMoney(transfer.lydAmount!)} د.ل',
+              ),
             ],
           ),
           _DetailSection(
@@ -184,6 +194,16 @@ void showCurrencyBuyDetails(
                 'القيمة',
                 '\$ ${formatMoney(buy.usdAmount)}',
                 color: AppColors.positive,
+              ),
+              _Kv(
+                'سعر الشراء',
+                buy.rate == null ? '—' : formatRate(buy.rate!),
+              ),
+              _Kv(
+                'الإجمالي بالدينار',
+                buy.lydAmount == null
+                    ? '—'
+                    : '${formatMoney(buy.lydAmount!)} د.ل',
               ),
             ],
           ),

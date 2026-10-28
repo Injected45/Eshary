@@ -12,7 +12,8 @@ class TransfersRepository {
 
   String _cacheKey(TransferStatus status, String? createdByEmployeeId) {
     final uid = _client.auth.currentUser?.id ?? 'anon';
-    final suffix = createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
+    final suffix =
+        createdByEmployeeId == null ? '' : ':emp:$createdByEmployeeId';
     return 'cache:transfers:$uid:${transferStatusToDb(status)}$suffix';
   }
 
@@ -109,6 +110,7 @@ class TransfersRepository {
     String? beneficiaryCode,
     required double amount,
     required String reference,
+    required double rate,
   }) async {
     final res = await _client.rpc(
       'record_transfer',
@@ -120,11 +122,13 @@ class TransfersRepository {
         'p_beneficiary_code': beneficiaryCode,
         'p_amount': amount,
         'p_reference': reference,
+        // the database computes the dinars and may use the administrator's
+        // last rate instead (an employee without "rate_edit"), migration 0081
+        'p_rate': rate,
       },
     );
     return Transfer.fromJson(res as Map<String, dynamic>);
   }
-
 }
 
 final transfersRepositoryProvider = Provider<TransfersRepository>((ref) {

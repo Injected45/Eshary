@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0079) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0085) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0079    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0085    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -63,12 +63,24 @@ An operation is never deleted or edited. `admin_cancel_operation(kind, id, reaso
 
 The exit/entry screens show **today's** executed rows (`todayTransfersProvider` / `todayBuysProvider`: archived rows created today by the phone's local date), so the lists start empty every new day. The "العمليات" tab (formerly "الإقفالات") is the permanent record. The permissions `archive_transfers` / `archive_buys` / `archive_all` are retired.
 
+### The Libyan dinar (migration 0081)
+
+Every exit (we sell dollars) and entry (we buy dollars) carries `rate` (`numeric(10,4)`, dinars per dollar) and `lyd_amount` (`numeric(14,2)`). The database computes `lyd_amount = round(round(usd, 2) × rate, 2)` inside `record_transfer` (new optional `p_rate`) / `record_currency_buy` (its `p_lyd_amount` is ignored); the app only previews it with `lydFor()` in `lib/shared/formatters.dart`, which rounds from decimal digits to match. Balances stay in dollars. The new app requires a rate; an older build that sends none (or the old hidden placeholder rate 1 on an entry) is saved with both columns empty, and such rows show "—" and stay out of dinar totals (`netLyd`). An employee without the permission of that kind (`rate_edit_sell` for an exit, `rate_edit_buy` for an entry; migration 0083 split 0081's single `rate_edit` and gave both to whoever had it) always gets the administrator's last rate of that kind (`last_exchange_rates`, read through `current_exchange_rates()`), whatever the phone sent. WhatsApp messages do not mention the dinar. UI: `lib/features/exchange_rates` (`RateFields`, the 15 % "are you sure" check). The PDF reports do not show the dinar yet.
+
+### Cost price of the dollar (migration 0082)
+
+Weighted average cost **per account** (`account_costs`, `numeric(16,6)`), administrator only (`treasury_positions()`, `set_account_cost()`; screen `lib/features/treasury`, opened from «حساباتي»). Only an entry with a rate moves it, inside `record_currency_buy` with the account row locked: `C' = (B×C + q×r) ÷ (B+q)`, B = the balance before; an empty account restarts at r; an account holding dollars with no opening cost is not costed until the administrator sets one. Exits, commissions, balances edited by hand and rate-less entries go in/out at cost (no change). Cancelling an entry (trigger `trg_cost_on_buy_cancel`, which relies on `admin_cancel_operation` moving the balance BEFORE stamping `cancelled_at`) removes its value at its own price. Every change is appended to `account_cost_events`. The cost of each operation lives in `operation_costs` (kind sell/buy; RLS on, no grant) — never on `transfers` / `currency_buys`, which employees can read (0084 moved and dropped the 0082 columns). Cancelling an exit (`trg_cost_on_sell_cancel`) brings its dollars back at that exit's cost; a cancelled entry that was never costed, or that an opening/correction followed, leaves the cost alone. Rates must be in (1, 100] (`rate_out_of_range`; the app parses a comma as the decimal point with `parseRate`). Backups, restores and the redaction include `last_exchange_rates`, `account_costs`, `account_cost_events`, `operation_costs`. 0081–0083 refuse to run again once a later one is applied (re-running them would undo the fixes).
+
+### Profit and loss (migration 0085)
+
+Administrator only: `profit_report(from, to)` per account — realized profit = sell dinars − round(amount × cost at that exit, 2), exits without a rate or a cost counted apart; `treasury_positions()` adds `market_rate` (the last sell rate) and `unrealized` = balance × (market − cost); `account_cost_history()`. UI: «الخزينة» shows the period's profit (`profit_section.dart`), the break-even and unrealized per account and the cost history; the exit screen warns and asks before selling below the account's cost, the entry screen shows the cost after the buy (both admin only, via `accountCostsProvider`).
+
 ### Database
 
 All currency columns are `numeric(14,2)`; `rate` is `numeric(10,4)`. Per-row RLS on every table; `exchanges` has no `owner_id` and derives ownership by joining through `companies.owner_id`. Profile rows are auto-created by the `on_auth_user_created` trigger in `0005_auth_triggers.sql` — no client-side profile upsert.
 
 Server-side functions:
-- `next_reference(company_id)` — generates the transfer reference. Format updated by `0006_next_reference_format.sql`: parses user-typed `start_ref` as `(prefix)(digits)` and increments. **Counts every transfer the user owns across all companies**, matching `project_web.html:711` bug-for-bug. See `docs/migration-mapping.md` §2 — do not change to per-company counting without explicit confirmation.
+- `next_reference(company_id)` — generates the transfer reference. Format updated by `0006_next_reference_format.sql`: parses user-typed `start_ref` as `(prefix)(digits)` and increments. **Counts every active transfer the user owns across all companies**, matching `project_web.html:711`, except that since `0080_reference_skips_cancelled.sql` (asked for by the user on 2026-10-28) a cancelled transfer does not count: if the last transfer is cancelled the next one reuses its number, and the result is never below the highest active number + 1 (no going back, no repeat of an active number). See `docs/migration-mapping.md` §2 — do not change to per-company counting without explicit confirmation.
 - `archive_daily_transfers(p_owner)` / `archive_daily_buys(p_owner)` — legacy; since 0047 nothing is left in `status='daily'`, so they do nothing.
 
 ### UI conventions
@@ -82,7 +94,7 @@ Server-side functions:
 ## Hard rules from `docs/phase-plan.md`
 
 - Money columns stay `numeric(14,2)`. Never use `float`/`double` for amounts.
-- The reference-number formula stays bug-for-bug compatible with `project_web.html:711` unless explicitly renegotiated.
+- The reference-number formula stays compatible with `project_web.html:711` unless explicitly renegotiated (renegotiated once: 0080, cancelled transfers give their number back).
 - Arabic transfer/buy message strings are preserved verbatim from the source HTML (`generateAllMessages` line 722 / buy variant).
 - Reference field is read-only in the UI; values come from `next_reference(company_id)` only.
 - New behaviour beyond the source must be flagged and confirmed before implementation. The intentional additions are listed in the README's "Behavior added beyond source" section (pending blocks archive, atomic RPCs, per-user RLS, offline read cache).

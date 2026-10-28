@@ -60,11 +60,14 @@ class MainActivity : FlutterFragmentActivity() {
                                     "$packageName.updates",
                                     file,
                                 )
+                                // CLEAR_TASK: a retry opens a fresh installer, not
+                                // the error screen left by a failed attempt
                                 val intent = Intent(Intent.ACTION_VIEW)
                                     .setDataAndType(uri, "application/vnd.android.package-archive")
                                     .addFlags(
                                         Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                            Intent.FLAG_ACTIVITY_NEW_TASK,
+                                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                                            Intent.FLAG_ACTIVITY_CLEAR_TASK,
                                     )
                                 startActivity(intent)
                                 result.success(true)

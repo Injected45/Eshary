@@ -1,4 +1,3 @@
-
 /// Which table a cancelled operation lives in.
 enum OperationKind { transfer, buy }
 
@@ -64,8 +63,7 @@ class OperationCancellation {
   String get kindLabel => operationKindLabel(kind);
 
   /// "الرحالة الأولى - بهار روز".
-  String get accountLabel =>
-      '${companyName ?? '—'} - ${exchangeName ?? '—'}';
+  String get accountLabel => '${companyName ?? '—'} - ${exchangeName ?? '—'}';
 
   factory OperationCancellation.fromJson(Map<String, dynamic> j) =>
       OperationCancellation(
@@ -80,8 +78,7 @@ class OperationCancellation {
         partyName: j['party_name'] as String?,
         operationCreatedAt:
             DateTime.parse(j['operation_created_at'] as String).toLocal(),
-        operationEmployeeName:
-            (j['operation_employee_name'] as String?) ?? '—',
+        operationEmployeeName: (j['operation_employee_name'] as String?) ?? '—',
         requestedByName: j['requested_by_name'] as String?,
         reason: (j['reason'] as String?) ?? '',
         balanceBefore: (j['balance_before'] as num).toDouble(),

@@ -22,8 +22,8 @@ class MessagesDispatchScreen extends ConsumerStatefulWidget {
       _MessagesDispatchScreenState();
 }
 
-class _MessagesDispatchScreenState
-    extends ConsumerState<MessagesDispatchScreen> with WidgetsBindingObserver {
+class _MessagesDispatchScreenState extends ConsumerState<MessagesDispatchScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -99,7 +99,8 @@ class _MessagesDispatchScreenState
         automaticallyImplyLeading: false,
       ),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        padding: EdgeInsets.fromLTRB(
+            16, contentTopPadding(context), 16, contentBottomPadding(context)),
         children: [
           GlassCard(
             padding: const EdgeInsets.all(14),
