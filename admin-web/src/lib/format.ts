@@ -62,6 +62,7 @@ export const auditLabel: Record<string, string> = {
   platform_setting_changed: 'تعديل إعداد',
   notification_created: 'إنشاء إشعار',
   notification_toggled: 'تفعيل/إيقاف إشعار',
+  app_release_toggled: 'سحب/إعادة إصدار تحديث',
   user_notes_changed: 'تعديل ملاحظات مستخدم',
   trial_extended: 'تمديد تجربة',
   payment_confirmed: 'تأكيد دفع',

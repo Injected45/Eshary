@@ -1,8 +1,7 @@
 name: eshary
 description: شركة الرحالة — transfer & currency-buy operations app.
 publish_to: "none"
-version: 1.0.0+1
-
+version: 1.0.3+3
 environment:
   sdk: ">=3.5.0 <4.0.0"
   flutter: ">=3.24.0"
@@ -31,6 +30,9 @@ dependencies:
   flutter_local_notifications: ^22.3.1
   flutter_foreground_task: ^10.0.0
   local_auth: ^3.0.2
+  # in-app update: checks the downloaded APK against its published SHA-256
+  crypto: ^3.0.3
+  convert: ^3.1.1
 
 dev_dependencies:
   flutter_test:

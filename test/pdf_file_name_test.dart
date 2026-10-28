@@ -19,6 +19,26 @@ void main() {
     );
   });
 
+  test('the statement file is named without the word شركة', () {
+    expect(
+      pdfFileName('كشف حساب الرحالة الأولى لدى بهاروز', start: d8, end: d8),
+      'كشف حساب الرحالة الأولى لدى بهاروز - 2026-10-08.pdf',
+    );
+  });
+
+  test('the statement screen: file name without شركة, title inside unchanged',
+      () {
+    final src = File(
+      'lib/features/companies/presentation/account_statement_screen.dart',
+    ).readAsStringSync();
+    // inside the PDF: "... لدى شركة <exchange company>" (as before)
+    expect(src, contains(r"'لدى شركة ${selected.name}'"));
+    // the shared file: "... لدى <exchange company>"
+    expect(src, contains(r"'لدى ${selected.name}'"));
+    expect(src, contains('fileTitle,'));
+    expect(src, contains('title: title,'));
+  });
+
   test('all accounts, one employee, a period', () {
     expect(
       pdfFileName(

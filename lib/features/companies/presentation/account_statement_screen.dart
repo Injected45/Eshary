@@ -88,6 +88,7 @@ class _AccountStatementScreenState
     required ({DateTime start, DateTime end}) range,
     required Map<String, SubUser> employees,
     required String title,
+    required String fileTitle,
     required Map<String, String> accountNames,
   }) async {
     setState(() => _exporting = true);
@@ -138,7 +139,8 @@ class _AccountStatementScreenState
       await PdfExport.sharePdf(
         bytes,
         pdfFileName(
-          title,
+          // the shared file's name only; the title inside the PDF is [title]
+          fileTitle,
           who: switch (_scope) {
             StatementScope.all => null,
             StatementScope.me => 'المدير',
@@ -182,6 +184,14 @@ class _AccountStatementScreenState
         ? 'كشف حساب جميع الحسابات'
         : 'كشف حساب ${companies[selected.companyId]?.name ?? '—'} '
             'لدى شركة ${selected.name}';
+
+    // The name the shared file carries: "كشف حساب الرحالة الأولى لدى بهاروز"
+    // (the exchange company without the word "شركة"); the title printed inside
+    // the PDF stays as it is.
+    final fileTitle = selected == null
+        ? title
+        : 'كشف حساب ${companies[selected.companyId]?.name ?? '—'} '
+            'لدى ${selected.name}';
 
     AccountStatement? statement;
     final data = dataAsync.valueOrNull;
@@ -233,6 +243,7 @@ class _AccountStatementScreenState
                       range: r,
                       employees: employees,
                       title: title,
+                      fileTitle: fileTitle,
                       accountNames: {
                         for (final e in exchanges)
                           e.id:

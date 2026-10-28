@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/env.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/app_update/presentation/update_gate.dart';
 import 'features/trial/presentation/subscription_banner.dart';
 import 'features/license/presentation/license_provider.dart';
 import 'shared/app_lock.dart';
@@ -134,11 +135,15 @@ class _EsharyAppState extends ConsumerState<EsharyApp> {
       ],
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
-        child: LiquidBackground(
-          child: AppLockGate(
-            child: SubscriptionBanner(
-              onOpen: () => router.push('/subscription'),
-              child: child ?? const SizedBox.shrink(),
+        // a newer published build covers the whole app with the update screen
+        // (a mandatory one cannot be dismissed): features/app_update
+        child: UpdateGate(
+          child: LiquidBackground(
+            child: AppLockGate(
+              child: SubscriptionBanner(
+                onOpen: () => router.push('/subscription'),
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         ),

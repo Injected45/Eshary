@@ -15,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           { href: '/audit', label: 'سجل العمليات' },
         ]
       : []),
+    { href: '/updates', label: 'تحديثات التطبيق' },
     { href: '/system', label: 'حالة النظام' },
     ...(me.role === 'super_admin' ? [{ href: '/staff', label: 'الحسابات الإدارية' }] : []),
     ...(writer ? [{ href: '/settings', label: 'الإعدادات' }] : []),

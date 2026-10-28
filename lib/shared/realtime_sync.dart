@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_provider.dart';
 import '../features/cancellations/presentation/cancellations_providers.dart';
+import '../features/clients/presentation/clients_providers.dart';
 import '../features/companies/presentation/companies_providers.dart';
+import '../features/exchange_companies/presentation/exchange_companies_providers.dart';
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
 import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
 import '../features/notifications/presentation/notifications_providers.dart';
@@ -81,6 +83,14 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     invalidateWorkflow();
   });
 
+  // The saved clients and the customers' companies change rarely, so they are
+  // re-read every 30 s (not every 5 s): an addition made from another device
+  // or in the database shows up in the entry and exit screens by itself.
+  final listsTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    ref.invalidate(clientsListProvider);
+    ref.invalidate(exchangeCompaniesListProvider);
+  });
+
   final channel = client
       .channel('eshary-workflow-sync')
       .onPostgresChanges(
@@ -145,6 +155,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
   ref.onDispose(() {
     debounce?.cancel();
     pollTimer.cancel();
+    listsTimer.cancel();
     channel.unsubscribe();
   });
 

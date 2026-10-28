@@ -13,7 +13,9 @@ import '../../../shared/glass.dart';
 import '../../../shared/pending_dispatch.dart';
 import '../../../shared/realtime_sync.dart';
 import '../../archive/presentation/archive_screen.dart';
+import '../../clients/presentation/clients_providers.dart';
 import '../../companies/presentation/accounts_screen.dart';
+import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../companies/presentation/companies_providers.dart';
 import '../../currency_buy/presentation/currency_buy_screen.dart';
 import '../../currency_buy/presentation/currency_buys_providers.dart';
@@ -244,6 +246,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ref.invalidate(pendingBuysProvider);
                     ref.invalidate(archivedBuysProvider);
                     ref.invalidate(allExchangesProvider);
+                    // saved clients and customer companies changed elsewhere
+                    ref.invalidate(clientsListProvider);
+                    ref.invalidate(exchangeCompaniesListProvider);
                     showTopSnackBar(
                       context,
                       const SnackBar(

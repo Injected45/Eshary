@@ -18,7 +18,11 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0078) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0079) in order.
+
+## In-app update (direct APK only)
+
+`build-apk.bat` raises the build number (pubspec `version: x.y.N+N`), passes `--dart-define=APP_BUILD=N` and writes `APK/build.json`; `publish-update.bat` uploads both APKs to the public Storage bucket `app-releases`, re-downloads them to check the SHA-256, then inserts the row in `app_releases` (migration 0079). The app (`lib/features/app_update`, mounted in `main.dart` as `UpdateGate`) asks `latest_app_release()` on start and on resume and shows a blocking update screen. Never in the Play build (`kPlayBuild`) or a debug run (`APP_BUILD` = 0). `REQUEST_INSTALL_PACKAGES` and the FileProvider are only in the main manifest, never `src/play`. Withdraw a bad release with `withdraw-update.bat` or from the platform. See `docs/app-updates.md`. The first APK that contains the updater must still be sent by hand.
 
 ## Admin platform (admin-web/)
 
@@ -34,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0078    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0079    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.

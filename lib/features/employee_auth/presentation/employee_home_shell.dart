@@ -21,6 +21,8 @@ import '../../archive/presentation/archive_screen.dart';
 import '../../companies/presentation/accounts_screen.dart';
 import '../../employee_alerts/presentation/employee_alerts_providers.dart';
 import '../../employee_alerts/presentation/employee_inbox_screen.dart';
+import '../../clients/presentation/clients_providers.dart';
+import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import 'employee_my_account_screen.dart';
 import 'employee_records_screen.dart';
 import '../data/employee_auth_repository.dart';
@@ -186,6 +188,9 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
                         ref.invalidate(pendingBuysProvider);
                         ref.invalidate(archivedBuysProvider);
                         ref.invalidate(allExchangesProvider);
+                        // saved clients and customer companies changed elsewhere
+                        ref.invalidate(clientsListProvider);
+                        ref.invalidate(exchangeCompaniesListProvider);
                         showTopSnackBar(
                           context,
                           const SnackBar(

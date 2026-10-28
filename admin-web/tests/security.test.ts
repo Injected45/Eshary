@@ -90,7 +90,7 @@ describe('the code is the guard, not the screen', () => {
   });
 
   it('write actions need an administrating role', () => {
-    for (const f of src.filter((f) => /(users|requests|notifications)[\\/].*actions\.ts$/.test(f))) {
+    for (const f of src.filter((f) => /(users|requests|notifications|updates)[\\/].*actions\.ts$/.test(f))) {
       expect(read(f), f).toMatch(/requireStaff\('super_admin', 'admin'\)/);
     }
     expect(read(src.find((f) => /staff[\\/]actions\.ts$/.test(f))!)).toMatch(

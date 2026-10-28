@@ -24,6 +24,7 @@ const messages: Record<string, string> = {
   unknown_setting: 'إعداد غير معروف',
   invalid_setting: 'قيمة الإعداد غير صالحة',
   notification_not_found: 'الإشعار غير موجود',
+  release_not_found: 'الإصدار غير موجود',
   bootstrap_done: 'تمت التهيئة الأولى مسبقًا',
 };
 
