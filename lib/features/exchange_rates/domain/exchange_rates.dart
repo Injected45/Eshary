@@ -1,14 +1,19 @@
 /// The administrator's last rates (dinars per dollar) and whether the caller
 /// may type another rate, per kind of operation (migrations 0081, 0083).
 ///
-/// [sell] is the rate of the last exit (we sell dollars), [buy] of the last
-/// entry (we buy dollars). Null until the administrator saved one.
+/// [sell] is the rate of the last sale (we sell dollars), [buy] of the last
+/// purchase. Since 0093 each kind has a rate per book: [sell] / [buy] are the
+/// CASH book's, [sellBank] / [buyBank] the BANK book's (Libya prices the
+/// dollar differently in cash dinars and in bank dinars). Null until the
+/// administrator saved one.
 class ExchangeRates {
   /// [canEdit] sets both kinds at once; [canEditSell] / [canEditBuy] override
   /// it for one kind.
   const ExchangeRates({
     required this.sell,
     required this.buy,
+    this.sellBank,
+    this.buyBank,
     bool? canEdit,
     bool? canEditSell,
     bool? canEditBuy,
@@ -17,6 +22,8 @@ class ExchangeRates {
 
   final double? sell;
   final double? buy;
+  final double? sellBank;
+  final double? buyBank;
 
   /// The administrator, or an employee granted "rate_edit_sell": types the
   /// sell rate of an exit. Everyone else saves at the administrator's last
@@ -29,15 +36,20 @@ class ExchangeRates {
   /// Whether the rate of an exit ([sell]) or of an entry may be typed.
   bool canEditFor({required bool sell}) => sell ? canEditSell : canEditBuy;
 
-  /// The administrator's last rate of that kind.
-  double? lastFor({required bool sell}) => sell ? this.sell : buy;
+  /// The administrator's last rate of that kind, in that book ('cash' or
+  /// 'bank').
+  double? lastFor({required bool sell, String book = 'cash'}) =>
+      book == 'bank' ? (sell ? sellBank : buyBank) : (sell ? this.sell : buy);
 
   factory ExchangeRates.fromJson(Map<String, dynamic> json) {
     // a database before 0083 sends one flag for both
     final both = json['can_edit'] as bool? ?? false;
     return ExchangeRates(
-      sell: (json['sell'] as num?)?.toDouble(),
-      buy: (json['buy'] as num?)?.toDouble(),
+      // 0093 sends the four rates; before it, one per kind (then both books)
+      sell: ((json['sell_cash'] ?? json['sell']) as num?)?.toDouble(),
+      buy: ((json['buy_cash'] ?? json['buy']) as num?)?.toDouble(),
+      sellBank: ((json['sell_bank'] ?? json['sell']) as num?)?.toDouble(),
+      buyBank: ((json['buy_bank'] ?? json['buy']) as num?)?.toDouble(),
       canEditSell: json['can_edit_sell'] as bool? ?? both,
       canEditBuy: json['can_edit_buy'] as bool? ?? both,
     );

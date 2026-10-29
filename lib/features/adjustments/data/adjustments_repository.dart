@@ -33,6 +33,7 @@ class AdjustmentsRepository {
     required double newBalance,
     required String reason,
     required String password,
+    String? book,
   }) async {
     final res = await _client.rpc<dynamic>(
       'admin_adjust_balance',
@@ -41,6 +42,8 @@ class AdjustmentsRepository {
         'p_new_balance': newBalance,
         'p_reason': reason,
         'p_password': password,
+        // the book corrected (0093)
+        if (book != null) 'p_book': book,
       },
     );
     return parseAdjustResult(res as Map<String, dynamic>);

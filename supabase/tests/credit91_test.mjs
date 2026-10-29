@@ -13,7 +13,7 @@ const A_EMP = '33333333-3333-3333-3333-333333333333';
 const OTHER = '44444444-4444-4444-4444-444444444444';
 const n = (v) => (v === null || v === undefined ? null : Number(v));
 
-const db = await freshDb();
+const db = await freshDb({ upTo: 92 }); // a sale paid in cash from the account's dollars: 0093 sells from the cash book only
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 await db.exec(`
   insert into auth.users (id, email, encrypted_password) values

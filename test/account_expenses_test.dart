@@ -45,6 +45,7 @@ class _FakeRepo implements AccountExpensesRepository {
     required double amount,
     String? code,
     required String note,
+    String? book,
   }) async {
     recorded.add({
       'exchange': exchangeId,

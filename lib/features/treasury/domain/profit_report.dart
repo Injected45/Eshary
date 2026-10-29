@@ -5,6 +5,7 @@ class ProfitRow {
     required this.exchangeId,
     required this.companyName,
     required this.accountName,
+    this.book,
     required this.soldUsd,
     required this.salesLyd,
     required this.costLyd,
@@ -20,6 +21,9 @@ class ProfitRow {
   final String exchangeId;
   final String companyName;
   final String accountName;
+
+  /// 'cash' / 'bank' (0093): one row per account and book; null before.
+  final String? book;
 
   /// Dollars sold by exits that have both a rate and a cost.
   final double soldUsd;
@@ -50,6 +54,7 @@ class ProfitRow {
       exchangeId: j['exchange_id'] as String,
       companyName: (j['company_name'] as String?) ?? '',
       accountName: (j['account_name'] as String?) ?? '',
+      book: j['book'] as String?,
       soldUsd: d('sold_usd'),
       salesLyd: d('sales_lyd'),
       costLyd: d('cost_lyd'),

@@ -38,6 +38,7 @@ class AccountExpensesRepository {
     required double amount,
     String? code,
     required String note,
+    String? book,
   }) async {
     final row = await _client.rpc<Map<String, dynamic>>(
       'record_account_expense',
@@ -46,6 +47,8 @@ class AccountExpensesRepository {
         'p_amount': amount,
         'p_code': code,
         'p_note': note,
+        // the book the dollars leave (0093)
+        if (book != null) 'p_book': book,
       },
     );
     return AccountExpense.fromJson(row);

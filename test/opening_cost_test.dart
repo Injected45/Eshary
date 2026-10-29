@@ -52,6 +52,7 @@ class _Exchanges implements ExchangesRepository {
     String? ourCode,
     String? country,
     double? costRate,
+    String? book,
   }) async {
     if (failures > 0) {
       failures--;

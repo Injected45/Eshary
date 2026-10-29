@@ -76,8 +76,10 @@ class _FakeRepo implements TreasuryRepository {
     String? pocket,
     required double amount,
     String? note,
+    double? amountIn,
   }) async =>
-      calls.add('move $kind $pocket $amount');
+      calls.add(
+          'move $kind $pocket $amount${amountIn == null ? '' : ' in $amountIn'}');
   @override
   Future<LydCount> lydCount({
     required double counted,
@@ -98,7 +100,7 @@ class _FakeRepo implements TreasuryRepository {
   @override
   Future<List<TreasuryPosition>> positions() async => const [];
   @override
-  Future<void> setCost(String exchangeId, double rate) async {}
+  Future<void> setCost(String exchangeId, double rate, {String? book}) async {}
   @override
   Future<List<ProfitRow>> profitReport(DateTime from, DateTime to) async =>
       const [];

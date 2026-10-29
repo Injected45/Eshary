@@ -18,17 +18,20 @@ class CustomersRepository {
         .toList();
   }
 
+  /// [book] 'cash' / 'bank' (0093); null: both.
   Future<CustomerStatement> statement(
     String clientId,
     DateTime from,
-    DateTime to,
-  ) async {
+    DateTime to, {
+    String? book,
+  }) async {
     final res = await _client.rpc<Map<String, dynamic>>(
       'customer_statement',
       params: {
         'p_client_id': clientId,
         'p_from': from.toUtc().toIso8601String(),
         'p_to': to.toUtc().toIso8601String(),
+        if (book != null) 'p_book': book,
       },
     );
     return CustomerStatement.fromJson(res);
@@ -51,6 +54,7 @@ class CustomersRepository {
     String? pocket,
     String? note,
     String? requestId,
+    String? book,
   }) async {
     final res = await _client.rpc<Map<String, dynamic>>(
       'customer_add_entry',
@@ -61,6 +65,8 @@ class CustomersRepository {
         'p_pocket': pocket,
         'p_note': note,
         'p_request_id': requestId,
+        // the book (0093): a collection or payment goes through its pocket
+        if (book != null) 'p_book': book,
       },
     );
     return (res['balance'] as num).toDouble();

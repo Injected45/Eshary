@@ -18,13 +18,13 @@ import '../data/customers_repository.dart';
 import '../domain/customer_account.dart';
 import 'customers_screen.dart';
 
-typedef _StatementKey = ({String clientId, DateTimeRange range});
+typedef _StatementKey = ({String clientId, DateTimeRange range, String? book});
 
 final customerStatementProvider = FutureProvider.autoDispose
     .family<CustomerStatement, _StatementKey>((ref, k) {
   return ref
       .watch(customersRepositoryProvider)
-      .statement(k.clientId, k.range.start, k.range.end);
+      .statement(k.clientId, k.range.start, k.range.end, book: k.book);
 });
 
 String _lyd(double v) => '${formatMoney(v)} د.ل';
@@ -57,6 +57,10 @@ class _CustomerStatementScreenState
   DateTime? _to;
   late double? _limit = widget.creditLimit;
 
+  /// One book's statement (0093), or both (null): cash and bank dinars are
+  /// two currencies, so a balance is read per book.
+  String? _book;
+
   bool get _rangeReady => _from != null && _to != null && !_from!.isAfter(_to!);
 
   _StatementKey get _key {
@@ -64,6 +68,7 @@ class _CustomerStatementScreenState
     return (
       clientId: widget.clientId,
       range: DateTimeRange(start: r.start, end: r.end),
+      book: _book,
     );
   }
 
@@ -108,7 +113,10 @@ class _CustomerStatementScreenState
         clientId: widget.clientId,
         kind: kind,
         amount: r.amount,
-        pocket: r.pocket,
+        // collect / pay go through the pocket of their book; an opening
+        // names its book only
+        pocket: kind == 'opening' ? null : r.pocket,
+        book: r.pocket,
         note: r.note,
         requestId: newRequestId(),
       ),
@@ -228,6 +236,24 @@ class _CustomerStatementScreenState
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final b in const [null, 'cash', 'bank'])
+                ChoiceChip(
+                  key: ValueKey('customer-book-${b ?? 'all'}'),
+                  label: Text(switch (b) {
+                    'cash' => 'نقدي',
+                    'bank' => 'مصرفي',
+                    _ => 'الدفتران',
+                  }),
+                  selected: _book == b,
+                  onSelected: (_) => setState(() => _book = b),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -463,7 +489,8 @@ class _EntryDialogState extends State<_EntryDialog> {
     final note = _note.text.trim();
     Navigator.of(context).pop<_EntryInput>((
       amount: _opening ? (_theyOwe ? v : -v) : v,
-      pocket: _opening ? null : _pocket,
+      // the book: for collect / pay also the pocket the dinars go through
+      pocket: _pocket,
       note: note.isEmpty ? null : note,
     ));
   }
@@ -504,17 +531,18 @@ class _EntryDialogState extends State<_EntryDialog> {
                 ],
                 selected: {_theyOwe},
                 onSelectionChanged: (s) => setState(() => _theyOwe = s.first),
-              )
-            else
-              SegmentedButton<String>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: kLydCash, label: Text('الصندوق')),
-                  ButtonSegment(value: kLydBank, label: Text('المصرف')),
-                ],
-                selected: {_pocket},
-                onSelectionChanged: (s) => setState(() => _pocket = s.first),
               ),
+            if (_opening) const SizedBox(height: 8),
+            SegmentedButton<String>(
+              key: const ValueKey('customer-entry-book'),
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: kLydCash, label: Text('نقدي (الصندوق)')),
+                ButtonSegment(value: kLydBank, label: Text('مصرفي (المصرف)')),
+              ],
+              selected: {_pocket},
+              onSelectionChanged: (s) => setState(() => _pocket = s.first),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _note,

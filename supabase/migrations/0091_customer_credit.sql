@@ -28,6 +28,16 @@ begin
   if to_regprocedure('public._next_reference_for(uuid, uuid)') is null then
     raise exception 'شغّل الترحيل 0089 و0090 أولًا، ثم هذا الملف. لم يتغير شيء.';
   end if;
+  -- run again after 0092 it would drop the closes and reconciliations from the
+  -- backups, the restores and the wipe
+  if to_regclass('public.period_closes') is not null then
+    raise exception 'هذا الملف (0091) طُبِّق سابقًا وتبعه 0092. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
+  -- run again after 0093 it would bring back the save functions without a
+  -- book and the backups without the books
+  if to_regclass('public.account_books') is not null then
+    raise exception 'هذا الملف (0091) طُبِّق سابقًا وتبعه 0093. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
 end $$;
 
 -- =============================================================================

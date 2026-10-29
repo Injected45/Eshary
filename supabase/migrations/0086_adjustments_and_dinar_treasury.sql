@@ -30,7 +30,13 @@ begin
   end if;
   -- run again after 0087 it would bring back the old save functions (the
   -- phone's reference, no request id) and the update-only balance trigger
-  if to_regprocedure('public.admin_open_account(uuid, text, numeric, text, text, numeric)') is not null then
+  -- run again after 0093 it would bring back save functions that move the
+  -- account but not its book (0093 replaced the signature tested below)
+  if to_regclass('public.account_books') is not null then
+    raise exception 'هذا الملف (0086) طُبِّق سابقًا وتبعه 0093. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
+  if to_regprocedure('public.admin_open_account(uuid, text, numeric, text, text, numeric)') is not null
+     or to_regclass('public.account_books') is not null then
     raise exception 'هذا الملف (0086) طُبِّق سابقًا وتبعه 0087. لا تشغّله مرة أخرى. لم يتغير شيء.';
   end if;
 end $$;

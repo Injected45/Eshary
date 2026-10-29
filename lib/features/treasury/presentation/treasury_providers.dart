@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../data/account_books_repository.dart';
 import '../data/treasury_repository.dart';
+import '../domain/account_books.dart';
 import '../domain/lyd_treasury.dart';
 import '../domain/profit_report.dart';
 import '../domain/treasury_position.dart';
@@ -22,6 +24,16 @@ final accountCostsProvider =
   if (ref.watch(isEmployeeProvider)) return const {};
   final rows = await ref.watch(treasuryRepositoryProvider).positions();
   return {for (final p in rows) p.exchangeId: p};
+});
+
+/// Each account's cash and bank books (0093), for the sale and purchase
+/// screens (the cost of the operation's book) and the treasury. The
+/// administrator only; empty for an employee; a failed read stays an error.
+final accountBooksProvider =
+    FutureProvider.autoDispose<Map<String, AccountBooks>>((ref) async {
+  if (ref.watch(isEmployeeProvider)) return const {};
+  final rows = await ref.watch(accountBooksRepositoryProvider).list();
+  return {for (final b in rows) b.exchangeId: b};
 });
 
 final profitReportProvider = FutureProvider.autoDispose

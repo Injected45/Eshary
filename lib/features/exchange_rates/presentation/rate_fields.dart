@@ -7,14 +7,15 @@ import 'exchange_rates_providers.dart';
 
 /// The rate an operation is saved with: the typed one, or — for an employee
 /// who may not edit it — the administrator's last rate of that kind ([sell]
-/// for an exit, buy for an entry). 0 when there is none.
+/// for a sale, buy for a purchase) in that [book]. 0 when there is none.
 double effectiveRate(
   TextEditingController controller,
   ExchangeRates? rates, {
   required bool sell,
+  String book = 'cash',
 }) {
   if (rates != null && !rates.canEditFor(sell: sell)) {
-    return (sell ? rates.sell : rates.buy) ?? 0;
+    return rates.lastFor(sell: sell, book: book) ?? 0;
   }
   return parseRate(controller.text);
 }
@@ -35,6 +36,7 @@ class RateFields extends StatelessWidget {
     required this.textStyle,
     this.accountCost,
     this.accountBalance,
+    this.book = 'cash',
   });
 
   final TextEditingController controller;
@@ -56,12 +58,15 @@ class RateFields extends StatelessWidget {
   final double? accountCost;
   final double? accountBalance;
 
-  double? get _last => sell ? rates?.sell : rates?.buy;
+  /// The book of the operation (0093): its rates are that book's.
+  final String book;
+
+  double? get _last => rates?.lastFor(sell: sell, book: book);
   bool get _locked => rates != null && !rates!.canEditFor(sell: sell);
 
   @override
   Widget build(BuildContext context) {
-    final rate = effectiveRate(controller, rates, sell: sell);
+    final rate = effectiveRate(controller, rates, sell: sell, book: book);
     final lyd = usd > 0 && rate > 0 ? lydFor(usd, rate) : null;
     final last = _last;
     final warn = !_locked && rate > 0 && rateLooksWrong(rate, last);

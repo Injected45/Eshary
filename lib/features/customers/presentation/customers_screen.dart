@@ -88,31 +88,46 @@ class CustomersScreen extends ConsumerWidget {
           ),
         ),
         data: (all) {
-          final t = CustomerTotals.of(all);
+          // each book on its own (0093): cash and bank dinars never add up
+          Widget totals(String title, CustomerTotals t) => GlassCard(
+                child: Column(
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textMid,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Total(
+                            'لنا على العملاء',
+                            _lyd(t.receivable),
+                            AppColors.positive,
+                          ),
+                        ),
+                        Expanded(
+                          child: _Total(
+                            'علينا للبائعين',
+                            _lyd(t.payable),
+                            AppColors.negative,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
           return ListView(
             padding:
                 EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
-              GlassCard(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Total(
-                        'لنا على العملاء',
-                        _lyd(t.receivable),
-                        AppColors.positive,
-                      ),
-                    ),
-                    Expanded(
-                      child: _Total(
-                        'علينا للبائعين',
-                        _lyd(t.payable),
-                        AppColors.negative,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              totals('الدفتر النقدي', CustomerTotals.of(all, book: 'cash')),
+              const SizedBox(height: 8),
+              totals('الدفتر المصرفي', CustomerTotals.of(all, book: 'bank')),
               const SizedBox(height: 12),
               if (all.isEmpty)
                 const Padding(
@@ -210,12 +225,27 @@ class _CustomerCard extends StatelessWidget {
               color: c.overLimit ? AppColors.warning : AppColors.textLow,
             ),
           ),
-          trailing: Text(
-            customerBalanceLabel(c.balance, formatMoney),
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: balanceColor(c.balance),
-            ),
+          // each book on its own line (0093): never one figure for both
+          trailing: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final (label, b) in [
+                ('نقدي', c.balanceCash),
+                ('مصرفي', c.balanceBank),
+              ])
+                if (b.abs() >= 0.005)
+                  Text(
+                    '$label: ${customerBalanceLabel(b, formatMoney)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: balanceColor(b),
+                    ),
+                  ),
+              if (c.balanceCash.abs() < 0.005 && c.balanceBank.abs() < 0.005)
+                const Text('مسدَّد'),
+            ],
           ),
         ),
       ),

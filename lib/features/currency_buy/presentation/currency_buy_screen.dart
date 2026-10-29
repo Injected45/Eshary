@@ -130,7 +130,11 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         _rate,
         ref.read(exchangeRatesProvider).valueOrNull,
         sell: false,
+        book: _book,
       );
+
+  /// The book of this purchase (0093): cash or bank dinars.
+  String get _book => lydBookOf(_lydMethod, _paidPocket);
 
   /// Everything needed to save: my account and the sender. Only then the save
   /// button is ready.
@@ -216,9 +220,10 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       _snack('سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.');
       return;
     }
-    if (rates.canEditBuy && rateLooksWrong(rate, rates.buy)) {
+    final lastBuy = rates.lastFor(sell: false, book: _book);
+    if (rates.canEditBuy && rateLooksWrong(rate, lastBuy)) {
       final sure =
-          await confirmUnusualRate(context, rate: rate, last: rates.buy!);
+          await confirmUnusualRate(context, rate: rate, last: lastBuy!);
       if (!sure || !mounted) return;
     }
     // on credit (0091): we owe the sender, so one must be chosen
@@ -288,6 +293,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               reference: _fullReference,
               lydMethod: payment.method,
               lydPaid: payment.paid,
+              book: payment.book,
               requestId: _requestId,
             );
       _requestSignature = null;
@@ -300,6 +306,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       } else {
         ref.invalidate(exchangeRatesProvider);
         ref.invalidate(accountCostsProvider);
+        ref.invalidate(accountBooksProvider);
         ref.invalidate(todayBuysProvider);
         ref.invalidate(archivedBuysProvider);
         ref.invalidate(allExchangesProvider);
@@ -1260,18 +1267,22 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 onDisabledTap: () {},
                 height: _kFieldHeight,
                 textStyle: _kFieldTextStyle,
+                book: _book,
+                // the cost after this purchase, in its book (0093)
                 accountCost: _exchange == null
                     ? null
                     : ref
-                        .watch(accountCostsProvider)
+                        .watch(accountBooksProvider)
                         .valueOrNull?[_exchange!.id]
-                        ?.costRate,
+                        ?.of(_book)
+                        .costRate,
                 accountBalance: _exchange == null
                     ? null
                     : ref
-                        .watch(accountCostsProvider)
+                        .watch(accountBooksProvider)
                         .valueOrNull?[_exchange!.id]
-                        ?.balance,
+                        ?.of(_book)
+                        .balance,
               ),
               const SizedBox(height: 10),
               LydMethodSelector(

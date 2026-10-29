@@ -13,6 +13,8 @@ import '../../cancellations/domain/cancellation.dart';
 import '../../companies/domain/exchange.dart';
 import '../../companies/presentation/account_statement_providers.dart';
 import '../../companies/presentation/companies_providers.dart';
+import '../../treasury/domain/account_books.dart';
+import '../../treasury/presentation/treasury_providers.dart';
 import '../data/account_expenses_repository.dart';
 import '../domain/account_expense.dart';
 
@@ -60,6 +62,17 @@ class _AccountExpenseDialogState extends ConsumerState<AccountExpenseDialog> {
   bool _busy = false;
   String? _error;
 
+  /// The book the commission's dollars leave (0093); null until chosen.
+  String? _book;
+
+  /// The chosen book, else the one holding dollars (bank first); null on a
+  /// database before 0093.
+  String? _bookFor(Map<String, AccountBooks>? all) {
+    final b = all?[widget.exchange.id];
+    if (b == null) return null;
+    return _book ?? (b.bank.hasDollars || !b.cash.hasDollars ? 'bank' : 'cash');
+  }
+
   static final _timeFmt = LibyaDateFormat('HH:mm');
 
   @override
@@ -105,7 +118,9 @@ class _AccountExpenseDialogState extends ConsumerState<AccountExpenseDialog> {
             amount: amount,
             code: _code.text.trim().isEmpty ? null : _code.text.trim(),
             note: note,
+            book: _bookFor(ref.read(accountBooksProvider).valueOrNull),
           );
+      ref.invalidate(accountBooksProvider);
       _refreshAfterChange();
       if (!mounted) return;
       _code.clear();
@@ -206,6 +221,33 @@ class _AccountExpenseDialogState extends ConsumerState<AccountExpenseDialog> {
                   style:
                       const TextStyle(color: AppColors.textLow, fontSize: 12),
                 ),
+                // the book the dollars leave (0093), when the database has books
+                ...() {
+                  final all = ref.watch(accountBooksProvider).valueOrNull;
+                  final b = all?[ex.id];
+                  if (b == null) return const <Widget>[];
+                  final book = _bookFor(all)!;
+                  return [
+                    const SizedBox(height: 10),
+                    SegmentedButton<String>(
+                      key: const ValueKey('expense-book'),
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                          value: 'cash',
+                          label: Text('نقدي \$${formatMoney(b.cash.balance)}'),
+                        ),
+                        ButtonSegment(
+                          value: 'bank',
+                          label: Text('مصرفي \$${formatMoney(b.bank.balance)}'),
+                        ),
+                      ],
+                      selected: {book},
+                      onSelectionChanged:
+                          _busy ? null : (s) => setState(() => _book = s.first),
+                    ),
+                  ];
+                }(),
                 const SizedBox(height: 14),
                 TextField(
                   key: const ValueKey('expense-code'),

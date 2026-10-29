@@ -40,6 +40,7 @@ class ExchangesRepository {
     String? ourCode,
     String? country,
     double? costRate,
+    String? book,
   }) async {
     final row = await _client.rpc<Map<String, dynamic>>(
       'admin_open_account',
@@ -50,6 +51,8 @@ class ExchangesRepository {
         'p_our_code': ourCode,
         'p_country': country,
         'p_cost_rate': costRate,
+        // the book of the opening balance (0093)
+        if (book != null) 'p_book': book,
       },
     );
     return Exchange.fromJson(row);

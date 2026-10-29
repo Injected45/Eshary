@@ -66,7 +66,12 @@ extension TreasuryReports on PdfExport {
             for (var i = 0; i < rows.length; i++)
               [
                 '${i + 1}',
-                _slash(rows[i].companyName, rows[i].accountName),
+                _slash(rows[i].companyName, rows[i].accountName) +
+                    (rows[i].book == null
+                        ? ''
+                        : rows[i].book == 'bank'
+                            ? ' · مصرفي'
+                            : ' · نقدي'),
                 '\$${formatMoney(rows[i].soldUsd)}',
                 '${formatMoney(rows[i].salesLyd)} د.ل',
                 '${formatMoney(rows[i].costLyd)} د.ل',
@@ -330,6 +335,188 @@ extension CustomerReports on PdfExport {
                     : PdfColors.grey800),
           ),
         ]),
+      ],
+    );
+    return doc.save();
+  }
+}
+
+extension LedgerReports on PdfExport {
+  String _lyd(double v) =>
+      v < 0 ? '−${formatMoney(-v)} د.ل' : '${formatMoney(v)} د.ل';
+
+  pw.Widget _title(String t) => pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 10, bottom: 4),
+        child: pw.Directionality(
+          textDirection: pw.TextDirection.rtl,
+          child: _ArText(
+            t,
+            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+            textDirection: pw.TextDirection.rtl,
+          ),
+        ),
+      );
+
+  /// "قائمة الدخل" (migration 0092): the income and the expenses of
+  /// [start]..[end] from the journal, and the net profit.
+  Future<Uint8List> buildIncomeStatement({
+    required IncomeStatement statement,
+    required DateTime start,
+    required DateTime end,
+    String? exportedBy,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final at = DateTime.now();
+    final header = _periodHeader(
+      title: 'قائمة الدخل',
+      period: periodLabel(start, end),
+      logo: await _loadLogo(),
+    );
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: at,
+      by: exportedBy,
+      body: [
+        header,
+        _title('الإيرادات'),
+        _reportTable(
+          headers: const ['الحساب', 'المبلغ'],
+          widths: const [4, 2],
+          rows: [
+            for (final l in statement.income) [l.name, _lyd(l.amount)],
+            if (statement.income.isEmpty) ['لا شيء', ''],
+          ],
+        ),
+        _title('المصروفات والخسائر'),
+        _reportTable(
+          headers: const ['الحساب', 'المبلغ'],
+          widths: const [4, 2],
+          rows: [
+            for (final l in statement.expenses) [l.name, _lyd(-l.amount)],
+            if (statement.expenses.isEmpty) ['لا شيء', ''],
+          ],
+        ),
+        pw.SizedBox(height: 12),
+        _statRow([
+          _statTile(
+            'صافي الربح',
+            _lyd(statement.net),
+            _profitPdfColor(statement.net),
+          ),
+        ]),
+      ],
+    );
+    return doc.save();
+  }
+
+  /// "الميزانية" (migration 0092) at [at].
+  Future<Uint8List> buildBalanceSheet({
+    required BalanceSheet sheet,
+    required DateTime at,
+    String? exportedBy,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final now = DateTime.now();
+    final header = _periodHeader(
+      title: 'الميزانية',
+      period: periodLabel(at, at),
+      logo: await _loadLogo(),
+    );
+    final b = sheet;
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: now,
+      by: exportedBy,
+      body: [
+        header,
+        _title('الأصول'),
+        _reportTable(
+          headers: const ['البند', 'المبلغ'],
+          widths: const [4, 2],
+          rows: [
+            ['الصندوق', _lyd(b.cash)],
+            ['المصرف', _lyd(b.bank)],
+            ['ذمم العملاء (لنا عليهم)', _lyd(b.receivable)],
+            ['الدولار بالتكلفة', _lyd(b.dollarsAtCost)],
+            if (b.unvalued.abs() >= 0.005)
+              ['دولار غير مقيّم', _lyd(b.unvalued)],
+            ['مجموع الأصول', _lyd(b.totalAssets)],
+          ],
+        ),
+        _title('الالتزامات وحقوق الملكية'),
+        _reportTable(
+          headers: const ['البند', 'المبلغ'],
+          widths: const [4, 2],
+          rows: [
+            ['ذمم دائنة (علينا للبائعين)', _lyd(b.payable)],
+            ['رأس المال والأرصدة الافتتاحية', _lyd(b.capital)],
+            if (b.revaluation.abs() >= 0.005)
+              ['إعادة تقييم التكلفة', _lyd(b.revaluation)],
+            if (b.outsideTreasury.abs() >= 0.005)
+              ['نقدية خارج خزينة الدينار', _lyd(b.outsideTreasury)],
+            ['الأرباح حتى التاريخ', _lyd(b.profitToDate)],
+            ['المجموع', _lyd(b.totalLiabilitiesAndEquity)],
+          ],
+        ),
+        _title('الدولار في كل حساب'),
+        _reportTable(
+          headers: const ['الحساب', 'الرصيد', 'التكلفة', 'القيمة'],
+          widths: const [3, 1.5, 1.2, 2],
+          rows: [
+            for (final i in b.inventory)
+              [
+                _slash(i.companyName, i.accountName),
+                '\$${formatMoney(i.balance)}',
+                i.costRate == null ? '—' : i.costRate!.toStringAsFixed(4),
+                i.bookValue == null ? 'بلا تكلفة' : _lyd(i.ledgerValue),
+              ],
+          ],
+        ),
+      ],
+    );
+    return doc.save();
+  }
+
+  /// "ميزان المراجعة" (migration 0092) at [at].
+  Future<Uint8List> buildTrialBalance({
+    required List<TrialLine> lines,
+    required DateTime at,
+    String? exportedBy,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final now = DateTime.now();
+    final header = _periodHeader(
+      title: 'ميزان المراجعة',
+      period: periodLabel(at, at),
+      logo: await _loadLogo(),
+    );
+    final t = trialTotals(lines);
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: now,
+      by: exportedBy,
+      body: [
+        header,
+        _reportTable(
+          headers: const ['الرمز', 'الحساب', 'مدين', 'دائن', 'الرصيد'],
+          widths: const [0.8, 3, 1.6, 1.6, 1.8],
+          rows: [
+            for (final l in lines)
+              [
+                l.account,
+                l.name,
+                formatMoney(l.debit),
+                formatMoney(l.credit),
+                l.balance >= 0
+                    ? 'مدين ${formatMoney(l.balance)}'
+                    : 'دائن ${formatMoney(-l.balance)}',
+              ],
+            ['', 'المجموع', formatMoney(t.debit), formatMoney(t.credit), ''],
+          ],
+        ),
       ],
     );
     return doc.save();

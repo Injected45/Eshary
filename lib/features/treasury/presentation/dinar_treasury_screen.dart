@@ -191,7 +191,8 @@ class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
       ];
 
   Future<void> _move({required bool deposit}) async {
-    final r = await showDialog<({String pocket, double amount, String? note})>(
+    final r = await showDialog<
+        ({String pocket, double amount, double? amountIn, String? note})>(
       context: context,
       builder: (_) => _AmountDialog(
         title: deposit ? 'إيداع دينار' : 'سحب دينار',
@@ -211,11 +212,13 @@ class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
   }
 
   Future<void> _transfer() async {
-    final r = await showDialog<({String pocket, double amount, String? note})>(
+    final r = await showDialog<
+        ({String pocket, double amount, double? amountIn, String? note})>(
       context: context,
       builder: (_) => const _AmountDialog(
         title: 'تحويل بين الصندوق والمصرف',
         withPocket: true,
+        withAmountIn: true,
         pocketLabels: ('من الصندوق إلى المصرف', 'من المصرف إلى الصندوق'),
       ),
     );
@@ -224,6 +227,7 @@ class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
       () => ref.read(treasuryRepositoryProvider).lydMove(
             kind: r.pocket == 'cash' ? 'cash_to_bank' : 'bank_to_cash',
             amount: r.amount,
+            amountIn: r.amountIn,
             note: r.note,
           ),
       'تم التحويل.',
@@ -523,11 +527,16 @@ class _AmountDialog extends StatefulWidget {
   const _AmountDialog({
     required this.title,
     this.withPocket = false,
+    this.withAmountIn = false,
     this.pocketLabels = ('الصندوق', 'المصرف'),
   });
 
   final String title;
   final bool withPocket;
+
+  /// A conversion between the box and the bank (0093): what arrived may
+  /// differ from what left (the commission of turning a cheque into cash).
+  final bool withAmountIn;
   final (String, String) pocketLabels;
 
   @override
@@ -537,11 +546,13 @@ class _AmountDialog extends StatefulWidget {
 class _AmountDialogState extends State<_AmountDialog> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
+  final _amountIn = TextEditingController();
   String _pocket = 'cash';
 
   @override
   void dispose() {
     _amount.dispose();
+    _amountIn.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -578,9 +589,28 @@ class _AmountDialogState extends State<_AmountDialog> {
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            decoration: const InputDecoration(labelText: 'المبلغ (د.ل)'),
+            decoration: InputDecoration(
+              labelText:
+                  widget.withAmountIn ? 'المبلغ الخارج (د.ل)' : 'المبلغ (د.ل)',
+            ),
             onChanged: (_) => setState(() {}),
           ),
+          if (widget.withAmountIn) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('lyd-amount-in'),
+              controller: _amountIn,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(
+                labelText: 'المبلغ الواصل (د.ل)',
+                helperText:
+                    'اتركه فارغًا إذا وصل نفس المبلغ. الفرق عمولة تسييل.',
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: _note,
@@ -601,6 +631,9 @@ class _AmountDialogState extends State<_AmountDialog> {
                     (
                       pocket: _pocket,
                       amount: amount,
+                      amountIn: _amountIn.text.trim().isEmpty
+                          ? null
+                          : (parseMoney(_amountIn.text) * 100).round() / 100,
                       note:
                           _note.text.trim().isEmpty ? null : _note.text.trim(),
                     ),

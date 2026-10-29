@@ -13,7 +13,7 @@ const PLATFORM = '22222222-2222-2222-2222-222222222222';
 const C = '55555555-5555-5555-5555-555555555555';
 const n = (v) => (v === null || v === undefined ? null : Number(v));
 
-const db = await freshDb();
+const db = await freshDb({ upTo: 92 }); // a sale paid in cash from the account's dollars: 0093 sells from the cash book only
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 await db.exec(`
   insert into auth.users (id, email, encrypted_password, raw_user_meta_data) values

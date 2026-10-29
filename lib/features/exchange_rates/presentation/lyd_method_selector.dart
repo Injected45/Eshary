@@ -22,22 +22,31 @@ String lydMethodLabel(String? method) => switch (method) {
       _ => '—',
     };
 
-/// What is sent with a save for the payment chosen on the screen.
-typedef LydPaymentArgs = ({String? method, double? paid});
+/// What is sent with a save for the payment chosen on the screen. [book] is
+/// the operation's book (0093): its dollars, cost and rates are that book's.
+typedef LydPaymentArgs = ({String? method, double? paid, String book});
 
-/// [choice] cash / bank: paid in full through that pocket ([paid] null tells
-/// the database "all of it"). credit: nothing paid now. partial: [partialPaid]
-/// paid now through [pocket], the rest on credit.
+/// [choice] cash / bank: paid in full through that pocket, in that book
+/// ([paid] null tells the database "all of it"). credit: nothing paid now, in
+/// the book [pocket]. partial: [partialPaid] paid now through [pocket], the
+/// rest on credit, in that book.
 LydPaymentArgs lydPaymentArgs(
   String choice, {
   double partialPaid = 0,
   String pocket = kLydCash,
 }) =>
     switch (choice) {
-      kLydCredit => (method: null, paid: 0),
-      kLydPartial => (method: pocket, paid: partialPaid),
-      _ => (method: choice, paid: null),
+      kLydCredit => (method: null, paid: 0, book: pocket),
+      kLydPartial => (method: pocket, paid: partialPaid, book: pocket),
+      _ => (method: choice, paid: null, book: choice),
     };
+
+/// The book of the payment chosen: «نقدًا» is the cash book, «مصرفي» the
+/// bank book; on credit, the book chosen under it.
+String lydBookOf(String choice, String pocket) =>
+    choice == kLydCash || choice == kLydBank ? choice : pocket;
+
+String lydBookLabel(String book) => book == kLydBank ? 'مصرفي' : 'نقدي';
 
 /// Whether [choice] leaves part of the dinars on credit.
 bool lydOnCredit(String choice) =>
@@ -78,6 +87,7 @@ class LydMethodSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final partial = allowCredit && value == kLydPartial;
+    final credit = allowCredit && (value == kLydCredit || partial);
     final paid = parseMoney(paidController?.text ?? '');
     final rest = total == null
         ? null
@@ -140,31 +150,42 @@ class LydMethodSelector extends StatelessWidget {
             ),
           ],
         ),
-        if (partial) ...[
+        if (credit) ...[
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: TextField(
-                  key: const ValueKey('lyd-paid'),
-                  controller: paidController,
-                  enabled: enabled,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => onPaidChanged?.call(),
-                  decoration: InputDecoration(
-                    labelText:
-                        sell ? 'المدفوع الآن (د.ل)' : 'دفعناه الآن (د.ل)',
-                    isDense: true,
+              if (partial)
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('lyd-paid'),
+                    controller: paidController,
+                    enabled: enabled,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => onPaidChanged?.call(),
+                    decoration: InputDecoration(
+                      labelText:
+                          sell ? 'المدفوع الآن (د.ل)' : 'دفعناه الآن (د.ل)',
+                      isDense: true,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
+              if (partial) const SizedBox(width: 8),
+              if (!partial)
+                const Padding(
+                  padding: EdgeInsetsDirectional.only(end: 12),
+                  child: Text(
+                    'الدفتر',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMid),
+                  ),
+                ),
+              // the book (0093): cash dinars or bank dinars; on «جزئي» also
+              // the pocket of the part paid now
               SegmentedButton<String>(
                 key: const ValueKey('lyd-paid-pocket'),
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: kLydCash, label: Text('نقدًا')),
+                  ButtonSegment(value: kLydCash, label: Text('نقدي')),
                   ButtonSegment(value: kLydBank, label: Text('مصرفي')),
                 ],
                 selected: {pocket},

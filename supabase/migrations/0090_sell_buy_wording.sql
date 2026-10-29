@@ -16,6 +16,11 @@ begin
   if to_regprocedure('public._next_reference_for(uuid, uuid)') is null then
     raise exception 'شغّل الترحيل 0089 أولًا، ثم هذا الملف. لم يتغير شيء.';
   end if;
+  -- run again after 0093 it would bring back a cancel that moves the account
+  -- but not its book
+  if to_regclass('public.account_books') is not null then
+    raise exception 'هذا الملف (0090) طُبِّق سابقًا وتبعه 0093. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
 end $$;
 
 create or replace function admin_reject_cancellation(

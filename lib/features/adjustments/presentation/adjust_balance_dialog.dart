@@ -17,6 +17,7 @@ Future<bool> showAdjustBalanceDialog(
   required String exchangeId,
   required String accountName,
   required double balance,
+  ({double cash, double bank})? books,
 }) async {
   final res = await showDialog<bool>(
     context: context,
@@ -24,6 +25,7 @@ Future<bool> showAdjustBalanceDialog(
       exchangeId: exchangeId,
       accountName: accountName,
       balance: balance,
+      books: books,
     ),
   );
   return res ?? false;
@@ -35,11 +37,16 @@ class AdjustBalanceDialog extends ConsumerStatefulWidget {
     required this.exchangeId,
     required this.accountName,
     required this.balance,
+    this.books,
   });
 
   final String exchangeId;
   final String accountName;
   final double balance;
+
+  /// The account's two books (0093): the adjustment corrects one of them.
+  /// Null on a database before 0093: the account as a whole.
+  final ({double cash, double bank})? books;
 
   @override
   ConsumerState<AdjustBalanceDialog> createState() =>
@@ -53,6 +60,19 @@ class _AdjustBalanceDialogState extends ConsumerState<AdjustBalanceDialog> {
   bool _busy = false;
   bool _hidePassword = true;
   String? _error;
+
+  /// The book corrected (0093).
+  late String _book =
+      (widget.books?.bank ?? 0) > 0 || (widget.books?.cash ?? 0) <= 0
+          ? 'bank'
+          : 'cash';
+
+  /// The balance being corrected: the chosen book's, or the account's.
+  double get _current {
+    final b = widget.books;
+    if (b == null) return widget.balance;
+    return _book == 'bank' ? b.bank : b.cash;
+  }
 
   @override
   void dispose() {
@@ -71,7 +91,7 @@ class _AdjustBalanceDialogState extends ConsumerState<AdjustBalanceDialog> {
       setState(() => _error = 'اكتب الرصيد الصحيح للحساب.');
       return;
     }
-    if (newBalance == widget.balance) {
+    if (newBalance == _current) {
       setState(() => _error = 'الرصيد الجديد مثل الحالي، لا يوجد ما يُسوّى.');
       return;
     }
@@ -93,6 +113,7 @@ class _AdjustBalanceDialogState extends ConsumerState<AdjustBalanceDialog> {
             newBalance: newBalance,
             reason: reason,
             password: _password.text,
+            book: widget.books == null ? null : _book,
           );
       if (!mounted) return;
       switch (result) {
@@ -140,7 +161,7 @@ class _AdjustBalanceDialogState extends ConsumerState<AdjustBalanceDialog> {
   @override
   Widget build(BuildContext context) {
     final typed = _newBalance.text.trim().isEmpty ? null : _typed;
-    final delta = typed == null ? null : typed - widget.balance;
+    final delta = typed == null ? null : typed - _current;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
@@ -161,9 +182,26 @@ class _AdjustBalanceDialogState extends ConsumerState<AdjustBalanceDialog> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (widget.books != null) ...[
+                  const SizedBox(height: 10),
+                  // the book corrected (0093)
+                  SegmentedButton<String>(
+                    key: const ValueKey('adjust-book'),
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                          value: 'cash', label: Text('الدفتر النقدي')),
+                      ButtonSegment(
+                          value: 'bank', label: Text('الدفتر المصرفي')),
+                    ],
+                    selected: {_book},
+                    onSelectionChanged:
+                        _busy ? null : (s) => setState(() => _book = s.first),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Text(
-                  'الرصيد الحالي \$${formatMoney(widget.balance)}',
+                  'الرصيد الحالي \$${formatMoney(_current)}',
                   style: const TextStyle(
                     color: AppColors.textHigh,
                     fontWeight: FontWeight.w700,

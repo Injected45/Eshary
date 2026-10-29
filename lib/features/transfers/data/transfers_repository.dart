@@ -127,6 +127,7 @@ class TransfersRepository {
     String? customerId,
     double? lydPaid,
     bool overLimit = false,
+    String? book,
   }) async {
     final res = await _client.rpc(
       'record_transfer',
@@ -152,6 +153,8 @@ class TransfersRepository {
         'p_customer_id': customerId,
         'p_lyd_paid': lydPaid,
         'p_over_limit': overLimit,
+        // its book: cash dinars or bank dinars (0093)
+        'p_book': book,
       },
     );
     return Transfer.fromJson(res as Map<String, dynamic>);

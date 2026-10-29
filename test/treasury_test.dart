@@ -31,7 +31,7 @@ class _FakeRepo implements TreasuryRepository {
   @override
   Future<List<TreasuryPosition>> positions() async => const [];
   @override
-  Future<void> setCost(String exchangeId, double rate) async =>
+  Future<void> setCost(String exchangeId, double rate, {String? book}) async =>
       calls.add((exchangeId, rate));
   @override
   Future<List<ProfitRow>> profitReport(DateTime from, DateTime to) async =>
@@ -49,6 +49,7 @@ class _FakeRepo implements TreasuryRepository {
     String? pocket,
     required double amount,
     String? note,
+    double? amountIn,
   }) async {}
   @override
   Future<LydCount> lydCount({

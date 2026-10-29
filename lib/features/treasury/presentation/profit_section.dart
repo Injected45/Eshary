@@ -210,7 +210,8 @@ class ProfitCard extends StatelessWidget {
             const _Heading('حسب الحساب'),
             for (final r in rows)
               _Row(
-                '${r.accountName} — ${r.companyName}',
+                '${r.accountName} — ${r.companyName}'
+                '${r.book == null ? '' : r.book == 'bank' ? ' · مصرفي' : ' · نقدي'}',
                 formatProfit(r.profitLyd),
                 color: profitColor(r.profitLyd),
               ),

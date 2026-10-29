@@ -122,6 +122,7 @@ class CurrencyBuysRepository {
     String? lydMethod = 'cash',
     String? requestId,
     double? lydPaid,
+    String? book,
   }) async {
     final res = await _client.rpc(
       'record_currency_buy',
@@ -141,6 +142,8 @@ class CurrencyBuysRepository {
         'p_request_id': requestId,
         // how much we paid now (null = all of it); the rest we owe (0091)
         'p_lyd_paid': lydPaid,
+        // its book: cash dinars or bank dinars (0093)
+        'p_book': book,
       },
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);

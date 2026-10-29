@@ -49,8 +49,9 @@ class _FakeRepo implements CustomersRepository {
   Future<CustomerStatement> statement(
     String clientId,
     DateTime from,
-    DateTime to,
-  ) async =>
+    DateTime to, {
+    String? book,
+  }) async =>
       CustomerStatement.fromJson(_statementJson());
 
   @override
@@ -61,8 +62,9 @@ class _FakeRepo implements CustomersRepository {
     String? pocket,
     String? note,
     String? requestId,
+    String? book,
   }) async {
-    calls.add('$kind $amount $pocket');
+    calls.add('$kind $amount $pocket $book');
     return 0;
   }
 
@@ -76,18 +78,33 @@ class _FakeRepo implements CustomersRepository {
 
 void main() {
   group('what a save sends for the payment chosen', () {
-    test('cash / bank: all of it, through that pocket', () {
-      expect(lydPaymentArgs(kLydCash), (method: kLydCash, paid: null));
-      expect(lydPaymentArgs(kLydBank), (method: kLydBank, paid: null));
+    test('cash / bank: all of it, through that pocket, in that book', () {
+      expect(
+        lydPaymentArgs(kLydCash),
+        (method: kLydCash, paid: null, book: kLydCash),
+      );
+      expect(
+        lydPaymentArgs(kLydBank),
+        (method: kLydBank, paid: null, book: kLydBank),
+      );
     });
-    test('credit: nothing paid, no pocket', () {
-      expect(lydPaymentArgs(kLydCredit), (method: null, paid: 0.0));
+    test('credit: nothing paid, no pocket, in the book chosen', () {
+      expect(
+        lydPaymentArgs(kLydCredit, pocket: kLydBank),
+        (method: null, paid: 0.0, book: kLydBank),
+      );
     });
-    test('partial: the part paid, through its pocket', () {
+    test('partial: the part paid, through its pocket, in that book', () {
       expect(
         lydPaymentArgs(kLydPartial, partialPaid: 250, pocket: kLydBank),
-        (method: kLydBank, paid: 250.0),
+        (method: kLydBank, paid: 250.0, book: kLydBank),
       );
+    });
+    test('the book of each choice (0093)', () {
+      expect(lydBookOf(kLydCash, kLydBank), kLydCash);
+      expect(lydBookOf(kLydBank, kLydCash), kLydBank);
+      expect(lydBookOf(kLydCredit, kLydBank), kLydBank);
+      expect(lydBookOf(kLydPartial, kLydCash), kLydCash);
     });
     test('which choices leave a debt', () {
       expect(lydOnCredit(kLydCash), isFalse);
@@ -236,7 +253,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('customer-amount-save')));
       await tester.pumpAndSettle();
-      expect(repo.calls, ['collect 400.0 cash']);
+      expect(repo.calls, ['collect 400.0 cash cash']);
     });
 
     testWidgets('an opening balance we owe him is negative', (tester) async {
@@ -250,7 +267,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('customer-amount-save')));
       await tester.pumpAndSettle();
-      expect(repo.calls, ['opening -120.0 null']);
+      expect(repo.calls, ['opening -120.0 null cash']);
     });
 
     testWidgets('the limit, and none at all', (tester) async {

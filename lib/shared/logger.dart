@@ -253,6 +253,36 @@ String friendlyError(Object e) {
   if (s.contains('account_name_required')) {
     return 'اكتب اسم الحساب.';
   }
+  // The cash and bank books (0093).
+  if (s.contains('book_insufficient')) {
+    return 'دولار هذا الدفتر (النقدي أو المصرفي) في الحساب لا يكفي. '
+        'حوّل من الدفتر الآخر من «الخزينة» أولًا.';
+  }
+  if (s.contains('books_already_split')) {
+    return 'قُسّم دولار هذا الحساب من قبل. استعمل «تحويل بين الدفترين».';
+  }
+  if (s.contains('book_required') || s.contains('book_invalid')) {
+    return 'اختر الدفتر: النقدي أو المصرفي.';
+  }
+  if (s.contains('books_split_invalid')) {
+    return 'التقسيم غير صحيح: الدولار النقدي بين صفر ورصيد الحساب، '
+        'ولكل دفتر فيه دولار تكلفته.';
+  }
+  if (s.contains('book_cost_missing')) {
+    return 'حدّد تكلفة الدفتر أولًا (الدفتر الذي يخرج منه الدولار، '
+        'أو الذي يستقبله وفيه دولار).';
+  }
+  if (s.contains('book_move_invalid')) {
+    return 'التحويل غير صحيح: المبلغ أكبر من صفر ومن دفتر إلى الآخر، '
+        'والسعر بين 1 و100.';
+  }
+  if (s.contains('factor_invalid')) {
+    return 'سعر التسييل غير صحيح: اكتب كم دينارًا نقديًا يساوي الدينار المصرفي.';
+  }
+  // The general ledger (0092).
+  if (s.contains('period_already_closed')) {
+    return 'هذه الفترة مُقفلة من قبل. اختر وقتًا بعد آخر إقفال.';
+  }
   // Selling and buying on credit (0091).
   if (s.contains('credit_limit_exceeded')) {
     return 'تجاوز حد الدين المسموح لهذا العميل (أو لم يُحدَّد له حد). '

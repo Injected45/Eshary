@@ -34,6 +34,10 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
   final _exName = TextEditingController();
   final _balance = TextEditingController();
   final _cost = TextEditingController();
+
+  /// The book the opening dollars belong to (0093): bought with cash or
+  /// bank dinars.
+  String _openingBook = 'bank';
   final _ourCode = TextEditingController();
   final _ref = TextEditingController();
   final _country = TextEditingController();
@@ -174,6 +178,9 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
               country:
                   _country.text.trim().isEmpty ? null : _country.text.trim(),
               costRate: _withCost ? _costRate : null,
+              book: _withCost && parseMoney(_balance.text) > 0
+                  ? _openingBook
+                  : null,
             );
         ref.invalidate(treasuryProvider);
         ref.invalidate(accountCostsProvider);
@@ -353,6 +360,29 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
 
   Widget _buildCostRow() {
     final total = _costTotal;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // which book the opening dollars were bought in (0093)
+        if (parseMoney(_balance.text) > 0) ...[
+          SegmentedButton<String>(
+            key: const ValueKey('opening-book'),
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 'cash', label: Text('دولار نقدي')),
+              ButtonSegment(value: 'bank', label: Text('دولار مصرفي')),
+            ],
+            selected: {_openingBook},
+            onSelectionChanged: (s) => setState(() => _openingBook = s.first),
+          ),
+          const SizedBox(height: 10),
+        ],
+        _costRowFields(total),
+      ],
+    );
+  }
+
+  Widget _costRowFields(double? total) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -13,6 +13,9 @@ import '../data/treasury_repository.dart';
 import '../domain/treasury_position.dart';
 import 'cost_history_screen.dart';
 import '../../customers/presentation/customers_screen.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import '../../ledger/presentation/reconcile_dialog.dart';
+import 'books_section.dart';
 import 'dinar_treasury_screen.dart';
 import 'treasury_pdf.dart';
 import 'profit_section.dart';
@@ -104,6 +107,22 @@ class TreasuryScreen extends ConsumerWidget {
                 ),
                 icon: const FaIcon(FontAwesomeIcons.handshake, size: 13),
                 label: const Text('ذمم العملاء (البيع والشراء بالآجل)'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // the double-entry books: income statement, balance sheet... (0092)
+              OutlinedButton.icon(
+                key: const ValueKey('open-ledger'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const LedgerScreen(),
+                  ),
+                ),
+                icon: const FaIcon(FontAwesomeIcons.bookOpen, size: 13),
+                label:
+                    const Text('الحسابات الختامية (الدخل، الميزانية، اليومية)'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),
                 ),
@@ -305,6 +324,8 @@ class _AccountCostCard extends ConsumerWidget {
               formatProfit(p.unrealized!),
               color: profitColor(p.unrealized!),
             ),
+          // the cash and bank books of this account (0093)
+          BooksSection(exchangeId: p.exchangeId),
           const SizedBox(height: 10),
           if (!p.hasCost)
             FilledButton.icon(
@@ -347,14 +368,35 @@ class _AccountCostCard extends ConsumerWidget {
                     exchangeId: p.exchangeId,
                     accountName: p.accountName,
                     balance: p.balance,
+                    // the account's two books (0093), when the database has them
+                    books: () {
+                      final b = ref
+                          .read(accountBooksProvider)
+                          .valueOrNull?[p.exchangeId];
+                      return b == null
+                          ? null
+                          : (cash: b.cash.balance, bank: b.bank.balance);
+                    }(),
                   );
                   if (done) {
+                    ref.invalidate(accountBooksProvider);
                     ref.invalidate(treasuryProvider);
                     ref.invalidate(allExchangesProvider);
                   }
                 },
                 icon: const FaIcon(FontAwesomeIcons.scaleUnbalanced, size: 11),
                 label: const Text('تسوية الرصيد'),
+              ),
+              // the exchange company's statement against ours (0092)
+              TextButton.icon(
+                key: ValueKey('reconcile-${p.exchangeId}'),
+                onPressed: () => showReconcileDialog(
+                  context,
+                  exchangeId: p.exchangeId,
+                  accountName: p.accountName,
+                ),
+                icon: const FaIcon(FontAwesomeIcons.listCheck, size: 11),
+                label: const Text('مطابقة الكشف'),
               ),
             ],
           ),
@@ -368,13 +410,40 @@ class _AccountCostCard extends ConsumerWidget {
     WidgetRef ref,
     TreasuryPosition p,
   ) async {
+    // since 0093 a cost belongs to one book: which one
+    final books = ref.read(accountBooksProvider).valueOrNull?[p.exchangeId];
+    String? book;
+    if (books != null) {
+      book = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('تكلفة أي دفتر؟'),
+          children: [
+            for (final b in const ['cash', 'bank'])
+              SimpleDialogOption(
+                key: ValueKey('cost-book-$b'),
+                onPressed: () => Navigator.of(ctx).pop(b),
+                child: Text(
+                  '${b == 'cash' ? 'الدفتر النقدي' : 'الدفتر المصرفي'} · '
+                  '\$${formatMoney(books.of(b).balance)}'
+                  '${books.of(b).costRate == null ? '' : ' بتكلفة ${formatCost(books.of(b).costRate!)}'}',
+                ),
+              ),
+          ],
+        ),
+      );
+      if (book == null || !context.mounted) return;
+    }
     final rate = await showDialog<double>(
       context: context,
       builder: (_) => _CostDialog(position: p),
     );
     if (rate == null) return;
     try {
-      await ref.read(treasuryRepositoryProvider).setCost(p.exchangeId, rate);
+      await ref
+          .read(treasuryRepositoryProvider)
+          .setCost(p.exchangeId, rate, book: book);
+      ref.invalidate(accountBooksProvider);
       ref.invalidate(treasuryProvider);
       if (context.mounted) {
         showTopSnackBar(

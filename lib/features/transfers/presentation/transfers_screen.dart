@@ -296,18 +296,26 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return [card1, card2, card3];
   }
 
-  /// The chosen account's cost price: the administrator only, null for an
-  /// employee or an account without one.
+  /// The book of this sale (0093): cash or bank dinars.
+  String get _book => lydBookOf(_lydMethod, _paidPocket);
+
+  /// The cost price of the chosen account's dollars in this sale's book: the
+  /// administrator only, null for an employee or a book without one.
   double? get _accountCost => _exchange == null
       ? null
-      : ref.read(accountCostsProvider).valueOrNull?[_exchange!.id]?.costRate;
+      : ref
+          .read(accountBooksProvider)
+          .valueOrNull?[_exchange!.id]
+          ?.of(_book)
+          .costRate;
 
-  /// The sell rate this exit is saved with (the administrator's last one for
-  /// an employee who may not edit it), 0 when none.
+  /// The sell rate this sale is saved with (the administrator's last one of
+  /// this book for an employee who may not edit it), 0 when none.
   double get _sellRate => effectiveRate(
         _rate,
         ref.read(exchangeRatesProvider).valueOrNull,
         sell: true,
+        book: _book,
       );
 
   Future<void> _saveAndOpenMessages() async {
@@ -336,16 +344,17 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('سعر الصرف غير معقول: يجب أن يكون بين 1 و 100 دينار للدولار.');
       return;
     }
-    if (rates.canEditSell && rateLooksWrong(rate, rates.sell)) {
+    final lastSell = rates.lastFor(sell: true, book: _book);
+    if (rates.canEditSell && rateLooksWrong(rate, lastSell)) {
       final sure =
-          await confirmUnusualRate(context, rate: rate, last: rates.sell!);
+          await confirmUnusualRate(context, rate: rate, last: lastSell!);
       if (!sure || !mounted) return;
     }
     // the administrator: selling below the account's cost loses money. When
     // the cost could not be read, say so instead of skipping the check.
     if (!ref.read(isEmployeeProvider) &&
-        ref.read(accountCostsProvider).hasError) {
-      ref.invalidate(accountCostsProvider);
+        ref.read(accountBooksProvider).hasError) {
+      ref.invalidate(accountBooksProvider);
       _snack('تعذّر التحقق من سعر التكلفة. تحقق من الاتصال وحاول مرة أخرى.');
       return;
     }
@@ -402,6 +411,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       rate,
       _lydMethod,
       pay.paid,
+      pay.book,
       credit ? _creditCustomer!.id : null,
     ].join('|');
     if (_requestSignature != signature) {
@@ -423,6 +433,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 rate: rate,
                 lydMethod: pay.method,
                 lydPaid: pay.paid,
+                book: pay.book,
                 customerId: credit ? _creditCustomer!.id : null,
                 overLimit: overLimit,
                 requestId: _requestId,
@@ -454,6 +465,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       await _persistBeneficiaryCode();
       ref.invalidate(exchangeRatesProvider);
       ref.invalidate(accountCostsProvider);
+      ref.invalidate(accountBooksProvider);
       ref.invalidate(todayTransfersProvider);
       ref.invalidate(archivedTransfersProvider);
       ref.invalidate(allExchangesProvider);
@@ -997,12 +1009,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                 onDisabledTap: _showOutgoingValidation,
                 height: _kFieldHeight,
                 textStyle: _kFieldTextStyle,
+                book: _book,
                 accountCost: _exchange == null
                     ? null
                     : ref
-                        .watch(accountCostsProvider)
+                        .watch(accountBooksProvider)
                         .valueOrNull?[_exchange!.id]
-                        ?.costRate,
+                        ?.of(_book)
+                        .costRate,
               ),
               if (_outgoingFieldsEnabled) ...[
                 const SizedBox(height: 10),

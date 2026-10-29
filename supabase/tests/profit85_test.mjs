@@ -12,7 +12,7 @@ const OTHER = '22222222-2222-2222-2222-222222222222';
 const A_EMP = '33333333-3333-3333-3333-333333333333';
 const n = (v) => (v === null || v === undefined ? null : Number(v));
 
-const db = await freshDb();
+const db = await freshDb({ upTo: 92 }); // re-runs 0085, whose profit_report 0093 replaces (per book)
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 await db.exec(`
   insert into auth.users (id, email, encrypted_password) values

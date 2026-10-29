@@ -10,7 +10,10 @@ class CustomerBalance {
     this.creditLimit,
     required this.balance,
     this.lastAt,
-  });
+    double? balanceCash,
+    double? balanceBank,
+  })  : balanceCash = balanceCash ?? balance,
+        balanceBank = balanceBank ?? 0;
 
   final String clientId;
   final String name;
@@ -20,9 +23,14 @@ class CustomerBalance {
   /// The most he may owe us. Null: no credit for him.
   final double? creditLimit;
 
-  /// + he owes us; − we owe him.
+  /// + he owes us; − we owe him. Both books together (0093: never add cash
+  /// and bank dinars for a decision — use [balanceCash] / [balanceBank]).
   final double balance;
   final DateTime? lastAt;
+
+  /// The same per book (0093): cash dinars and bank dinars.
+  final double balanceCash;
+  final double balanceBank;
 
   /// "name / company", the way the app names a party.
   String get title => [
@@ -30,7 +38,10 @@ class CustomerBalance {
         if ((company ?? '').trim().isNotEmpty) company!.trim(),
       ].join(' / ');
 
-  bool get overLimit => balance > (creditLimit ?? 0) && balance > 0;
+  /// The limit applies to each book on its own (0093).
+  bool get overLimit =>
+      (balanceCash > 0 && balanceCash > (creditLimit ?? 0)) ||
+      (balanceBank > 0 && balanceBank > (creditLimit ?? 0));
 
   factory CustomerBalance.fromJson(Map<String, dynamic> j) => CustomerBalance(
         clientId: j['client_id'] as String,
@@ -42,6 +53,9 @@ class CustomerBalance {
         lastAt: j['last_at'] == null
             ? null
             : DateTime.parse(j['last_at'] as String),
+        // a database before 0093 has one balance: all of it is the cash one
+        balanceCash: (j['balance_cash'] as num?)?.toDouble(),
+        balanceBank: (j['balance_bank'] as num?)?.toDouble(),
       );
 }
 
@@ -55,13 +69,21 @@ class CustomerTotals {
   /// The sum of the negative balances, as a positive figure: we owe.
   final double payable;
 
-  factory CustomerTotals.of(List<CustomerBalance> all) {
+  /// [book] 'cash' / 'bank' for one book; null for both (each book's
+  /// balance taken on its own, so a customer owing in one book and owed in
+  /// the other is not netted).
+  factory CustomerTotals.of(List<CustomerBalance> all, {String? book}) {
     var cents = 0;
     var owe = 0;
-    for (final c in all) {
-      final v = (c.balance * 100).round();
+    void add(double b) {
+      final v = (b * 100).round();
       if (v > 0) cents += v;
       if (v < 0) owe -= v;
+    }
+
+    for (final c in all) {
+      if (book != 'bank') add(c.balanceCash);
+      if (book != 'cash') add(c.balanceBank);
     }
     return CustomerTotals(receivable: cents / 100, payable: owe / 100);
   }
@@ -80,6 +102,7 @@ class CustomerEntry {
     this.usd,
     this.rate,
     this.lyd,
+    this.book,
   });
 
   final String id;
@@ -98,6 +121,9 @@ class CustomerEntry {
   final double? usd;
   final double? rate;
   final double? lyd;
+
+  /// 'cash' / 'bank' (0093).
+  final String? book;
 
   String get label => switch (kind) {
         'sale' => 'بيع بالآجل',
@@ -121,6 +147,7 @@ class CustomerEntry {
         usd: (j['usd'] as num?)?.toDouble(),
         rate: (j['rate'] as num?)?.toDouble(),
         lyd: (j['lyd'] as num?)?.toDouble(),
+        book: j['book'] as String?,
       );
 }
 

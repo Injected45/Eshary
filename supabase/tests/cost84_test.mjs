@@ -58,7 +58,7 @@ async function setup(db, { balanceA = 0 } = {}) {
   ok((await t.q(`select count(*)::int k from operation_costs`))[0].k === 2, 'running it again changes nothing');
 }
 
-const db = await freshDb();
+const db = await freshDb({ upTo: 92 }); // the rates of one kind (0093 keeps one per book)
 const t = await setup(db, { balanceA: 0 });
 const { q, A } = t;
 

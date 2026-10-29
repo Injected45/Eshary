@@ -71,6 +71,7 @@ class TreasuryRepository {
     String? pocket,
     required double amount,
     String? note,
+    double? amountIn,
   }) async {
     await _client.rpc<dynamic>(
       'lyd_add_movement',
@@ -79,6 +80,9 @@ class TreasuryRepository {
         'p_pocket': pocket,
         'p_amount': amount,
         'p_note': note,
+        // a conversion with a commission (0093): sent only when it differs,
+        // so a database before 0093 still takes a plain conversion
+        if (amountIn != null && amountIn != amount) 'p_amount_in': amountIn,
       },
     );
   }
@@ -104,10 +108,16 @@ class TreasuryRepository {
   }
 
   /// The opening cost of the dollars the account holds now, or a correction.
-  Future<void> setCost(String exchangeId, double rate) async {
+  /// [book] 'cash' / 'bank' (0093): that book's cost; null on a database
+  /// before 0093 (the account's one cost).
+  Future<void> setCost(String exchangeId, double rate, {String? book}) async {
     await _client.rpc<dynamic>(
       'set_account_cost',
-      params: {'p_exchange_id': exchangeId, 'p_rate': rate},
+      params: {
+        'p_exchange_id': exchangeId,
+        'p_rate': rate,
+        if (book != null) 'p_book': book,
+      },
     );
   }
 }
