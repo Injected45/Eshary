@@ -1,20 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../employee_auth/presentation/employee_auth_providers.dart';
-import '../../sub_users/domain/employee_permissions.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 
-final dailyTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
-  final employee = ref.watch(currentEmployeeProvider).value;
+// The history lists are autoDispose: read only while a screen that shows
+// them is open (they used to be re-downloaded in full every minute, all day,
+// on every phone).
+
+final dailyTransfersProvider =
+    FutureProvider.autoDispose<List<Transfer>>((ref) async {
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.daily,
         // An employee sees everyone's rows only with view_all;
         // otherwise only their own (the database enforces the same).
         createdByEmployeeId:
-            (employee != null && !employee.permissions.contains(kPermViewAll))
-                ? employee.subUserId
-                : null,
+            ref.watch(currentEmployeeProvider.select(ownRowsOf)),
       );
 });
 
@@ -22,23 +23,17 @@ final dailyTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
 /// itself when a new day begins. An employee sees only their own unless they
 /// may view everything.
 final todayTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
-  final employee = ref.watch(currentEmployeeProvider).value;
   return ref.watch(transfersRepositoryProvider).listToday(
         createdByEmployeeId:
-            (employee != null && !employee.permissions.contains(kPermViewAll))
-                ? employee.subUserId
-                : null,
+            ref.watch(currentEmployeeProvider.select(ownRowsOf)),
       );
 });
 
-final archivedTransfersProvider = FutureProvider<List<Transfer>>((ref) async {
-  final employee = ref.watch(currentEmployeeProvider).value;
+final archivedTransfersProvider =
+    FutureProvider.autoDispose<List<Transfer>>((ref) async {
   return ref.watch(transfersRepositoryProvider).listByStatus(
         TransferStatus.archived,
-        createdByEmployeeId: (employee != null &&
-                !employee.permissions.contains(kPermViewAll) &&
-                !employee.permissions.contains(kPermClosingsAll))
-            ? employee.subUserId
-            : null,
+        createdByEmployeeId:
+            ref.watch(currentEmployeeProvider.select(ownArchiveRowsOf)),
       );
 });

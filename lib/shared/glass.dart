@@ -52,27 +52,24 @@ class GlassCard extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  fill,
-                  fill.withValues(alpha: 0.04),
-                ],
-              ),
-              border: Border.all(color: border),
-              borderRadius: BorderRadius.circular(radius),
-            ),
-            padding: padding,
-            child: child,
+      // No backdrop blur: over the still, soft background it looked the
+      // same, and every card re-blurred its backdrop on every scrolled frame
+      // (slow on modest phones). [blur] is kept for the callers.
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              fill,
+              fill.withValues(alpha: 0.04),
+            ],
           ),
+          border: Border.all(color: border),
+          borderRadius: BorderRadius.circular(radius),
         ),
+        padding: padding,
+        child: child,
       ),
     );
   }
@@ -95,20 +92,15 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: AppColors.glassFill,
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: child,
-        ),
+    // no backdrop blur (see GlassCard)
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: AppColors.glassFill,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: AppColors.glassBorder),
       ),
+      child: child,
     );
   }
 }

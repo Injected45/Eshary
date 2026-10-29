@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,40 +6,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme.dart';
 import 'visual_mode.dart';
 
-/// Animated dark background with three slow-moving radial blobs that get
-/// blurred behind every screen, producing the "liquid glass" depth. The deep
+/// Dark background with three soft radial blobs behind every screen, the
+/// "liquid glass" depth. Painted ONCE: it used to move (a 60 fps repaint
+/// under a full-screen blur on every screen, idle or not, so the phone's GPU
+/// and battery never rested). The gradients already fade to nothing, so the
+/// blur added nothing visible. The deep
 /// base colour comes from [visualModeProvider]: 'deep' is the original OLED
 /// black, 'calm' is a softer navy. The glass bars and panels drawn on top are
 /// transparent, so they adapt by themselves.
-class LiquidBackground extends ConsumerStatefulWidget {
+class LiquidBackground extends ConsumerWidget {
   const LiquidBackground({super.key, required this.child});
   final Widget child;
 
   @override
-  ConsumerState<LiquidBackground> createState() => _LiquidBackgroundState();
-}
-
-class _LiquidBackgroundState extends ConsumerState<LiquidBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(visualModeProvider);
     final base =
         mode == AppVisualMode.calm ? AppColors.bgCalm : AppColors.bgDeep;
@@ -48,18 +27,14 @@ class _LiquidBackgroundState extends ConsumerState<LiquidBackground>
       fit: StackFit.expand,
       children: [
         ColoredBox(key: const ValueKey('liquid-base'), color: base),
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) => CustomPaint(
-            painter: _BlobsPainter(progress: _ctrl.value),
+        RepaintBoundary(
+          child: CustomPaint(
+            painter: _BlobsPainter(progress: 0),
+            isComplex: true,
             size: Size.infinite,
           ),
         ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-          child: const ColoredBox(color: Color(0x00000000)),
-        ),
-        widget.child,
+        child,
       ],
     );
   }

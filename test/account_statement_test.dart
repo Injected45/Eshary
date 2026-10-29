@@ -356,9 +356,7 @@ void main() {
 
       await load('NotoArabic', [
         'NotoNaskhArabic-Regular.ttf',
-        'NotoNaskhArabic-Medium.ttf',
         'NotoNaskhArabic-Bold.ttf',
-        'NotoNaskhArabic-SemiBold.ttf',
       ]);
       await tester.binding.setSurfaceSize(const Size(400, 1600));
       addTearDown(() => tester.binding.setSurfaceSize(null));

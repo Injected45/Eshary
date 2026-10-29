@@ -26,19 +26,20 @@ final statementDataProvider = FutureProvider.autoDispose
     .family<StatementData, DateTimeRange>((ref, range) async {
   final now = DateTime.now();
   final until = range.end.isAfter(now) ? range.end : now;
-  final transfers = await ref
-      .watch(transfersRepositoryProvider)
-      .listArchivedBetween(range.start, until);
-  final buys = await ref
-      .watch(currencyBuysRepositoryProvider)
-      .listArchivedBetween(range.start, until);
+  // The four reads go together (one wait on a slow network, not four).
   // The commissions deducted from the accounts and the documented balance
-  // adjustments (0086). A failed read fails the statement: taken as "none",
+  // adjustments (0086): a failed read fails the statement; taken as "none",
   // it would silently give a wrong opening balance and wrong running balances.
-  final expenses =
-      await ref.watch(accountExpensesRepositoryProvider).listSince(range.start);
-  final adjustments =
-      await ref.watch(adjustmentsRepositoryProvider).listSince(range.start);
+  final (transfers, buys, expenses, adjustments) = await (
+    ref
+        .watch(transfersRepositoryProvider)
+        .listArchivedBetween(range.start, until),
+    ref
+        .watch(currencyBuysRepositoryProvider)
+        .listArchivedBetween(range.start, until),
+    ref.watch(accountExpensesRepositoryProvider).listSince(range.start),
+    ref.watch(adjustmentsRepositoryProvider).listSince(range.start),
+  ).wait;
   return (
     transfers: transfers,
     buys: buys,

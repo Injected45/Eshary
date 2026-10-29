@@ -10,6 +10,28 @@ final currentEmployeeProvider = FutureProvider<EmployeeIdentity?>((ref) async {
   return ref.watch(employeeAuthRepositoryProvider).currentIdentity();
 });
 
+/// For `currentEmployeeProvider.select(...)`: the employee whose own rows an
+/// operations list is limited to, null for every row (the administrator, or
+/// an employee who may see everyone's; the database enforces the same).
+/// Watched through select, the identity check every 45 s re-reads no list
+/// unless the answer changes (it used to re-download every list each time).
+String? ownRowsOf(AsyncValue<EmployeeIdentity?> identity) {
+  final e = identity.valueOrNull;
+  return (e != null && !e.permissions.contains(kPermViewAll))
+      ? e.subUserId
+      : null;
+}
+
+/// [ownRowsOf] for the archive, which «closings_all» opens too.
+String? ownArchiveRowsOf(AsyncValue<EmployeeIdentity?> identity) {
+  final e = identity.valueOrNull;
+  return (e != null &&
+          !e.permissions.contains(kPermViewAll) &&
+          !e.permissions.contains(kPermClosingsAll))
+      ? e.subUserId
+      : null;
+}
+
 /// The employee's own work per account, for the "حسابي" tab (accounts_own).
 final employeeMyAccountProvider =
     FutureProvider.autoDispose<List<MyAccountRow>>((ref) {

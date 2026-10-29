@@ -7,6 +7,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
 import '../../../shared/libya_time.dart';
 import '../../../shared/logger.dart';
+import '../../../shared/request_id.dart';
 import '../../../shared/top_message.dart';
 import '../../archive/presentation/archive_filters.dart';
 import '../data/treasury_repository.dart';
@@ -30,6 +31,9 @@ class DinarTreasuryScreen extends ConsumerStatefulWidget {
 }
 
 class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
+  // a deposit, withdrawal or conversion sent again is saved once (0094)
+  final _moveIds = RequestIdKeeper();
+
   DateFilterMode _mode = DateFilterMode.today;
   DateTime? _from;
   DateTime? _to;
@@ -201,12 +205,17 @@ class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
     );
     if (r == null) return;
     await _run(
-      () => ref.read(treasuryRepositoryProvider).lydMove(
-            kind: deposit ? 'in' : 'out',
-            pocket: r.pocket,
-            amount: r.amount,
-            note: r.note,
-          ),
+      () async {
+        final kind = deposit ? 'in' : 'out';
+        await ref.read(treasuryRepositoryProvider).lydMove(
+              kind: kind,
+              pocket: r.pocket,
+              amount: r.amount,
+              note: r.note,
+              requestId: _moveIds.idFor([kind, r.pocket, r.amount, r.note]),
+            );
+        _moveIds.done();
+      },
       deposit ? 'تم الإيداع.' : 'تم السحب.',
     );
   }
@@ -224,12 +233,17 @@ class _DinarTreasuryScreenState extends ConsumerState<DinarTreasuryScreen> {
     );
     if (r == null) return;
     await _run(
-      () => ref.read(treasuryRepositoryProvider).lydMove(
-            kind: r.pocket == 'cash' ? 'cash_to_bank' : 'bank_to_cash',
-            amount: r.amount,
-            amountIn: r.amountIn,
-            note: r.note,
-          ),
+      () async {
+        final kind = r.pocket == 'cash' ? 'cash_to_bank' : 'bank_to_cash';
+        await ref.read(treasuryRepositoryProvider).lydMove(
+              kind: kind,
+              amount: r.amount,
+              amountIn: r.amountIn,
+              note: r.note,
+              requestId: _moveIds.idFor([kind, r.amount, r.amountIn, r.note]),
+            );
+        _moveIds.done();
+      },
       'تم التحويل.',
     );
   }
@@ -314,11 +328,24 @@ class _OpeningCardState extends State<_OpeningCard> {
             onPressed: _busy
                 ? null
                 : () async {
+                    final cash = tryParseMoney(_cash.text);
+                    final bank = tryParseMoney(_bank.text);
+                    // opened once: an empty or unreadable entry must not
+                    // open it at 0 (a 0 typed on purpose is fine)
+                    if ((cash == null && _cash.text.trim().isNotEmpty) ||
+                        (bank == null && _bank.text.trim().isNotEmpty) ||
+                        (cash == null && bank == null)) {
+                      showTopSnackBar(
+                        context,
+                        const SnackBar(
+                          content: Text('اكتب دينار الخزينة والمصرف '
+                              '(0 إن كان فارغًا).'),
+                        ),
+                      );
+                      return;
+                    }
                     setState(() => _busy = true);
-                    await widget.onOpen(
-                      parseMoney(_cash.text),
-                      parseMoney(_bank.text),
-                    );
+                    await widget.onOpen(cash ?? 0, bank ?? 0);
                     if (mounted) setState(() => _busy = false);
                   },
             icon: const FaIcon(FontAwesomeIcons.vault, size: 12),

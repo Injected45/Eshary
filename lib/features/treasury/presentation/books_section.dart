@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/logger.dart';
+import '../../../shared/request_id.dart';
 import '../../../shared/top_message.dart';
 import '../data/account_books_repository.dart';
 import '../domain/account_books.dart';
@@ -13,6 +14,9 @@ import 'treasury_providers.dart';
 /// The cash and bank books of one account inside its treasury card
 /// (migration 0093): the dollars and the cost of each, the one-time split of
 /// the dollars held before 0093, and moving dollars between the books.
+// a move between books sent again is saved once (0094)
+final _moveIds = RequestIdKeeper();
+
 class BooksSection extends ConsumerWidget {
   const BooksSection({super.key, required this.exchangeId});
   final String exchangeId;
@@ -115,13 +119,18 @@ class BooksSection extends ConsumerWidget {
     await _run(
       context,
       ref,
-      () => ref.read(accountBooksRepositoryProvider).move(
-            exchangeId: b.exchangeId,
-            from: r.from,
-            usd: r.usd,
-            price: r.price,
-            note: r.note,
-          ),
+      () async {
+        await ref.read(accountBooksRepositoryProvider).move(
+              exchangeId: b.exchangeId,
+              from: r.from,
+              usd: r.usd,
+              price: r.price,
+              note: r.note,
+              requestId: _moveIds
+                  .idFor([b.exchangeId, r.from, r.usd, r.price, r.note]),
+            );
+        _moveIds.done();
+      },
       'حُوّل \$${formatMoney(r.usd)} من الدفتر ${bookLabel(r.from)} '
       'إلى ${bookLabel(r.from == kBookCash ? kBookBank : kBookCash)}.',
     );

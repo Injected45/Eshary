@@ -83,8 +83,10 @@ class _ReconcileDialogState extends ConsumerState<_ReconcileDialog> {
 
   Future<void> _save() async {
     final text = _theirs.text.trim();
-    if (text.isEmpty) {
-      setState(() => _error = 'اكتب الرصيد كما في كشف الشركة.');
+    final theirs = tryParseMoney(text, negative: true);
+    if (theirs == null) {
+      // an unreadable entry used to be saved as 0, with a false difference
+      setState(() => _error = 'اكتب الرصيد كما في كشف الشركة (أرقام).');
       return;
     }
     setState(() {
@@ -96,7 +98,7 @@ class _ReconcileDialogState extends ConsumerState<_ReconcileDialog> {
       final r = await ref.read(ledgerRepositoryProvider).reconcile(
             exchangeId: widget.exchangeId,
             at: _at,
-            theirBalance: parseMoney(text),
+            theirBalance: theirs,
             note: note.isEmpty ? null : note,
           );
       if (!mounted) return;

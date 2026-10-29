@@ -1,7 +1,7 @@
 name: eshary
 description: شركة الرحالة — transfer & currency-buy operations app.
 publish_to: "none"
-version: 1.0.13+13
+version: 1.0.14+14
 environment:
   sdk: ">=3.5.0 <4.0.0"
   flutter: ">=3.24.0"
@@ -52,23 +52,14 @@ flutter:
   fonts:
     - family: Almarai
       fonts:
-        - asset: assets/fonts/Almarai-Light.ttf
-          weight: 300
         - asset: assets/fonts/Almarai-Regular.ttf
           weight: 400
         - asset: assets/fonts/Almarai-Bold.ttf
           weight: 700
         - asset: assets/fonts/Almarai-ExtraBold.ttf
           weight: 800
-    - family: NotoArabic
-      fonts:
-        - asset: assets/fonts/NotoNaskhArabic-Regular.ttf
-        - asset: assets/fonts/NotoNaskhArabic-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/NotoNaskhArabic-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/NotoNaskhArabic-Bold.ttf
-          weight: 700
+    # Noto Naskh Regular/Bold stay in assets/fonts/ for the PDF reports only
+    # (pdf_export.dart loads them by path); the screens use Almarai.
 
 flutter_launcher_icons:
   android: "ic_launcher"

@@ -36,6 +36,15 @@ class Client {
         refPrefix: json['ref_prefix'] as String?,
         creditLimit: (json['credit_limit'] as num?)?.toDouble(),
       );
+
+  // by id, like Exchange and Company: a chosen sender survives the periodic
+  // reload of the list (fresh objects every time)
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is Client && other.id == id);
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 /// The reference to record: the sender's fixed letters followed by the number

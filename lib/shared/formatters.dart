@@ -86,6 +86,22 @@ double parseMoney(String input) {
   return v.isFinite ? v : 0;
 }
 
+/// [parseMoney] that tells an unreadable or empty entry (null) from a typed
+/// zero, so a form can refuse it instead of saving 0. [negative] allows a
+/// leading minus (a statement balance below zero).
+double? tryParseMoney(String input, {bool negative = false}) {
+  var t = input.trim();
+  var sign = 1.0;
+  if (negative && (t.startsWith('-') || t.startsWith('−'))) {
+    sign = -1;
+    t = t.substring(1).trim();
+  }
+  if (t.isEmpty) return null;
+  final v = parseMoney(t);
+  if (v == 0 && !RegExp(r'^[0٠]*([.٫][0٠]*)?$').hasMatch(t)) return null;
+  return sign * v;
+}
+
 String _arabicDigitToLatin(String c) {
   const map = {
     '٠': '0',

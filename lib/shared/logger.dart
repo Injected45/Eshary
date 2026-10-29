@@ -100,6 +100,10 @@ class AppLogger {
         '${entry.error != null ? " — ${entry.error}" : ""}',
       );
     }
+    // An info line is not kept in a release build: the sync logs one on every
+    // poll and event, and each kept line re-encodes and rewrites the whole
+    // log in the phone's storage, all day and all night.
+    if (entry.level == 'info' && !kDebugMode) return;
     final p = _prefs;
     if (p == null) return;
     final list = readAll();
@@ -171,6 +175,33 @@ String friendlyError(Object e) {
   }
   if (s.contains('current_license_status') || s.contains('account_licenses')) {
     return 'تعذّر التحقق من حالة الحساب.';
+  }
+  // Specific constraint names first: the generic 23503 / 23505 below would
+  // otherwise answer them.
+  if (s.contains('transfers_customer_id_fkey') ||
+      s.contains('customer_lyd_entries_client_id_fkey')) {
+    return 'لا يمكن حذف عميل له حساب بالدينار أو عمليات بالآجل.';
+  }
+  if (s.contains('transfers_owner_ref_active_uq')) {
+    return 'تكرر الرقم الإشاري. أعد المحاولة.';
+  }
+  if (s.contains('cancellation_requests_one_pending')) {
+    return 'يوجد طلب إلغاء لهذه العملية بانتظار المدير.';
+  }
+  // «رصيد أول المدة» (0094)
+  if (s.contains('opening_already_set')) {
+    return 'رصيد أول المدة سُجّل لهذا الدفتر من قبل، أو جرت عليه عمليات. '
+        'صحّحه من «الخزينة» (تسوية الرصيد أو التكلفة).';
+  }
+  if (s.contains('books_not_split')) {
+    return 'في الحساب دولار لم يُقسَّم بعد بين النقدي والمصرفي. '
+        'قسّمه من «الخزينة» أولًا.';
+  }
+  if (s.contains('company_not_found_or_forbidden')) {
+    return 'الشركة غير موجودة أو ليست من شركاتك. حدّث الصفحة.';
+  }
+  if (s.contains('exchange_does_not_belong_to_company')) {
+    return 'هذا الحساب ليس من حسابات الشركة المختارة. اختره من جديد.';
   }
   if (s.contains('pending currency buy') ||
       (s.contains('check_violation') && s.contains('pending'))) {
@@ -298,19 +329,12 @@ String friendlyError(Object e) {
       s.contains('credit_limit_invalid')) {
     return 'حد الدين غير صحيح. يُحدَّد من «ذمم العملاء».';
   }
-  if (s.contains('transfers_customer_id_fkey') ||
-      s.contains('customer_lyd_entries_client_id_fkey')) {
-    return 'لا يمكن حذف عميل له حساب بالدينار أو عمليات بالآجل.';
-  }
   if (s.contains('owner_not_in_backup')) {
     return 'هذا المشترك غير موجود في هذه النسخة، فلا يُسترجع منها. '
         'لم يتغير شيء.';
   }
   if (s.contains('backup_not_found')) {
     return 'النسخة الاحتياطية غير موجودة.';
-  }
-  if (s.contains('transfers_owner_ref_active_uq')) {
-    return 'تكرر الرقم الإشاري. أعد المحاولة.';
   }
   // Balance adjustments and the dinar treasury (0086).
   if (s.contains('balance_direct_edit')) {

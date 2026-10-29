@@ -2,6 +2,12 @@
   "name": "eshary-db-tests",
   "private": true,
   "type": "module",
-  "scripts": { "platform": "node platform77_test.mjs" },
-  "devDependencies": { "@electric-sql/pglite": "^0.5.10" }
+  "scripts": {
+    "platform": "node platform77_test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "@electric-sql/pglite-socket": "^0.2.16",
+    "pg": "^8.23.1"
+  }
 }

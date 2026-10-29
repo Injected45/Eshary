@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -30,7 +32,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _decideRoute() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    // long enough for the logo to show, no longer (it was 1.6 s)
+    await Future<void>.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
 
     final onboardingDone = ref.read(onboardingStorageProvider).isCompleted();
@@ -38,9 +41,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         ref.read(supabaseClientProvider).auth.currentSession != null;
 
     if (loggedIn) {
-      // Self-heal: makes sure the FK target row exists before we navigate
-      // into screens that insert companies/clients/transfers.
-      await ref.read(authRepositoryProvider).ensureProfile();
+      // Self-heal: makes sure the profile row exists (the database's trigger
+      // creates it; this is only a safety net). Not awaited: on a slow
+      // network it used to hold the splash for seconds.
+      unawaited(ref.read(authRepositoryProvider).ensureProfile());
     }
 
     if (!mounted) return;

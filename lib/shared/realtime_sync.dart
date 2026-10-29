@@ -12,6 +12,7 @@ import '../features/exchange_companies/presentation/exchange_companies_providers
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
 import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
 import '../features/employee_auth/presentation/employee_auth_providers.dart';
+import '../features/exchange_rates/presentation/exchange_rates_providers.dart';
 import '../features/notifications/presentation/notifications_providers.dart';
 import '../features/transfers/presentation/transfers_providers.dart';
 import 'logger.dart';
@@ -49,6 +50,9 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(allExchangesProvider);
     ref.invalidate(todayTransfersProvider);
     ref.invalidate(todayBuysProvider);
+    // the administrator's last rates: an employee whose rate is locked must
+    // see the one the database will save with
+    ref.invalidate(exchangeRatesProvider);
     // an open account statement reads its operations again together with the
     // balances, so its opening and running balances never drift apart
     ref.invalidate(statementDataProvider);
@@ -81,11 +85,12 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
   // Safety net for a blocked WebSocket (proxy, throttled tab, realtime
   // quota). It used to re-read everything every 5 s on every device — the
   // whole history, ~1 GB an hour per phone. Now: every 15 s only while the
-  // realtime channel is NOT connected, and once a minute while it is.
+  // realtime channel is NOT connected, and every 5 minutes while it is (the
+  // events themselves bring every change at once).
   var connected = false;
   final pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
     tick++;
-    if (connected && tick % 4 != 0) return;
+    if (connected && tick % 20 != 0) return;
     AppLogger.info('[sync] poll tick #$tick (realtime '
         '${connected ? 'on' : 'off'}) — refreshing workflow data');
     invalidateWorkflow();
@@ -108,9 +113,9 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         );
 
   // The saved clients and the customers' companies change rarely, so they are
-  // re-read every 30 s (not every 5 s): an addition made from another device
-  // or in the database shows up in the entry and exit screens by itself.
-  final listsTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+  // re-read every 5 minutes: an addition made from another device or in the
+  // database shows up in the entry and exit screens by itself.
+  final listsTimer = Timer.periodic(const Duration(minutes: 5), (_) {
     ref.invalidate(clientsListProvider);
     ref.invalidate(exchangeCompaniesListProvider);
   });

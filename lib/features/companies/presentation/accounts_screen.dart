@@ -5,13 +5,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/glass.dart';
+import '../../archive/presentation/archive_providers.dart';
 import '../../cancellations/presentation/cancellations_providers.dart';
 import '../../cancellations/presentation/cancellations_screen.dart';
-import '../../currency_buy/presentation/currency_buys_providers.dart';
 import '../../exchange_companies/domain/exchange_company.dart';
 import '../../expenses/presentation/account_expense_dialog.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
-import '../../transfers/presentation/transfers_providers.dart';
 import '../../treasury/presentation/treasury_screen.dart';
 import '../domain/company.dart';
 import '../domain/exchange.dart';
@@ -49,10 +48,9 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
     final companiesAsync = ref.watch(companiesListProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
     final exchangeCompaniesAsync = ref.watch(myExchangeCompaniesProvider);
-    final archivedBuys = ref.watch(archivedBuysProvider).value ?? const [];
-    final archivedTransfers =
-        ref.watch(archivedTransfersProvider).value ?? const [];
-    final hasArchive = archivedBuys.isNotEmpty || archivedTransfers.isNotEmpty;
+    // one row from each table, not the whole history; shown while unknown
+    final hasArchive =
+        ref.watch(hasArchivedOperationsProvider).valueOrNull ?? true;
 
     // Employees may see the accounts before the first close; for the admin the
     // empty state is kept as it was.

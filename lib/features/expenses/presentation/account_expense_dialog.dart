@@ -8,6 +8,7 @@ import '../../../shared/glass.dart';
 import '../../../shared/libya_time.dart';
 import '../../../shared/logger.dart';
 import '../../../shared/password_field.dart';
+import '../../../shared/request_id.dart';
 import '../../../shared/top_message.dart';
 import '../../cancellations/domain/cancellation.dart';
 import '../../companies/domain/exchange.dart';
@@ -56,6 +57,8 @@ class AccountExpenseDialog extends ConsumerStatefulWidget {
 }
 
 class _AccountExpenseDialogState extends ConsumerState<AccountExpenseDialog> {
+  // a commission sent again is taken once (0094)
+  final _requestIds = RequestIdKeeper();
   final _code = TextEditingController();
   final _amount = TextEditingController();
   final _note = TextEditingController(text: kDefaultExpenseNote);
@@ -113,13 +116,18 @@ class _AccountExpenseDialogState extends ConsumerState<AccountExpenseDialog> {
       _error = null;
     });
     try {
+      final code = _code.text.trim().isEmpty ? null : _code.text.trim();
+      final book = _bookFor(ref.read(accountBooksProvider).valueOrNull);
       await ref.read(accountExpensesRepositoryProvider).record(
             exchangeId: widget.exchange.id,
             amount: amount,
-            code: _code.text.trim().isEmpty ? null : _code.text.trim(),
+            code: code,
             note: note,
-            book: _bookFor(ref.read(accountBooksProvider).valueOrNull),
+            book: book,
+            requestId: _requestIds
+                .idFor([widget.exchange.id, amount, code, note, book]),
           );
+      _requestIds.done();
       ref.invalidate(accountBooksProvider);
       _refreshAfterChange();
       if (!mounted) return;

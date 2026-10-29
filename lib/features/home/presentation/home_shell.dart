@@ -266,7 +266,15 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: SafeArea(
         top: false,
         bottom: false,
-        child: IndexedStack(index: index, children: screens),
+        // the entry forms (tab 0) stay alive; every other tab is built only
+        // while it is shown, so its lists are not re-read in the background
+        child: IndexedStack(
+          index: index,
+          children: [
+            for (var i = 0; i < screens.length; i++)
+              i == 0 || i == index ? screens[i] : const SizedBox.shrink(),
+          ],
+        ),
       ),
       bottomNavigationBar: _GlassBottomNav(
         index: index,

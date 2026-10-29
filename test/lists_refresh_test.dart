@@ -22,9 +22,9 @@ void main() {
     }
   });
 
-  test('the sync re-reads them every 30 seconds and stops with the shell', () {
+  test('the sync re-reads them every 5 minutes and stops with the shell', () {
     final src = read('lib/shared/realtime_sync.dart');
-    expect(src, contains('Timer.periodic(const Duration(seconds: 30)'));
+    expect(src, contains('Timer.periodic(const Duration(minutes: 5)'));
     expect(src, contains('ref.invalidate(clientsListProvider)'));
     expect(src, contains('listsTimer.cancel()'));
   });

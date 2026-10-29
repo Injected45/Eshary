@@ -281,7 +281,7 @@ class _AddClientDialogState extends ConsumerState<AddClientDialog> {
             ],
           ),
           loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
+          error: (e, _) => Text(friendlyError(e)),
         );
 
     return Dialog(

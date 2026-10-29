@@ -57,6 +57,10 @@ class _CustomerStatementScreenState
   DateTime? _to;
   late double? _limit = widget.creditLimit;
 
+  // a collection or payment sent again (the connection dropped after the
+  // server saved it) is recorded once: same values, same request id
+  final _entryIds = RequestIdKeeper();
+
   /// One book's statement (0093), or both (null): cash and bank dinars are
   /// two currencies, so a balance is read per book.
   String? _book;
@@ -109,17 +113,21 @@ class _CustomerStatementScreenState
     if (r == null) return;
     final repo = ref.read(customersRepositoryProvider);
     await _run(
-      () => repo.addEntry(
-        clientId: widget.clientId,
-        kind: kind,
-        amount: r.amount,
-        // collect / pay go through the pocket of their book; an opening
-        // names its book only
-        pocket: kind == 'opening' ? null : r.pocket,
-        book: r.pocket,
-        note: r.note,
-        requestId: newRequestId(),
-      ),
+      () async {
+        await repo.addEntry(
+          clientId: widget.clientId,
+          kind: kind,
+          amount: r.amount,
+          // collect / pay go through the pocket of their book; an opening
+          // names its book only
+          pocket: kind == 'opening' ? null : r.pocket,
+          book: r.pocket,
+          note: r.note,
+          requestId: _entryIds
+              .idFor([widget.clientId, kind, r.amount, r.pocket, r.note]),
+        );
+        _entryIds.done();
+      },
       switch (kind) {
         'collect' => 'سُجّل التحصيل: ${_lyd(r.amount)}',
         'pay' => 'سُجّل السداد: ${_lyd(r.amount)}',
@@ -614,9 +622,16 @@ class _LimitDialogState extends State<_LimitDialog> {
           key: const ValueKey('customer-limit-save'),
           onPressed: () {
             final t = _limit.text.trim();
-            Navigator.of(context).pop<({double? limit})>(
-              (limit: t.isEmpty ? null : parseMoney(t)),
-            );
+            final v = tryParseMoney(t);
+            // an unreadable entry is refused, not saved as a limit of 0
+            if (t.isNotEmpty && v == null) {
+              showTopSnackBar(
+                context,
+                const SnackBar(content: Text('اكتب حد الدين بالأرقام.')),
+              );
+              return;
+            }
+            Navigator.of(context).pop<({double? limit})>((limit: v));
           },
           child: const Text('حفظ'),
         ),

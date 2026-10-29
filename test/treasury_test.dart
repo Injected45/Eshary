@@ -50,6 +50,7 @@ class _FakeRepo implements TreasuryRepository {
     required double amount,
     String? note,
     double? amountIn,
+    String? requestId,
   }) async {}
   @override
   Future<LydCount> lydCount({
@@ -72,12 +73,9 @@ Future<void> _loadFonts() async {
 
   await load('NotoArabic', [
     'NotoNaskhArabic-Regular.ttf',
-    'NotoNaskhArabic-Medium.ttf',
     'NotoNaskhArabic-Bold.ttf',
-    'NotoNaskhArabic-SemiBold.ttf',
   ]);
   await load('Almarai', [
-    'Almarai-Light.ttf',
     'Almarai-Regular.ttf',
     'Almarai-Bold.ttf',
     'Almarai-ExtraBold.ttf',

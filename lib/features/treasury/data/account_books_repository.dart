@@ -42,6 +42,7 @@ class AccountBooksRepository {
     required double usd,
     required double price,
     String? note,
+    String? requestId,
   }) async {
     await _client.rpc<dynamic>(
       'move_between_books',
@@ -51,6 +52,30 @@ class AccountBooksRepository {
         'p_usd': usd,
         'p_price': price,
         'p_note': note,
+        // the same request again is not saved twice (0094)
+        if (requestId != null) 'p_request_id': requestId,
+      },
+    );
+  }
+
+  /// «رصيد أول المدة» (0094): the first [usd] dollars of a [book] that never
+  /// moved, at [cost] dinars of that book per dollar — dollars at cost
+  /// against capital, as when an account is opened with a balance. Once per
+  /// book (opening_already_set); an account still holding dollars from before
+  /// 0093 is split first (books_not_split).
+  Future<void> setOpening({
+    required String exchangeId,
+    required String book,
+    required double usd,
+    required double cost,
+  }) async {
+    await _client.rpc<dynamic>(
+      'admin_set_opening',
+      params: {
+        'p_exchange_id': exchangeId,
+        'p_book': book,
+        'p_usd': usd,
+        'p_cost': cost,
       },
     );
   }

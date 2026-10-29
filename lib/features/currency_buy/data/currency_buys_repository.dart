@@ -21,6 +21,16 @@ class CurrencyBuysRepository {
   /// When [createdByEmployeeId] is non-null the result is scoped to rows
   /// the given sub_user authored — used by the employee app so each
   /// employee only sees their own daily / pending operations.
+  /// Whether any entry was ever posted: one row, not the whole history.
+  Future<bool> hasArchived() async {
+    final rows = await _client
+        .from('currency_buys')
+        .select('id')
+        .eq('status', currencyBuyStatusToDb(CurrencyBuyStatus.archived))
+        .limit(1);
+    return (rows as List).isNotEmpty;
+  }
+
   Future<List<CurrencyBuy>> listByStatus(
     CurrencyBuyStatus status, {
     String? createdByEmployeeId,

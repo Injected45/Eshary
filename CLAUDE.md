@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0093) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0094) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0093    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0094    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -95,6 +95,38 @@ Phase 2, part 2. A double-entry journal in dinars is DERIVED, never stored: `_jo
 
 In Libya the dollar is priced differently in cash dinars and in bank dinars (cheques), so every account's dollars live in two BOOKS: `account_books(exchange_id, book 'cash'|'bank', balance, cost_rate)`; cash + bank = `exchanges.balance` always (every function moves the book with the account; a trigger keeps platform edits in step; a book never goes below zero). Each book has its own weighted-average cost, rates (`last_exchange_rates` kinds sell_cash / sell_bank / buy_cash / buy_bank; `current_exchange_rates()` returns the four plus `sell`/`buy` = cash for old builds), customer debts (`customer_lyd_entries.book`), pocket (cash = the box, bank = the bank) and ledger lines (`_journal` lines carry `book`). Operations carry `book` (`record_transfer` / `record_currency_buy` `p_book`; an old build's `p_lyd_method` stands for it; rows before 0093 count as bank for dollars). A sale above its book's dollars is refused (`book_insufficient`); the administrator moves dollars with `move_between_books(account, from, usd, price)` (result 4500, clearing 3300). Dinar conversions have two amounts (`lyd_add_movement(..., p_amount_in)`, result 4400). At migration every account's dollars went to the bank book; `set_account_books(account, cash_qty, cash_cost, bank_cost)` splits them ONCE (refused after the cash book was used; `books_split_at` is protected). Statements take `p_book` (null = combined, bank × `p_bank_factor`). `account_books_list()`, `set_account_cost(..., p_book)`, `admin_adjust_balance(..., p_book)`, `record_account_expense(..., p_book)`, `admin_open_account(..., p_book)`, `customer_add_entry(..., p_book)`, `customer_statement(..., p_book)`. UI: the selector (نقدًا = cash book, مصرفي = bank book; آجل / جزئي ask the book), `BooksSection` in «الخزينة» (split, move), «المبلغ الواصل» in the dinar conversion, per-book customers, the ledger's book chips + factor. Go-live: back up, apply 0093 at the end of the day, publish the APK right after (the new build fails against 0092), split every account, save one sale and one purchase per book so the four rates are real. 0086 and 0090–0092 refuse to run again after 0093. Tests: `supabase/tests/books93_test.mjs`.
 
+### Phase 3: load review and opening balances (0094, 2026-10-29)
+
+A review committee (DB concurrency, DB speed, client bugs, client speed/size) and a load test.
+
+0094:
+- «رصيد أول المدة»: `admin_set_opening(account, book, usd, cost)` gives a book that never moved its first dollars at cost. It writes a balance_adjustments 'opening' line plus the 'opening' cost event, like `admin_open_account`. It is once per book (`opening_already_set`), and an unsplit account holding dollars is refused (`books_not_split`). Screen: `lib/features/treasury/presentation/opening_balances_screen.dart`, opened from «إعدادات الحوالات»; it also opens the dinar treasury.
+- The cancellations use `_admin_password_error`, because parallel guesses beat the old inline limit.
+- A cancellation locks the customer and `lyd_treasury` the way the saves do.
+- `record_currency_buy` answers a retried request before checking the rate.
+- `_next_reference_for` reads the highest number from `transfers_owner_refnum_idx`.
+- `lyd_add_movement` / `move_between_books` / `record_account_expense` take `p_request_id`. The app keeps one id per set of form values with `RequestIdKeeper` (`lib/shared/request_id.dart`).
+- Owner indexes.
+- The credit limit is ONE limit over both books (`record_transfer` checks `_customer_balance(customer)`, both books). The owner decided this on 2026-10-29; under 0093 it was per book, so a customer could owe the limit twice.
+- 0093 refuses to run after 0094, and the app needs 0094 because it sends `p_request_id`.
+- Tests: `supabase/tests/opening94_test.mjs`.
+
+The load test runs on a SEPARATE Supabase project only: `supabase/tests/load/load93.mjs`. It refuses the production ref and any non-empty database without its marker. Dry run: `load/local-server.mjs`.
+
+Client (data, battery, speed):
+- The history providers (`archived*`, `daily*`, `pendingBuys`) are autoDispose, and the shells build a non-form tab only while it is shown; the sale/purchase forms stay alive. The full history is no longer re-downloaded every minute.
+- The employee's row filter is watched through `currentEmployeeProvider.select(ownRowsOf)`, so the 45 s identity check re-reads nothing.
+- Realtime is the main signal. The safety poll runs every 5 min while connected (15 s while not), and the clients list refreshes every 5 min.
+- Info logs are not persisted in release.
+- The splash waits 0.7 s and no longer awaits the profile upsert.
+- `LiquidBackground` is painted once (no animation, no full-screen blur), and `GlassCard` / `GlassPanel` have no backdrop blur.
+- PDF fonts are loaded once, and the statement's four reads run together.
+- Sale/purchase:
+  - the form is locked while saving;
+  - a locked rate is re-read at save, and an employee is told when the administrator changed it;
+  - `Client` compares by id;
+  - the sale screen checks the book's dollars (administrator).
+
 ### Wording: بيع / شراء (2026-10-29)
 
 The owner renamed the operations everywhere the app shows them: an exit («خروج») is «بيع» and an entry («دخول») is «شراء» — screens, totals («إجمالي البيع / الشراء»), PDF reports, permissions, alerts, and the two employee messages sent by the database (0090). Code identifiers stay transfer / buy / exit / entry. NOT renamed: the sign-in wording («تسجيل الدخول», «تسجيل الخروج», «كود الدخول», «دخول حسابي») and the WhatsApp messages (`_composeMessages` / `_composeBuyMessages`), which never change.
@@ -109,7 +141,7 @@ Server-side functions:
 
 ### UI conventions
 
-- Default locale `Locale('ar')`, `Directionality.rtl` wraps the whole tree, `ThemeMode.dark`. Two registered font families: `Almarai` (4 weights) and `NotoArabic` (Noto Naskh Arabic, 4 weights). `NotoArabic` is the theme default.
+- Default locale `Locale('ar')`, `Directionality.rtl` wraps the whole tree, `ThemeMode.dark`. The screens use `Almarai` (Regular, Bold, ExtraBold; the theme's family). `NotoNaskhArabic-Regular/Bold.ttf` stay in `assets/fonts/` for the PDF reports only (loaded by path; the Light, Medium and SemiBold files were removed in phase 3).
 - The PDF exporter in `lib/shared/pdf_export.dart` requires the Noto Naskh Arabic TTFs in `assets/fonts/` — without them PDF export crashes at font load time.
 - A `LiquidBackground` wraps the app in `main.dart`; screens use `Scaffold(backgroundColor: Colors.transparent, extendBodyBehindAppBar: true)` with frosted-glass app bars / nav.
 - User-facing strings are Arabic; SQL identifiers and Dart code are English `snake_case` / `camelCase`.

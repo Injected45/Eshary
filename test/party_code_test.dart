@@ -441,8 +441,13 @@ void main() {
       expect(src.split('reference: _fullReference,').length - 1, 2);
       expect(src.contains('final reference = _fullReference;'), isTrue);
       expect(src.contains('reference: _reference.text.trim()'), isFalse);
-      expect(src.contains('prefixText: _refPrefix.isEmpty ? null : _refPrefix'),
-          isTrue);
+      // formatting may wrap it: compare without whitespace
+      expect(
+        src
+            .replaceAll(RegExp(r'\s'), '')
+            .contains('prefixText:_refPrefix.isEmpty?null:_refPrefix'),
+        isTrue,
+      );
     });
 
     test('0069 adds the column, and an update leaves the letters alone', () {

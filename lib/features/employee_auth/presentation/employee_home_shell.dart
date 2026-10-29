@@ -232,9 +232,17 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
             bottom: false,
             child: tabs.isEmpty
                 ? _NoPermissionsView(name: identity.employeeName)
+                // the entry forms stay alive (a half-typed form survives a
+                // tab change); every other tab is built only while it is
+                // shown, so its lists are not re-read in the background
                 : IndexedStack(
                     index: safeIndex,
-                    children: tabs.map((t) => t.screen).toList(),
+                    children: [
+                      for (var i = 0; i < tabs.length; i++)
+                        tabs[i].keepAlive || i == safeIndex
+                            ? tabs[i].screen
+                            : const SizedBox.shrink(),
+                    ],
                   ),
           ),
           bottomNavigationBar: tabs.length <= 1
@@ -274,13 +282,17 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
           label: 'بيع',
           icon: FontAwesomeIcons.paperPlane,
           screen: TransfersScreen(key: transfersScreenKey),
+          keepAlive: true,
         ),
       if (canEntry)
         const _EmployeeTab(
           title: 'تنفيذ شراء حوالة',
           label: 'شراء',
           icon: FontAwesomeIcons.moneyBillTransfer,
-          screen: CurrencyBuyScreen(),
+          // keyed: a permission change that adds or removes a tab before it
+          // must not rebuild it (a half-typed form, or a save in flight)
+          screen: CurrencyBuyScreen(key: ValueKey('tab-buy')),
+          keepAlive: true,
         ),
       if (canSeeRecords)
         const _EmployeeTab(
@@ -474,12 +486,16 @@ class _EmployeeTab {
     required this.label,
     required this.icon,
     required this.screen,
+    this.keepAlive = false,
   });
 
   final String title;
   final String label;
   final IconData icon;
   final Widget screen;
+
+  /// An entry form: kept alive while another tab is shown.
+  final bool keepAlive;
 }
 
 class _GlassBottomNav extends StatelessWidget {

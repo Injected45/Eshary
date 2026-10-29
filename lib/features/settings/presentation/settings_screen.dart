@@ -32,6 +32,7 @@ import '../../logs/presentation/logs_screen.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../sub_users/presentation/sub_users_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../treasury/presentation/opening_balances_screen.dart';
 import '../../treasury/presentation/treasury_providers.dart';
 import '../data/wipe_repository.dart';
 import '../../../shared/top_message.dart';
@@ -209,6 +210,18 @@ class TransferSettingsScreen extends ConsumerWidget {
             title: 'حساباتي',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CompaniesScreen()),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // where the company starts: the dollars of each account (cash /
+          // bank, at cost) and the dinars of the box and the bank (0094)
+          _SettingsRow(
+            icon: FontAwesomeIcons.scaleBalanced,
+            title: 'رصيد أول المدة',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const OpeningBalancesScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 12),

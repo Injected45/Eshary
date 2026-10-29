@@ -231,7 +231,20 @@ class PdfExport {
   final pw.Font _fallback;
   final pw.Font _fallbackBold;
 
+  // The fonts are read and parsed once per run (about 800 KB), not on every
+  // export; a failed load is tried again next time.
+  static Future<PdfExport>? _loaded;
+
   static Future<PdfExport> load() async {
+    try {
+      return await (_loaded ??= _load());
+    } catch (_) {
+      _loaded = null;
+      rethrow;
+    }
+  }
+
+  static Future<PdfExport> _load() async {
     final regular = await rootBundle.load(
       'assets/fonts/Almarai-Regular.ttf',
     );

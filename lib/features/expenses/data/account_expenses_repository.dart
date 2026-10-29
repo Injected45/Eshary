@@ -39,6 +39,7 @@ class AccountExpensesRepository {
     String? code,
     required String note,
     String? book,
+    String? requestId,
   }) async {
     final row = await _client.rpc<Map<String, dynamic>>(
       'record_account_expense',
@@ -49,6 +50,8 @@ class AccountExpensesRepository {
         'p_note': note,
         // the book the dollars leave (0093)
         if (book != null) 'p_book': book,
+        // the same request again is not taken twice (0094)
+        if (requestId != null) 'p_request_id': requestId,
       },
     );
     return AccountExpense.fromJson(row);

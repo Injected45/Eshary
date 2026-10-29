@@ -460,7 +460,7 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('$e'),
+      error: (e, _) => Text(friendlyError(e)),
     );
   }
 

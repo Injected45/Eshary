@@ -292,7 +292,7 @@ class _BranchPicker extends ConsumerWidget {
       skipLoadingOnReload: true,
       skipError: true,
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => Text('$e'),
+      error: (e, _) => Text(friendlyError(e)),
       data: (branches) {
         if (branches.isEmpty) {
           return SizedBox(

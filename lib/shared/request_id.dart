@@ -14,3 +14,26 @@ String newRequestId() {
   return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
       '${h.substring(16, 20)}-${h.substring(20)}';
 }
+
+/// Keeps one request id while the same values are sent again (a retry after
+/// the connection dropped: the database then returns the saved row instead of
+/// saving it twice); different values, or [done] after a success, start a new
+/// request.
+class RequestIdKeeper {
+  String? _signature;
+  String? _id;
+
+  String idFor(List<Object?> values) {
+    final signature = values.join('|');
+    if (signature != _signature || _id == null) {
+      _signature = signature;
+      _id = newRequestId();
+    }
+    return _id!;
+  }
+
+  void done() {
+    _signature = null;
+    _id = null;
+  }
+}

@@ -31,6 +31,7 @@ import '../../companies/presentation/companies_providers.dart';
 import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../employee_auth/presentation/employee_auth_providers.dart';
+import '../../exchange_rates/domain/exchange_rates.dart';
 import '../../exchange_rates/presentation/exchange_rates_providers.dart';
 import '../../exchange_rates/presentation/lyd_method_selector.dart';
 import '../../exchange_rates/presentation/rate_fields.dart';
@@ -198,18 +199,35 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       _snack('اختر شركتك وشركة الصرافة');
       return false;
     }
+    if (_client == null) {
+      _snack('اختر اسم حساب المرسل');
+      return false;
+    }
     return true;
   }
 
   Future<void> _saveDailyAndOpenMessages() async {
-    if (!_validateBuyForm()) return;
-    final rates = ref.read(exchangeRatesProvider).valueOrNull;
+    if (_busy || !_validateBuyForm()) return;
+    // the rate the database will save with, read now: a locked rate shown
+    // since the morning may have been changed by the administrator
+    final shownRate = _buyRate;
+    ExchangeRates? rates;
+    try {
+      rates = await ref.refresh(exchangeRatesProvider.future);
+    } catch (_) {
+      rates = null;
+    }
+    if (!mounted) return;
     if (rates == null) {
       _snack('تعذّر جلب سعر الصرف. تحقق من الاتصال وحاول مرة أخرى.');
-      ref.invalidate(exchangeRatesProvider);
       return;
     }
     final rate = _buyRate;
+    if (!rates.canEditBuy && shownRate > 0 && rate != shownRate) {
+      _snack('غيّر المدير سعر الشراء إلى ${formatRate(rate)}. '
+          'راجع الإجمالي بالدينار ثم احفظ.');
+      return;
+    }
     if (rate <= 0) {
       _snack(rates.canEditBuy
           ? 'اكتب سعر الصرف'
@@ -269,12 +287,14 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       pocket: _paidPocket,
     );
 
+    // kept from here: the form is locked while saving
+    final myCompanyId = _myCompany!.id;
     setState(() => _busy = true);
     try {
       final repo = ref.read(currencyBuysRepositoryProvider);
       final saved = kind == _PendingBuyKind.pending
           ? await repo.createPending(
-              myCompanyId: _myCompany!.id,
+              myCompanyId: myCompanyId,
               exchangeId: _exchange!.id,
               clientId: _client?.id,
               clientFromAccount: _client?.company,
@@ -284,7 +304,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               reference: _fullReference,
             )
           : await repo.createDaily(
-              myCompanyId: _myCompany!.id,
+              myCompanyId: myCompanyId,
               exchangeId: _exchange!.id,
               clientId: _client?.id,
               clientFromAccount: _client?.company,
@@ -310,7 +330,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         ref.invalidate(todayBuysProvider);
         ref.invalidate(archivedBuysProvider);
         ref.invalidate(allExchangesProvider);
-        ref.invalidate(exchangesByCompanyProvider(_myCompany!.id));
+        ref.invalidate(exchangesByCompanyProvider(myCompanyId));
       }
 
       final messages = _composeBuyMessages();
@@ -556,7 +576,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   }
 
   Future<void> _confirmExecuteBuy() async {
-    if (!_validateBuyForm()) return;
+    if (_busy || !_validateBuyForm()) return;
     final ok = await _showBuyConfirmDialog(
       amountUsd: parseMoney(_usd.text),
     );
@@ -791,595 +811,604 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       }
     }
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-          16, contentTopPadding(context), 16, contentBottomPadding(context)),
-      children: [
-        _CollapsibleSection(
-          color: AppColors.positive,
-          header: const _AccentSectionTitle(
-            text: 'شراء لحسابي',
+    // nothing on the form changes while it is being saved
+    return AbsorbPointer(
+      absorbing: _busy,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+            16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        children: [
+          _CollapsibleSection(
             color: AppColors.positive,
-            icon: FontAwesomeIcons.userTie,
-          ),
-          expanded: _activeSection == 1,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 1 ? null : 1,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LabeledField(
-                label: 'اسم الشركة',
-                child: exchangeCompaniesAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return _EmptyExchangeCompaniesState(
-                        onAdd: _openAddExchangeCompanyDialog,
-                      );
-                    }
-                    if (allExchangesAsync.isLoading &&
-                        !allExchangesAsync.hasValue) {
-                      return const LinearProgressIndicator();
-                    }
-                    // Only companies where I actually hold an account
-                    // (an exchange with the same name), sorted by name.
-                    final accountNames = {
-                      for (final e
-                          in allExchangesAsync.value ?? const <Exchange>[])
-                        e.name,
-                    };
-                    final names = items
-                        .map((ec) => ec.name)
-                        .where(accountNames.contains)
-                        .toSet()
-                        .toList()
-                      ..sort();
-                    if (names.isEmpty) {
-                      return NoAccountNotice(
-                        exchanges: allExchangesAsync,
-                        exchangeCompanyNames: [for (final ec in items) ec.name],
-                      );
-                    }
-                    final liveValue = names.contains(_exchangeCompanyName)
-                        ? _exchangeCompanyName
-                        : null;
-                    if (liveValue == null && _exchangeCompanyName != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _onExchangeCompanyChanged(null);
-                      });
-                    }
-                    return DropdownButtonFormField<String>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        hintText: 'اسم الشركة',
-                        suffixIcon: _IconBox(
-                          FontAwesomeIcons.building,
-                          color: AppColors.warning,
+            header: const _AccentSectionTitle(
+              text: 'شراء لحسابي',
+              color: AppColors.positive,
+              icon: FontAwesomeIcons.userTie,
+            ),
+            expanded: _activeSection == 1,
+            onToggle: () => setState(
+              () => _activeSection = _activeSection == 1 ? null : 1,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _LabeledField(
+                  label: 'اسم الشركة',
+                  child: exchangeCompaniesAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (items) {
+                      if (items.isEmpty) {
+                        return _EmptyExchangeCompaniesState(
+                          onAdd: _openAddExchangeCompanyDialog,
+                        );
+                      }
+                      if (allExchangesAsync.isLoading &&
+                          !allExchangesAsync.hasValue) {
+                        return const LinearProgressIndicator();
+                      }
+                      // Only companies where I actually hold an account
+                      // (an exchange with the same name), sorted by name.
+                      final accountNames = {
+                        for (final e
+                            in allExchangesAsync.value ?? const <Exchange>[])
+                          e.name,
+                      };
+                      final names = items
+                          .map((ec) => ec.name)
+                          .where(accountNames.contains)
+                          .toSet()
+                          .toList()
+                        ..sort();
+                      if (names.isEmpty) {
+                        return NoAccountNotice(
+                          exchanges: allExchangesAsync,
+                          exchangeCompanyNames: [
+                            for (final ec in items) ec.name
+                          ],
+                        );
+                      }
+                      final liveValue = names.contains(_exchangeCompanyName)
+                          ? _exchangeCompanyName
+                          : null;
+                      if (liveValue == null && _exchangeCompanyName != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _onExchangeCompanyChanged(null);
+                        });
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: liveValue,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          hintText: 'اسم الشركة',
+                          suffixIcon: _IconBox(
+                            FontAwesomeIcons.building,
+                            color: AppColors.warning,
+                          ),
                         ),
-                      ),
-                      items: names
-                          .map((n) => DropdownMenuItem<String>(
-                                value: n,
-                                child: Text(n),
-                              ))
-                          .toList(),
-                      onChanged: _onExchangeCompanyChanged,
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                        items: names
+                            .map((n) => DropdownMenuItem<String>(
+                                  value: n,
+                                  child: Text(n),
+                                ))
+                            .toList(),
+                        onChanged: _onExchangeCompanyChanged,
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'اسم حسابي',
-                child: companiesAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (companies) {
-                    final allExchanges =
-                        allExchangesAsync.value ?? const <Exchange>[];
-                    final filteredExchanges = _exchangeCompanyName == null
-                        ? const <Exchange>[]
-                        : allExchanges
-                            .where((e) => e.name == _exchangeCompanyName)
-                            .toList();
-                    final filteredCompanies = <Company>[];
-                    for (final ex in filteredExchanges) {
-                      for (final c in companies) {
-                        if (c.id == ex.companyId &&
-                            !filteredCompanies.contains(c)) {
-                          filteredCompanies.add(c);
-                          break;
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'اسم حسابي',
+                  child: companiesAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (companies) {
+                      final allExchanges =
+                          allExchangesAsync.value ?? const <Exchange>[];
+                      final filteredExchanges = _exchangeCompanyName == null
+                          ? const <Exchange>[]
+                          : allExchanges
+                              .where((e) => e.name == _exchangeCompanyName)
+                              .toList();
+                      final filteredCompanies = <Company>[];
+                      for (final ex in filteredExchanges) {
+                        for (final c in companies) {
+                          if (c.id == ex.companyId &&
+                              !filteredCompanies.contains(c)) {
+                            filteredCompanies.add(c);
+                            break;
+                          }
                         }
                       }
-                    }
-                    final liveCompany =
-                        filteredCompanies.any((x) => x == _myCompany)
-                            ? _myCompany
-                            : null;
-                    if (liveCompany == null && _myCompany != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _myCompany = null;
-                            _exchange = null;
-                          });
-                        }
-                      });
-                    }
-                    return DropdownButtonFormField<Company>(
-                      value: liveCompany,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        hintText: _exchangeCompanyName == null
-                            ? 'اختر شركة الصرافة أولاً'
-                            : 'اسم الحساب',
-                        suffixIcon: const _IconBox(
-                          FontAwesomeIcons.wallet,
-                          color: AppColors.warning,
+                      final liveCompany =
+                          filteredCompanies.any((x) => x == _myCompany)
+                              ? _myCompany
+                              : null;
+                      if (liveCompany == null && _myCompany != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _myCompany = null;
+                              _exchange = null;
+                            });
+                          }
+                        });
+                      }
+                      return DropdownButtonFormField<Company>(
+                        value: liveCompany,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: _exchangeCompanyName == null
+                              ? 'اختر شركة الصرافة أولاً'
+                              : 'اسم الحساب',
+                          suffixIcon: const _IconBox(
+                            FontAwesomeIcons.wallet,
+                            color: AppColors.warning,
+                          ),
                         ),
-                      ),
-                      items: filteredCompanies
-                          .map((c) => DropdownMenuItem<Company>(
-                                value: c,
-                                child: Text(c.name),
-                              ))
-                          .toList(),
-                      onChanged: _exchangeCompanyName == null
-                          ? null
-                          : (c) {
-                              Exchange? matched;
-                              for (final ex in filteredExchanges) {
-                                if (c != null && ex.companyId == c.id) {
-                                  matched = ex;
-                                  break;
+                        items: filteredCompanies
+                            .map((c) => DropdownMenuItem<Company>(
+                                  value: c,
+                                  child: Text(c.name),
+                                ))
+                            .toList(),
+                        onChanged: _exchangeCompanyName == null
+                            ? null
+                            : (c) {
+                                Exchange? matched;
+                                for (final ex in filteredExchanges) {
+                                  if (c != null && ex.companyId == c.id) {
+                                    matched = ex;
+                                    break;
+                                  }
                                 }
-                              }
-                              setState(() {
-                                _myCompany = c;
-                                _exchange = matched;
-                              });
-                            },
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'رقم حسابي',
-                child: TextField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: _exchange?.ourCode ?? '',
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: 'كود الحساب',
-                    suffixIcon: _IconBox(
-                      FontAwesomeIcons.user,
-                      color: AppColors.warning,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        _CollapsibleSection(
-          color: AppColors.accent,
-          header: const _AccentSectionTitle(
-            text: 'الجهة المرسلة',
-            color: AppColors.accent,
-            icon: FontAwesomeIcons.paperPlane,
-          ),
-          // Never open while "دخول لحسابي" is incomplete, even if the header
-          // is tapped by hand.
-          expanded: _activeSection == 2 && _accountComplete,
-          onToggle: () {
-            if (_activeSection == 2) {
-              setState(() => _activeSection = null);
-              return;
-            }
-            if (!_accountComplete) {
-              _showSenderBlocked();
-              return;
-            }
-            setState(() => _activeSection = 2);
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (ref.watch(isEmployeeProvider) &&
-                  ref.watch(canProvider(kPermClientsAdd))) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    key: const ValueKey('employee-add-party'),
-                    onPressed: _openAddClientDialog,
-                    icon: const FaIcon(FontAwesomeIcons.userPlus, size: 14),
-                    label: const Text('إضافة جهة جديدة'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(
-                        color: AppColors.accent.withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-              if (!ref.watch(isEmployeeProvider)) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _openSavedClientsDialog,
-                    icon: const FaIcon(
-                      FontAwesomeIcons.bookmark,
-                      size: 14,
-                    ),
-                    label: const Text('الجهات المحفوظة'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(
-                        color: AppColors.accent.withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-              _LabeledField(
-                label: 'الشركة المرسلة',
-                child: clientsAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (clients) {
-                    if (clients.isEmpty) {
-                      return _EmptyClientsState(
-                        onAdd: _openAddClientDialog,
+                                setState(() {
+                                  _myCompany = c;
+                                  _exchange = matched;
+                                });
+                              },
                       );
-                    }
-                    final companyNames = [
-                      if (clients.any((c) => (c.company ?? '').trim().isEmpty))
-                        kNoCompany,
-                      ...(<String>{}..addAll(clients
-                          .where(
-                              (c) => c.company != null && c.company!.isNotEmpty)
-                          .map((c) => c.company!)))
-                    ];
-                    final liveValue = companyNames.contains(_senderCompany)
-                        ? _senderCompany
-                        : null;
-                    if (liveValue == null && _senderCompany != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _senderCompany = null;
-                            _client = null;
-                          });
-                        }
-                      });
-                    }
-                    return DropdownButtonFormField<String>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        hintText: 'اسم الشركة المرسلة',
-                        suffixIcon: _IconBox(
-                          FontAwesomeIcons.building,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                      items: companyNames
-                          .map((n) => DropdownMenuItem<String>(
-                                value: n,
-                                child: Text(n == kNoCompany ? 'بدون شركة' : n),
-                              ))
-                          .toList(),
-                      onChanged: (n) => setState(() {
-                        _senderCompany = n;
-                        _client = null;
-                      }),
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'اسم حساب المرسل',
-                child: clientsAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (clients) {
-                    final filtered = _senderCompany == null
-                        ? const <Client>[]
-                        : clients
-                            .where((c) =>
-                                _companyChoiceOf(c.company) == _senderCompany)
-                            .toList();
-                    final liveValue =
-                        filtered.any((x) => x == _client) ? _client : null;
-                    if (liveValue == null && _client != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) setState(() => _client = null);
-                      });
-                    }
-                    return DropdownButtonFormField<Client>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        hintText: _senderCompany == null
-                            ? 'اختر الشركة المرسلة أولاً'
-                            : 'اسم حساب المرسل',
-                        suffixIcon: const _IconBox(
-                          FontAwesomeIcons.wallet,
-                          color: AppColors.accent,
-                        ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'رقم حسابي',
+                  child: TextField(
+                    readOnly: true,
+                    controller: TextEditingController(
+                      text: _exchange?.ourCode ?? '',
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'كود الحساب',
+                      suffixIcon: _IconBox(
+                        FontAwesomeIcons.user,
+                        color: AppColors.warning,
                       ),
-                      items: filtered
-                          .map((c) => DropdownMenuItem<Client>(
-                                value: c,
-                                child: Text(c.name),
-                              ))
-                          .toList(),
-                      onChanged: _senderCompany == null
-                          ? null
-                          : (c) => setState(() => _client = c),
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'كود حساب المرسل',
-                // A stored code is official and locked. Only a sender with no
-                // code yet may have one typed — once, saved with the entry.
-                child: TextFormField(
-                  key: ValueKey('sender-code-${_client?.id}'),
-                  initialValue: _client?.code ?? '',
-                  readOnly: _client == null || _senderCodeStored,
-                  onChanged: (v) {
-                    setState(() {
-                      _senderCodeTyped = v;
-                      _senderCodeFor = _client?.id;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    hintText: _client == null
-                        ? 'كود حساب المرسل'
-                        : (_senderCodeStored
-                            ? 'كود رسمي — لا يمكن تعديله'
-                            : 'كود المرسل (اختياري)'),
-                    suffixIcon: _IconBox(
-                      _senderCodeStored
-                          ? FontAwesomeIcons.lock
-                          : FontAwesomeIcons.user,
-                      color: AppColors.accent,
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              // Two identical boxes side by side: same width, same height,
-              // text centred. No icons: they only squeeze the value.
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'الرقم الإشاري',
-                      // A pencil beside the label sets this sender's fixed
-                      // letters (TRC ...) without leaving the form.
-                      trailing: (_client == null ||
-                              !ref.watch(canProvider(kPermPartyLetters)))
-                          ? null
-                          : Tooltip(
-                              message: _refPrefix.isEmpty
-                                  ? 'إضافة حروف ثابتة للإشاري'
-                                  : 'تعديل الحروف الثابتة للإشاري',
-                              child: InkWell(
-                                key: const ValueKey('ref-prefix-edit'),
-                                onTap: _editSenderLetters,
-                                borderRadius: BorderRadius.circular(8),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(5),
-                                  child: FaIcon(
-                                    FontAwesomeIcons.penToSquare,
-                                    size: 13,
-                                    color: AppColors.accent,
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _CollapsibleSection(
+            color: AppColors.accent,
+            header: const _AccentSectionTitle(
+              text: 'الجهة المرسلة',
+              color: AppColors.accent,
+              icon: FontAwesomeIcons.paperPlane,
+            ),
+            // Never open while "دخول لحسابي" is incomplete, even if the header
+            // is tapped by hand.
+            expanded: _activeSection == 2 && _accountComplete,
+            onToggle: () {
+              if (_activeSection == 2) {
+                setState(() => _activeSection = null);
+                return;
+              }
+              if (!_accountComplete) {
+                _showSenderBlocked();
+                return;
+              }
+              setState(() => _activeSection = 2);
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (ref.watch(isEmployeeProvider) &&
+                    ref.watch(canProvider(kPermClientsAdd))) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('employee-add-party'),
+                      onPressed: _openAddClientDialog,
+                      icon: const FaIcon(FontAwesomeIcons.userPlus, size: 14),
+                      label: const Text('إضافة جهة جديدة'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: BorderSide(
+                          color: AppColors.accent.withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (!ref.watch(isEmployeeProvider)) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _openSavedClientsDialog,
+                      icon: const FaIcon(
+                        FontAwesomeIcons.bookmark,
+                        size: 14,
+                      ),
+                      label: const Text('الجهات المحفوظة'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.accent,
+                        side: BorderSide(
+                          color: AppColors.accent.withValues(alpha: 0.5),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                _LabeledField(
+                  label: 'الشركة المرسلة',
+                  child: clientsAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (clients) {
+                      if (clients.isEmpty) {
+                        return _EmptyClientsState(
+                          onAdd: _openAddClientDialog,
+                        );
+                      }
+                      final companyNames = [
+                        if (clients
+                            .any((c) => (c.company ?? '').trim().isEmpty))
+                          kNoCompany,
+                        ...(<String>{}..addAll(clients
+                            .where((c) =>
+                                c.company != null && c.company!.isNotEmpty)
+                            .map((c) => c.company!)))
+                      ];
+                      final liveValue = companyNames.contains(_senderCompany)
+                          ? _senderCompany
+                          : null;
+                      if (liveValue == null && _senderCompany != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _senderCompany = null;
+                              _client = null;
+                            });
+                          }
+                        });
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: liveValue,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          hintText: 'اسم الشركة المرسلة',
+                          suffixIcon: _IconBox(
+                            FontAwesomeIcons.building,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                        items: companyNames
+                            .map((n) => DropdownMenuItem<String>(
+                                  value: n,
+                                  child:
+                                      Text(n == kNoCompany ? 'بدون شركة' : n),
+                                ))
+                            .toList(),
+                        onChanged: (n) => setState(() {
+                          _senderCompany = n;
+                          _client = null;
+                        }),
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'اسم حساب المرسل',
+                  child: clientsAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (clients) {
+                      final filtered = _senderCompany == null
+                          ? const <Client>[]
+                          : clients
+                              .where((c) =>
+                                  _companyChoiceOf(c.company) == _senderCompany)
+                              .toList();
+                      final liveValue =
+                          filtered.any((x) => x == _client) ? _client : null;
+                      if (liveValue == null && _client != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _client = null);
+                        });
+                      }
+                      return DropdownButtonFormField<Client>(
+                        value: liveValue,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: _senderCompany == null
+                              ? 'اختر الشركة المرسلة أولاً'
+                              : 'اسم حساب المرسل',
+                          suffixIcon: const _IconBox(
+                            FontAwesomeIcons.wallet,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                        items: filtered
+                            .map((c) => DropdownMenuItem<Client>(
+                                  value: c,
+                                  child: Text(c.name),
+                                ))
+                            .toList(),
+                        onChanged: _senderCompany == null
+                            ? null
+                            : (c) => setState(() => _client = c),
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'كود حساب المرسل',
+                  // A stored code is official and locked. Only a sender with no
+                  // code yet may have one typed — once, saved with the entry.
+                  child: TextFormField(
+                    key: ValueKey('sender-code-${_client?.id}'),
+                    initialValue: _client?.code ?? '',
+                    readOnly: _client == null || _senderCodeStored,
+                    onChanged: (v) {
+                      setState(() {
+                        _senderCodeTyped = v;
+                        _senderCodeFor = _client?.id;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: _client == null
+                          ? 'كود حساب المرسل'
+                          : (_senderCodeStored
+                              ? 'كود رسمي — لا يمكن تعديله'
+                              : 'كود المرسل (اختياري)'),
+                      suffixIcon: _IconBox(
+                        _senderCodeStored
+                            ? FontAwesomeIcons.lock
+                            : FontAwesomeIcons.user,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Two identical boxes side by side: same width, same height,
+                // text centred. No icons: they only squeeze the value.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'الرقم الإشاري',
+                        // A pencil beside the label sets this sender's fixed
+                        // letters (TRC ...) without leaving the form.
+                        trailing: (_client == null ||
+                                !ref.watch(canProvider(kPermPartyLetters)))
+                            ? null
+                            : Tooltip(
+                                message: _refPrefix.isEmpty
+                                    ? 'إضافة حروف ثابتة للإشاري'
+                                    : 'تعديل الحروف الثابتة للإشاري',
+                                child: InkWell(
+                                  key: const ValueKey('ref-prefix-edit'),
+                                  onTap: _editSenderLetters,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(5),
+                                    child: FaIcon(
+                                      FontAwesomeIcons.penToSquare,
+                                      size: 13,
+                                      color: AppColors.accent,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: TextField(
-                          controller: _reference,
-                          expands: true,
-                          minLines: null,
-                          maxLines: null,
-                          textAlign: TextAlign.center,
-                          textAlignVertical: TextAlignVertical.center,
-                          style: _kFieldTextStyle,
-                          // The sender's fixed letters stay in front; only the
-                          // changing number is typed.
-                          decoration: InputDecoration(
-                            hintText: _refPrefix.isEmpty
-                                ? 'الإشاري (اختياري)'
-                                : 'الرقم (اختياري)',
-                            hintMaxLines: 1,
-                            prefixText: _refPrefix.isEmpty ? null : _refPrefix,
-                            prefixStyle: _kFieldTextStyle.copyWith(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w800,
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: TextField(
+                            controller: _reference,
+                            expands: true,
+                            minLines: null,
+                            maxLines: null,
+                            textAlign: TextAlign.center,
+                            textAlignVertical: TextAlignVertical.center,
+                            style: _kFieldTextStyle,
+                            // The sender's fixed letters stay in front; only the
+                            // changing number is typed.
+                            decoration: InputDecoration(
+                              hintText: _refPrefix.isEmpty
+                                  ? 'الإشاري (اختياري)'
+                                  : 'الرقم (اختياري)',
+                              hintMaxLines: 1,
+                              prefixText:
+                                  _refPrefix.isEmpty ? null : _refPrefix,
+                              prefixStyle: _kFieldTextStyle.copyWith(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'القيمة \$',
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: TextField(
-                          controller: _usd,
-                          keyboardType: TextInputType.number,
-                          expands: true,
-                          minLines: null,
-                          maxLines: null,
-                          textAlign: TextAlign.center,
-                          textAlignVertical: TextAlignVertical.center,
-                          style: _kFieldTextStyle.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: 'القيمة بالدولار',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'القيمة \$',
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: TextField(
+                            controller: _usd,
+                            keyboardType: TextInputType.number,
+                            expands: true,
+                            minLines: null,
+                            maxLines: null,
+                            textAlign: TextAlign.center,
+                            textAlignVertical: TextAlignVertical.center,
+                            style: _kFieldTextStyle.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'القيمة بالدولار',
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              RateFields(
-                controller: _rate,
-                usd: parseMoney(_usd.text),
-                rates: ref.watch(exchangeRatesProvider).valueOrNull,
-                sell: false,
-                enabled: true,
-                onDisabledTap: () {},
-                height: _kFieldHeight,
-                textStyle: _kFieldTextStyle,
-                book: _book,
-                // the cost after this purchase, in its book (0093)
-                accountCost: _exchange == null
-                    ? null
-                    : ref
-                        .watch(accountBooksProvider)
-                        .valueOrNull?[_exchange!.id]
-                        ?.of(_book)
-                        .costRate,
-                accountBalance: _exchange == null
-                    ? null
-                    : ref
-                        .watch(accountBooksProvider)
-                        .valueOrNull?[_exchange!.id]
-                        ?.of(_book)
-                        .balance,
-              ),
-              const SizedBox(height: 10),
-              LydMethodSelector(
-                value: _lydMethod,
-                sell: false,
-                onChanged: (m) => setState(() => _lydMethod = m),
-                allowCredit: true,
-                paidController: _lydPaid,
-                pocket: _paidPocket,
-                onPocketChanged: (p) => setState(() => _paidPocket = p),
-                onPaidChanged: () => setState(() {}),
-                total: _buyRate > 0
-                    ? lydFor(parseMoney(_usd.text), _buyRate)
-                    : null,
-              ),
-              if (lydOnCredit(_lydMethod) && _client == null)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Text(
-                    'الشراء بالآجل يُسجَّل على الجهة المرسلة: اخترها أولًا.',
-                    style: TextStyle(fontSize: 12, color: AppColors.warning),
-                  ),
+                  ],
                 ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            key: const ValueKey('save-buy'),
-            // Active (bright) only when my account and the sender are filled.
-            onPressed: (_readyToSave && !_busy) ? _confirmExecuteBuy : null,
-            icon: const FaIcon(
-              FontAwesomeIcons.paperPlane,
-              size: 14,
+                const SizedBox(height: 12),
+                RateFields(
+                  controller: _rate,
+                  usd: parseMoney(_usd.text),
+                  rates: ref.watch(exchangeRatesProvider).valueOrNull,
+                  sell: false,
+                  enabled: true,
+                  onDisabledTap: () {},
+                  height: _kFieldHeight,
+                  textStyle: _kFieldTextStyle,
+                  book: _book,
+                  // the cost after this purchase, in its book (0093)
+                  accountCost: _exchange == null
+                      ? null
+                      : ref
+                          .watch(accountBooksProvider)
+                          .valueOrNull?[_exchange!.id]
+                          ?.of(_book)
+                          .costRate,
+                  accountBalance: _exchange == null
+                      ? null
+                      : ref
+                          .watch(accountBooksProvider)
+                          .valueOrNull?[_exchange!.id]
+                          ?.of(_book)
+                          .balance,
+                ),
+                const SizedBox(height: 10),
+                LydMethodSelector(
+                  value: _lydMethod,
+                  sell: false,
+                  onChanged: (m) => setState(() => _lydMethod = m),
+                  allowCredit: true,
+                  paidController: _lydPaid,
+                  pocket: _paidPocket,
+                  onPocketChanged: (p) => setState(() => _paidPocket = p),
+                  onPaidChanged: () => setState(() {}),
+                  total: _buyRate > 0
+                      ? lydFor(parseMoney(_usd.text), _buyRate)
+                      : null,
+                ),
+                if (lydOnCredit(_lydMethod) && _client == null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'الشراء بالآجل يُسجَّل على الجهة المرسلة: اخترها أولًا.',
+                      style: TextStyle(fontSize: 12, color: AppColors.warning),
+                    ),
+                  ),
+              ],
             ),
-            label: Text(_busy ? '...' : 'حفظ'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.positive,
-              foregroundColor: Colors.black,
-              disabledBackgroundColor: AppColors.glassFillStrong,
-              disabledForegroundColor: AppColors.textDim,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              textStyle: const TextStyle(
-                fontFamily: 'Almarai',
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('save-buy'),
+              // Active (bright) only when my account and the sender are filled.
+              onPressed: (_readyToSave && !_busy) ? _confirmExecuteBuy : null,
+              icon: const FaIcon(
+                FontAwesomeIcons.paperPlane,
+                size: 14,
+              ),
+              label: Text(_busy ? '...' : 'حفظ'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.positive,
+                foregroundColor: Colors.black,
+                disabledBackgroundColor: AppColors.glassFillStrong,
+                disabledForegroundColor: AppColors.textDim,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                textStyle: const TextStyle(
+                  fontFamily: 'Almarai',
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _CollapsibleSection(
-          header: Row(children: [
-            const Expanded(
-              child: _AccentSectionTitle(
-                text: 'شراء منفذ',
-                color: AppColors.positive,
-                icon: FontAwesomeIcons.circleCheck,
-              ),
-            ),
-            IconButton(
-              tooltip: 'تصدير PDF',
-              icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
-              onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
-            ),
-            if (!_executedExpanded)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 8),
-                child: _CountBadge(
-                  count: dailyAsync.value?.length ?? 0,
+          const SizedBox(height: 24),
+          _CollapsibleSection(
+            header: Row(children: [
+              const Expanded(
+                child: _AccentSectionTitle(
+                  text: 'شراء منفذ',
                   color: AppColors.positive,
+                  icon: FontAwesomeIcons.circleCheck,
                 ),
               ),
-          ]),
-          expanded: _executedExpanded,
-          onToggle: () =>
-              setState(() => _executedExpanded = !_executedExpanded),
-          child: dailyAsync.when(
-            skipLoadingOnReload: true,
-            skipError: true,
-            data: (rows) => _DailyBuysTable(rows: rows),
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('$e'),
+              IconButton(
+                tooltip: 'تصدير PDF',
+                icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
+                onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
+              ),
+              if (!_executedExpanded)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 8),
+                  child: _CountBadge(
+                    count: dailyAsync.value?.length ?? 0,
+                    color: AppColors.positive,
+                  ),
+                ),
+            ]),
+            expanded: _executedExpanded,
+            onToggle: () =>
+                setState(() => _executedExpanded = !_executedExpanded),
+            child: dailyAsync.when(
+              skipLoadingOnReload: true,
+              skipError: true,
+              data: (rows) => _DailyBuysTable(rows: rows),
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text(friendlyError(e)),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text(
-            'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: AppColors.textDim),
+          const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: AppColors.textDim),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

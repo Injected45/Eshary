@@ -30,9 +30,11 @@ import '../../companies/presentation/no_account_notice.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog;
+import '../../exchange_rates/domain/exchange_rates.dart';
 import '../../exchange_rates/presentation/exchange_rates_providers.dart';
 import '../../exchange_rates/presentation/lyd_method_selector.dart';
 import '../../exchange_rates/presentation/rate_fields.dart';
+import '../../treasury/domain/account_books.dart';
 import '../../treasury/presentation/treasury_providers.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../data/transfers_repository.dart';
@@ -146,8 +148,25 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     return ex;
   }
 
-  /// What the account can pay out: its balance (exits are posted at save).
-  double get _available => _currentExchange?.balance ?? 0;
+  /// What the account can pay out in this sale's book (0093: a sale takes
+  /// only the dollars of its own book). The administrator has the books; an
+  /// employee (no books on the phone) sees the account's balance, and the
+  /// database refuses the rest (book_insufficient).
+  double get _available {
+    final ex = _currentExchange;
+    if (ex == null) return 0;
+    final books = ref.read(accountBooksProvider).valueOrNull?[ex.id];
+    return books?.of(_book).balance ?? ex.balance;
+  }
+
+  /// " في الدفتر النقدي" when the balance shown is a book's, else nothing.
+  String get _bookNote {
+    final ex = _currentExchange;
+    if (ex == null) return '';
+    return ref.read(accountBooksProvider).valueOrNull?[ex.id] == null
+        ? ''
+        : ' في الدفتر ${bookLabel(_book)}';
+  }
 
   bool get _overBalance {
     if (_exchange == null) return false;
@@ -228,20 +247,28 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _exchange = e;
       _reference = null;
     });
-    final companies = await ref.read(companiesListProvider.future);
-    Company? derived;
-    for (final c in companies) {
-      if (c.id == e.companyId) {
-        derived = c;
-        break;
+    try {
+      final companies = await ref.read(companiesListProvider.future);
+      Company? derived;
+      for (final c in companies) {
+        if (c.id == e.companyId) {
+          derived = c;
+          break;
+        }
       }
+      if (!mounted || _exchange != e) return;
+      setState(() => _company = derived);
+      if (derived == null) return;
+      final newRef =
+          await ref.read(companiesRepositoryProvider).nextReference(derived.id);
+      // an older answer for an account changed meanwhile is dropped
+      if (mounted && _exchange == e) setState(() => _reference = newRef);
+    } catch (err, st) {
+      // the number shown is only a preview: the database gives the real one
+      // at save time (0087), so a failed read must not block the save
+      AppLogger.error('transfers.nextReference', err, st);
+      if (mounted && _exchange == e) setState(() => _reference = '');
     }
-    if (!mounted) return;
-    setState(() => _company = derived);
-    if (derived == null) return;
-    final newRef =
-        await ref.read(companiesRepositoryProvider).nextReference(derived.id);
-    if (mounted) setState(() => _reference = newRef);
   }
 
   List<String> _composeMessages() {
@@ -319,6 +346,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       );
 
   Future<void> _saveAndOpenMessages() async {
+    if (_busy) return;
     if (_company == null || _exchange == null || _reference == null) {
       _snack('اختر الشركة وشركة الصرافة أولاً');
       return;
@@ -327,13 +355,26 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('المبلغ غير صحيح');
       return;
     }
-    final rates = ref.read(exchangeRatesProvider).valueOrNull;
+    // the rate the database will save with, read now: a locked rate shown
+    // since the morning may have been changed by the administrator
+    final shownRate = _sellRate;
+    ExchangeRates? rates;
+    try {
+      rates = await ref.refresh(exchangeRatesProvider.future);
+    } catch (_) {
+      rates = null;
+    }
+    if (!mounted) return;
     if (rates == null) {
       _snack('تعذّر جلب سعر الصرف. تحقق من الاتصال وحاول مرة أخرى.');
-      ref.invalidate(exchangeRatesProvider);
       return;
     }
     final rate = _sellRate;
+    if (!rates.canEditSell && shownRate > 0 && rate != shownRate) {
+      _snack('غيّر المدير سعر البيع إلى ${formatRate(rate)}. '
+          'راجع الإجمالي بالدينار ثم احفظ.');
+      return;
+    }
     if (rate <= 0) {
       _snack(rates.canEditSell
           ? 'اكتب سعر الصرف'
@@ -372,7 +413,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     final amount = parseMoney(_amount.text);
     final balance = _available;
     if (amount > balance) {
-      _snack('المبلغ يتجاوز رصيد الحساب (${formatMoney(balance)} \$).');
+      _snack('المبلغ يتجاوز رصيد الحساب$_bookNote '
+          '(${formatMoney(balance)} \$).');
       return;
     }
     if (!_beneficiaryComplete) {
@@ -419,11 +461,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _requestId = newRequestId();
     }
 
+    // kept from here: the form is locked while saving, and nothing read after
+    // the save may depend on what the screen shows by then
+    final companyId = _company!.id;
     setState(() => _busy = true);
     try {
       Future<Transfer> save({bool overLimit = false}) =>
           ref.read(transfersRepositoryProvider).create(
-                companyId: _company!.id,
+                companyId: companyId,
                 exchangeId: _exchange!.id,
                 beneficiaryName: _beneficiaryNameToStore,
                 beneficiaryAccountCompany: _beneficiaryAccount.text.trim(),
@@ -469,7 +514,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       ref.invalidate(todayTransfersProvider);
       ref.invalidate(archivedTransfersProvider);
       ref.invalidate(allExchangesProvider);
-      ref.invalidate(exchangesByCompanyProvider(_company!.id));
+      ref.invalidate(exchangesByCompanyProvider(companyId));
 
       final messages = _composeMessages();
       await ref.read(pendingDispatchProvider.notifier).begin(
@@ -532,7 +577,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         content: Text(
           over
               ? 'عذراً لا يمكن فتح الجهة المستفيدة.\n'
-                  'المبلغ يتجاوز رصيد الحساب '
+                  'المبلغ يتجاوز رصيد الحساب$_bookNote '
                   '(${formatMoney(_available)} \$).'
               : 'عذراً لا يمكن فتح الجهة المستفيدة.\n'
                   'عليك استكمال بيانات الحوالة أولاً.',
@@ -681,6 +726,8 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // the administrator's books: the balance shown is the sale's book's
+    ref.watch(accountBooksProvider);
     final exchangesAsync = ref.watch(allExchangesProvider);
     final dailyAsync = ref.watch(todayTransfersProvider);
     // only MY exchange companies: a customer's company is never offered here
@@ -716,160 +763,169 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       }
     }
 
-    return ListView(
-      padding: EdgeInsets.fromLTRB(
-          16, contentTopPadding(context), 16, contentBottomPadding(context)),
-      children: [
-        // Section 1 (top) — خروج من حسابي
-        _CollapsibleSection(
-          color: AppColors.negative,
-          header: const _NumberedSectionTitle(
-            1,
-            'بيع من حسابي',
+    // nothing on the form changes while it is being saved
+    return AbsorbPointer(
+      absorbing: _busy,
+      child: ListView(
+        padding: EdgeInsets.fromLTRB(
+            16, contentTopPadding(context), 16, contentBottomPadding(context)),
+        children: [
+          // Section 1 (top) — خروج من حسابي
+          _CollapsibleSection(
             color: AppColors.negative,
-          ),
-          expanded: _activeSection == 1,
-          onToggle: () => setState(
-            () => _activeSection = _activeSection == 1 ? null : 1,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _LabeledField(
-                label: 'الشركة',
-                child: exchangeCompaniesAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (items) {
-                    if (items.isEmpty) {
-                      return _EmptyExchangeCompaniesState(
-                        onAdd: _openAddExchangeCompanyDialog,
+            header: const _NumberedSectionTitle(
+              1,
+              'بيع من حسابي',
+              color: AppColors.negative,
+            ),
+            expanded: _activeSection == 1,
+            onToggle: () => setState(
+              () => _activeSection = _activeSection == 1 ? null : 1,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _LabeledField(
+                  label: 'الشركة',
+                  child: exchangeCompaniesAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (items) {
+                      if (items.isEmpty) {
+                        return _EmptyExchangeCompaniesState(
+                          onAdd: _openAddExchangeCompanyDialog,
+                        );
+                      }
+                      if (exchangesAsync.isLoading &&
+                          !exchangesAsync.hasValue) {
+                        return const LinearProgressIndicator();
+                      }
+                      // Only companies where I actually hold an account
+                      // (an exchange with the same name), sorted by name.
+                      final accountNames = {
+                        for (final e
+                            in exchangesAsync.value ?? const <Exchange>[])
+                          e.name,
+                      };
+                      final names = items
+                          .map((ec) => ec.name)
+                          .where(accountNames.contains)
+                          .toSet()
+                          .toList()
+                        ..sort();
+                      if (names.isEmpty) {
+                        return NoAccountNotice(
+                          exchanges: exchangesAsync,
+                          exchangeCompanyNames: [
+                            for (final ec in items) ec.name
+                          ],
+                        );
+                      }
+                      final liveValue = names.contains(_exchangeCompanyName)
+                          ? _exchangeCompanyName
+                          : null;
+                      if (liveValue == null && _exchangeCompanyName != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _onExchangeCompanyChanged(null);
+                        });
+                      }
+                      return DropdownButtonFormField<String>(
+                        value: liveValue,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          hintText: 'اختر الشركة',
+                          suffixIcon: _IconBox(FontAwesomeIcons.building),
+                        ),
+                        items: names
+                            .map((n) =>
+                                DropdownMenuItem(value: n, child: Text(n)))
+                            .toList(),
+                        onChanged: _onExchangeCompanyChanged,
                       );
-                    }
-                    if (exchangesAsync.isLoading && !exchangesAsync.hasValue) {
-                      return const LinearProgressIndicator();
-                    }
-                    // Only companies where I actually hold an account
-                    // (an exchange with the same name), sorted by name.
-                    final accountNames = {
-                      for (final e
-                          in exchangesAsync.value ?? const <Exchange>[])
-                        e.name,
-                    };
-                    final names = items
-                        .map((ec) => ec.name)
-                        .where(accountNames.contains)
-                        .toSet()
-                        .toList()
-                      ..sort();
-                    if (names.isEmpty) {
-                      return NoAccountNotice(
-                        exchanges: exchangesAsync,
-                        exchangeCompanyNames: [for (final ec in items) ec.name],
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'اسم الحساب',
+                  child: exchangesAsync.when(
+                    skipLoadingOnReload: true,
+                    skipError: true,
+                    data: (allExchanges) {
+                      final filtered = _exchangeCompanyName == null
+                          ? const <Exchange>[]
+                          : allExchanges
+                              .where((e) => e.name == _exchangeCompanyName)
+                              .toList();
+                      final liveValue = filtered.any((x) => x == _exchange)
+                          ? _exchange
+                          : null;
+                      if (liveValue == null && _exchange != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              _exchange = null;
+                              _company = null;
+                              _reference = null;
+                            });
+                          }
+                        });
+                      }
+                      return DropdownButtonFormField<Exchange>(
+                        value: liveValue,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          hintText: _exchangeCompanyName == null
+                              ? 'اختر الشركة أولاً'
+                              : 'اختر اسم الحساب',
+                          suffixIcon: const _IconBox(FontAwesomeIcons.wallet),
+                        ),
+                        items: filtered
+                            .map((e) => DropdownMenuItem(
+                                  value: e,
+                                  child: Text(
+                                    companyById[e.companyId]?.name ?? '—',
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: _exchangeCompanyName == null
+                            ? null
+                            : _onExchangeChanged,
                       );
-                    }
-                    final liveValue = names.contains(_exchangeCompanyName)
-                        ? _exchangeCompanyName
-                        : null;
-                    if (liveValue == null && _exchangeCompanyName != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _onExchangeCompanyChanged(null);
-                      });
-                    }
-                    return DropdownButtonFormField<String>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        hintText: 'اختر الشركة',
-                        suffixIcon: _IconBox(FontAwesomeIcons.building),
-                      ),
-                      items: names
-                          .map(
-                              (n) => DropdownMenuItem(value: n, child: Text(n)))
-                          .toList(),
-                      onChanged: _onExchangeCompanyChanged,
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text(friendlyError(e)),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'اسم الحساب',
-                child: exchangesAsync.when(
-                  skipLoadingOnReload: true,
-                  skipError: true,
-                  data: (allExchanges) {
-                    final filtered = _exchangeCompanyName == null
-                        ? const <Exchange>[]
-                        : allExchanges
-                            .where((e) => e.name == _exchangeCompanyName)
-                            .toList();
-                    final liveValue =
-                        filtered.any((x) => x == _exchange) ? _exchange : null;
-                    if (liveValue == null && _exchange != null) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          setState(() {
-                            _exchange = null;
-                            _company = null;
-                            _reference = null;
-                          });
-                        }
-                      });
-                    }
-                    return DropdownButtonFormField<Exchange>(
-                      value: liveValue,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        hintText: _exchangeCompanyName == null
-                            ? 'اختر الشركة أولاً'
-                            : 'اختر اسم الحساب',
-                        suffixIcon: const _IconBox(FontAwesomeIcons.wallet),
-                      ),
-                      items: filtered
-                          .map((e) => DropdownMenuItem(
-                                value: e,
-                                child: Text(
-                                  companyById[e.companyId]?.name ?? '—',
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: _exchangeCompanyName == null
-                          ? null
-                          : _onExchangeChanged,
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('$e'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Four equal boxes (same width, same height) in two rows:
-              // balance | account code, then reference | amount.
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'رصيد الحساب',
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: AppColors.glassFill,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.glassBorder),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Center(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  formatMoney(_available),
-                                  style: _kFieldTextStyle,
+                const SizedBox(height: 12),
+                // Four equal boxes (same width, same height) in two rows:
+                // balance | account code, then reference | amount.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'رصيد الحساب',
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.glassFill,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.glassBorder),
+                            ),
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              child: Center(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    formatMoney(_available),
+                                    style: _kFieldTextStyle,
+                                  ),
                                 ),
                               ),
                             ),
@@ -877,336 +933,336 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'كود الحساب',
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: TextField(
-                          readOnly: true,
-                          expands: true,
-                          minLines: null,
-                          maxLines: null,
-                          textAlignVertical: TextAlignVertical.center,
-                          textAlign: TextAlign.center,
-                          style: _kFieldTextStyle,
-                          controller: TextEditingController(
-                            text: _exchange?.ourCode ?? '',
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: 'يظهر تلقائياً',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'الرقم الإشاري',
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: TextField(
-                          readOnly: true,
-                          expands: true,
-                          minLines: null,
-                          maxLines: null,
-                          textAlignVertical: TextAlignVertical.center,
-                          textAlign: TextAlign.center,
-                          style: _kFieldTextStyle,
-                          controller:
-                              TextEditingController(text: _reference ?? ''),
-                          decoration: const InputDecoration(
-                            hintText: 'يظهر تلقائياً',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'كود الحساب',
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: TextField(
+                            readOnly: true,
+                            expands: true,
+                            minLines: null,
+                            maxLines: null,
+                            textAlignVertical: TextAlignVertical.center,
+                            textAlign: TextAlign.center,
+                            style: _kFieldTextStyle,
+                            controller: TextEditingController(
+                              text: _exchange?.ourCode ?? '',
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: 'يظهر تلقائياً',
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _LabeledField(
-                      label: 'القيمة بالدولار (USD)',
-                      child: SizedBox(
-                        height: _kFieldHeight,
-                        child: _outgoingFieldsEnabled
-                            ? TextField(
-                                controller: _amount,
-                                keyboardType: TextInputType.number,
-                                expands: true,
-                                minLines: null,
-                                maxLines: null,
-                                textAlignVertical: TextAlignVertical.center,
-                                textAlign: TextAlign.center,
-                                style: _kFieldTextStyle.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'أدخل القيمة',
-                                  // Over the limit: red outline here, the
-                                  // message goes below so the box keeps its
-                                  // height.
-                                  enabledBorder: _overBalance
-                                      ? OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                          borderSide: const BorderSide(
-                                            color: AppColors.negative,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                              )
-                            : GestureDetector(
-                                onTap: _showOutgoingValidation,
-                                child: AbsorbPointer(
-                                  child: Opacity(
-                                    opacity: 0.55,
-                                    child: TextField(
-                                      controller: _amount,
-                                      enabled: false,
-                                      expands: true,
-                                      minLines: null,
-                                      maxLines: null,
-                                      textAlignVertical:
-                                          TextAlignVertical.center,
-                                      textAlign: TextAlign.center,
-                                      style: _kFieldTextStyle,
-                                      decoration: const InputDecoration(
-                                        hintText: 'اختر الحساب أولاً',
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'الرقم الإشاري',
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: TextField(
+                            readOnly: true,
+                            expands: true,
+                            minLines: null,
+                            maxLines: null,
+                            textAlignVertical: TextAlignVertical.center,
+                            textAlign: TextAlign.center,
+                            style: _kFieldTextStyle,
+                            controller:
+                                TextEditingController(text: _reference ?? ''),
+                            decoration: const InputDecoration(
+                              hintText: 'يظهر تلقائياً',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _LabeledField(
+                        label: 'القيمة بالدولار (USD)',
+                        child: SizedBox(
+                          height: _kFieldHeight,
+                          child: _outgoingFieldsEnabled
+                              ? TextField(
+                                  controller: _amount,
+                                  keyboardType: TextInputType.number,
+                                  expands: true,
+                                  minLines: null,
+                                  maxLines: null,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  textAlign: TextAlign.center,
+                                  style: _kFieldTextStyle.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'أدخل القيمة',
+                                    // Over the limit: red outline here, the
+                                    // message goes below so the box keeps its
+                                    // height.
+                                    enabledBorder: _overBalance
+                                        ? OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.negative,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                )
+                              : GestureDetector(
+                                  onTap: _showOutgoingValidation,
+                                  child: AbsorbPointer(
+                                    child: Opacity(
+                                      opacity: 0.55,
+                                      child: TextField(
+                                        controller: _amount,
+                                        enabled: false,
+                                        expands: true,
+                                        minLines: null,
+                                        maxLines: null,
+                                        textAlignVertical:
+                                            TextAlignVertical.center,
+                                        textAlign: TextAlign.center,
+                                        style: _kFieldTextStyle,
+                                        decoration: const InputDecoration(
+                                          hintText: 'اختر الحساب أولاً',
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_outgoingFieldsEnabled && _overBalance)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'يتجاوز رصيد الحساب',
+                      style: TextStyle(fontSize: 12, color: AppColors.negative),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                RateFields(
+                  controller: _rate,
+                  usd: parseMoney(_amount.text),
+                  rates: ref.watch(exchangeRatesProvider).valueOrNull,
+                  sell: true,
+                  enabled: _outgoingFieldsEnabled,
+                  onDisabledTap: _showOutgoingValidation,
+                  height: _kFieldHeight,
+                  textStyle: _kFieldTextStyle,
+                  book: _book,
+                  accountCost: _exchange == null
+                      ? null
+                      : ref
+                          .watch(accountBooksProvider)
+                          .valueOrNull?[_exchange!.id]
+                          ?.of(_book)
+                          .costRate,
+                ),
+                if (_outgoingFieldsEnabled) ...[
+                  const SizedBox(height: 10),
+                  LydMethodSelector(
+                    value: _lydMethod,
+                    sell: true,
+                    onChanged: (m) => setState(() => _lydMethod = m),
+                    allowCredit: true,
+                    paidController: _lydPaid,
+                    pocket: _paidPocket,
+                    onPocketChanged: (p) => setState(() => _paidPocket = p),
+                    onPaidChanged: () => setState(() {}),
+                    total: _sellRate > 0
+                        ? lydFor(parseMoney(_amount.text), _sellRate)
+                        : null,
+                  ),
+                  if (lydOnCredit(_lydMethod)) ...[
+                    const SizedBox(height: 8),
+                    CreditCustomerField(
+                      customer: _creditCustomer,
+                      sell: true,
+                      onPick: _pickCreditCustomer,
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Section 2 (bottom) — الجهة المستفيدة
+          _CollapsibleSection(
+            color: AppColors.accent,
+            header: const _NumberedSectionTitle(2, 'الجهة المستفيدة'),
+            // Never open while the transfer data above is incomplete, even
+            // if the header is tapped by hand.
+            expanded: _activeSection == 2 && _beneficiaryUnlocked,
+            onToggle: () {
+              if (_activeSection == 2) {
+                setState(() => _activeSection = null);
+                return;
+              }
+              if (!_beneficiaryUnlocked) {
+                _showBeneficiaryBlocked();
+                return;
+              }
+              setState(() => _activeSection = 2);
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openSavedBeneficiariesDialog(),
+                    icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
+                    label: const Text('الجهات المحفوظة'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      side: BorderSide(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _LabeledField(
+                  label: 'الشركة المستفيدة',
+                  child: TextField(
+                    controller: _beneficiaryAccount,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'اسم الشركة المستفيدة',
+                      suffixIcon: _IconBox(FontAwesomeIcons.building),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'حساب المستفيد (اختياري إذا كتبت الكود)',
+                  child: TextField(
+                    controller: _beneficiaryName,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      hintText: 'اسم حساب المستفيد',
+                      suffixIcon: _IconBox(FontAwesomeIcons.wallet),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _LabeledField(
+                  label: 'كود حساب المستفيد',
+                  // A stored code is official and locked. A saved beneficiary
+                  // with no code yet may have one typed — once, saved with the
+                  // transfer.
+                  child: TextField(
+                    controller: _beneficiaryCode,
+                    readOnly: _beneficiaryCodeLocked,
+                    decoration: InputDecoration(
+                      hintText: _beneficiaryCodeLocked
+                          ? 'كود رسمي — لا يمكن تعديله'
+                          : 'أدخل كود حساب المستفيد',
+                      suffixIcon: _IconBox(
+                        _beneficiaryCodeLocked
+                            ? FontAwesomeIcons.lock
+                            : FontAwesomeIcons.user,
                       ),
                     ),
                   ),
-                ],
-              ),
-              if (_outgoingFieldsEnabled && _overBalance)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Text(
-                    'يتجاوز رصيد الحساب',
-                    style: TextStyle(fontSize: 12, color: AppColors.negative),
-                  ),
                 ),
-              const SizedBox(height: 12),
-              RateFields(
-                controller: _rate,
-                usd: parseMoney(_amount.text),
-                rates: ref.watch(exchangeRatesProvider).valueOrNull,
-                sell: true,
-                enabled: _outgoingFieldsEnabled,
-                onDisabledTap: _showOutgoingValidation,
-                height: _kFieldHeight,
-                textStyle: _kFieldTextStyle,
-                book: _book,
-                accountCost: _exchange == null
-                    ? null
-                    : ref
-                        .watch(accountBooksProvider)
-                        .valueOrNull?[_exchange!.id]
-                        ?.of(_book)
-                        .costRate,
-              ),
-              if (_outgoingFieldsEnabled) ...[
-                const SizedBox(height: 10),
-                LydMethodSelector(
-                  value: _lydMethod,
-                  sell: true,
-                  onChanged: (m) => setState(() => _lydMethod = m),
-                  allowCredit: true,
-                  paidController: _lydPaid,
-                  pocket: _paidPocket,
-                  onPocketChanged: (p) => setState(() => _paidPocket = p),
-                  onPaidChanged: () => setState(() {}),
-                  total: _sellRate > 0
-                      ? lydFor(parseMoney(_amount.text), _sellRate)
-                      : null,
-                ),
-                if (lydOnCredit(_lydMethod)) ...[
-                  const SizedBox(height: 8),
-                  CreditCustomerField(
-                    customer: _creditCustomer,
-                    sell: true,
-                    onPick: _pickCreditCustomer,
-                  ),
-                ],
               ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Section 2 (bottom) — الجهة المستفيدة
-        _CollapsibleSection(
-          color: AppColors.accent,
-          header: const _NumberedSectionTitle(2, 'الجهة المستفيدة'),
-          // Never open while the transfer data above is incomplete, even
-          // if the header is tapped by hand.
-          expanded: _activeSection == 2 && _beneficiaryUnlocked,
-          onToggle: () {
-            if (_activeSection == 2) {
-              setState(() => _activeSection = null);
-              return;
-            }
-            if (!_beneficiaryUnlocked) {
-              _showBeneficiaryBlocked();
-              return;
-            }
-            setState(() => _activeSection = 2);
-          },
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openSavedBeneficiariesDialog(),
-                  icon: const FaIcon(FontAwesomeIcons.bookmark, size: 14),
-                  label: const Text('الجهات المحفوظة'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.accent,
-                    side: BorderSide(
-                      color: AppColors.accent.withValues(alpha: 0.5),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _LabeledField(
-                label: 'الشركة المستفيدة',
-                child: TextField(
-                  controller: _beneficiaryAccount,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'اسم الشركة المستفيدة',
-                    suffixIcon: _IconBox(FontAwesomeIcons.building),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'حساب المستفيد (اختياري إذا كتبت الكود)',
-                child: TextField(
-                  controller: _beneficiaryName,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'اسم حساب المستفيد',
-                    suffixIcon: _IconBox(FontAwesomeIcons.wallet),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledField(
-                label: 'كود حساب المستفيد',
-                // A stored code is official and locked. A saved beneficiary
-                // with no code yet may have one typed — once, saved with the
-                // transfer.
-                child: TextField(
-                  controller: _beneficiaryCode,
-                  readOnly: _beneficiaryCodeLocked,
-                  decoration: InputDecoration(
-                    hintText: _beneficiaryCodeLocked
-                        ? 'كود رسمي — لا يمكن تعديله'
-                        : 'أدخل كود حساب المستفيد',
-                    suffixIcon: _IconBox(
-                      _beneficiaryCodeLocked
-                          ? FontAwesomeIcons.lock
-                          : FontAwesomeIcons.user,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(
-                FontAwesomeIcons.lock,
-                size: 11,
-                color: AppColors.textDim,
-              ),
-              SizedBox(width: 6),
-              Text(
-                'تأكد من صحة البيانات قبل الحفظ والإرسال',
-                style: TextStyle(fontSize: 11, color: AppColors.textDim),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          key: const ValueKey('save-transfer'),
-          // Active (bright) only when everything is filled and correct.
-          onPressed: (_readyToSave && !_busy) ? _saveAndOpenMessages : null,
-          icon: const FaIcon(FontAwesomeIcons.paperPlane, size: 16),
-          label: Text(_busy ? '...' : 'حفظ وفتح الرسائل'),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.positive,
-            foregroundColor: Colors.black,
-            disabledBackgroundColor: AppColors.glassFillStrong,
-            disabledForegroundColor: AppColors.textDim,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            textStyle: const TextStyle(
-              fontFamily: 'Almarai',
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _CollapsibleSection(
-          header: Row(children: [
-            Expanded(
-              child: _SectionTitle('بيع منفذ'),
+          const SizedBox(height: 16),
+          const Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FaIcon(
+                  FontAwesomeIcons.lock,
+                  size: 11,
+                  color: AppColors.textDim,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'تأكد من صحة البيانات قبل الحفظ والإرسال',
+                  style: TextStyle(fontSize: 11, color: AppColors.textDim),
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: 'تصدير PDF',
-              icon: const Icon(Icons.picture_as_pdf),
-              onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
-            ),
-            if (!_logExpanded)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 8),
-                child: _CountBadge(count: dailyAsync.value?.length ?? 0),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            key: const ValueKey('save-transfer'),
+            // Active (bright) only when everything is filled and correct.
+            onPressed: (_readyToSave && !_busy) ? _saveAndOpenMessages : null,
+            icon: const FaIcon(FontAwesomeIcons.paperPlane, size: 16),
+            label: Text(_busy ? '...' : 'حفظ وفتح الرسائل'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.positive,
+              foregroundColor: Colors.black,
+              disabledBackgroundColor: AppColors.glassFillStrong,
+              disabledForegroundColor: AppColors.textDim,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              textStyle: const TextStyle(
+                fontFamily: 'Almarai',
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
               ),
-          ]),
-          expanded: _logExpanded,
-          onToggle: () => setState(() => _logExpanded = !_logExpanded),
-          child: dailyAsync.when(
-            skipLoadingOnReload: true,
-            skipError: true,
-            data: (rows) => _DailyTransfersTable(rows: rows),
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => Text('$e'),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text(
-            'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: AppColors.textDim),
+          const SizedBox(height: 24),
+          _CollapsibleSection(
+            header: Row(children: [
+              Expanded(
+                child: _SectionTitle('بيع منفذ'),
+              ),
+              IconButton(
+                tooltip: 'تصدير PDF',
+                icon: const Icon(Icons.picture_as_pdf),
+                onPressed: () => _exportDailyPdf(dailyAsync.value ?? const []),
+              ),
+              if (!_logExpanded)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 8),
+                  child: _CountBadge(count: dailyAsync.value?.length ?? 0),
+                ),
+            ]),
+            expanded: _logExpanded,
+            onToggle: () => setState(() => _logExpanded = !_logExpanded),
+            child: dailyAsync.when(
+              skipLoadingOnReload: true,
+              skipError: true,
+              data: (rows) => _DailyTransfersTable(rows: rows),
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text(friendlyError(e)),
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'شركة الرحالة للبرمجيات . جميع الحقوق محفوظة 2026 ©',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: AppColors.textDim),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

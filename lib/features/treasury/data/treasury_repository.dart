@@ -72,6 +72,7 @@ class TreasuryRepository {
     required double amount,
     String? note,
     double? amountIn,
+    String? requestId,
   }) async {
     await _client.rpc<dynamic>(
       'lyd_add_movement',
@@ -83,6 +84,8 @@ class TreasuryRepository {
         // a conversion with a commission (0093): sent only when it differs,
         // so a database before 0093 still takes a plain conversion
         if (amountIn != null && amountIn != amount) 'p_amount_in': amountIn,
+        // the same request again is not saved twice (0094)
+        if (requestId != null) 'p_request_id': requestId,
       },
     );
   }

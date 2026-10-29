@@ -22,6 +22,16 @@ class TransfersRepository {
   /// the given sub_user authored — used by the employee app so each
   /// employee only sees their own daily / archived operations even though
   /// RLS would otherwise expose every sibling employee's record.
+  /// Whether any exit was ever posted: one row, not the whole history.
+  Future<bool> hasArchived() async {
+    final rows = await _client
+        .from('transfers')
+        .select('id')
+        .eq('status', transferStatusToDb(TransferStatus.archived))
+        .limit(1);
+    return (rows as List).isNotEmpty;
+  }
+
   Future<List<Transfer>> listByStatus(
     TransferStatus status, {
     String? createdByEmployeeId,

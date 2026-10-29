@@ -65,6 +65,11 @@ begin
      or to_regprocedure('public._journal(uuid)') is null then
     raise exception 'شغّل الترحيل 0092 أولًا، ثم هذا الملف. لم يتغير شيء.';
   end if;
+  -- run again after 0094 it would bring back the cancellations without the
+  -- shared password lock and the money moves without their request ids
+  if to_regprocedure('public.admin_set_opening(uuid, text, numeric, numeric)') is not null then
+    raise exception 'هذا الملف (0093) طُبِّق سابقًا وتبعه 0094. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
 end $$;
 
 -- =============================================================================

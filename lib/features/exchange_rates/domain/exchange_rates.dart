@@ -44,12 +44,17 @@ class ExchangeRates {
   factory ExchangeRates.fromJson(Map<String, dynamic> json) {
     // a database before 0083 sends one flag for both
     final both = json['can_edit'] as bool? ?? false;
+    // 0093 sends the four rates; before it, one per kind (then both books).
+    // A key that is THERE but null means no rate of that book yet: it must
+    // not fall back to the other book's rate (a new subscriber's bank rate
+    // would show the cash one).
+    double? pick(String key, String old) =>
+        ((json.containsKey(key) ? json[key] : json[old]) as num?)?.toDouble();
     return ExchangeRates(
-      // 0093 sends the four rates; before it, one per kind (then both books)
-      sell: ((json['sell_cash'] ?? json['sell']) as num?)?.toDouble(),
-      buy: ((json['buy_cash'] ?? json['buy']) as num?)?.toDouble(),
-      sellBank: ((json['sell_bank'] ?? json['sell']) as num?)?.toDouble(),
-      buyBank: ((json['buy_bank'] ?? json['buy']) as num?)?.toDouble(),
+      sell: pick('sell_cash', 'sell'),
+      buy: pick('buy_cash', 'buy'),
+      sellBank: pick('sell_bank', 'sell'),
+      buyBank: pick('buy_bank', 'buy'),
       canEditSell: json['can_edit_sell'] as bool? ?? both,
       canEditBuy: json['can_edit_buy'] as bool? ?? both,
     );
