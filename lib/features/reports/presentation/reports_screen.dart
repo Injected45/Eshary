@@ -8,6 +8,7 @@ import 'debt_aging_screen.dart';
 import 'employees_report_screen.dart';
 import 'party_report_screen.dart';
 import 'period_report_screen.dart';
+import 'profit_loss_screen.dart';
 
 /// One report in the "التقارير" tab.
 class ReportEntry {
@@ -38,6 +39,14 @@ final List<ReportEntry> kReports = [
     open: (_) => const PeriodReportScreen(),
   ),
   ReportEntry(
+    keyName: 'profit_loss',
+    title: 'الأرباح والخسائر',
+    subtitle: 'كل الإيرادات وكل المصروفات والخسائر وصافي الربح، لكل دفتر أو '
+        'للدفترين، مقارنةً بالفترة السابقة',
+    icon: FontAwesomeIcons.scaleBalanced,
+    open: (_) => const ProfitLossScreen(),
+  ),
+  ReportEntry(
     keyName: 'employees',
     title: 'أداء الموظفين',
     subtitle: 'عمليات كل موظف وحجمها وربح مبيعاته والآجل والإلغاءات',
@@ -46,8 +55,9 @@ final List<ReportEntry> kReports = [
   ),
   ReportEntry(
     keyName: 'aging',
-    title: 'أعمار الديون',
-    subtitle: 'من عليه دين ومنذ متى، ومن تجاوز حده، وما علينا للدائنين',
+    title: 'كشف المديونيات (لنا وعلينا)',
+    subtitle: 'أسماء من عليهم ومن لهم، بالقيم وأعمار الديون وآخر تحصيل، '
+        'مع بحث وفلاتر للمتابعة',
     icon: FontAwesomeIcons.hourglassHalf,
     open: (_) => const DebtAgingScreen(),
   ),

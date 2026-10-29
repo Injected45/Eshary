@@ -20,6 +20,12 @@ begin
   if to_regprocedure('public.admin_set_opening(uuid, text, numeric, numeric)') is null then
     raise exception 'شغّل الترحيل 0094 أولًا، ثم هذا الملف. لم يتغير شيء.';
   end if;
+  -- run again after 0096 it would bring back the debts list without the
+  -- creditors' details
+  if exists (select 1 from pg_proc where proname = 'report_debt_aging'
+              and prosrc like '%last_settle%') then
+    raise exception 'هذا الملف (0095) طُبِّق سابقًا وتبعه 0096. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
 end $$;
 
 -- the dollars of an owner's [p_book] at a moment: what the books hold now

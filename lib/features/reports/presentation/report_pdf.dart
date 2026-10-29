@@ -6,6 +6,7 @@ import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/pdf_file_name.dart';
 import '../../../shared/top_message.dart';
+import '../../ledger/domain/ledger.dart';
 import '../domain/reports.dart';
 import 'report_period_picker.dart';
 
@@ -89,6 +90,30 @@ Future<void> exportDebtAgingPdf(
       );
       await PdfExport.sharePdf(
         bytes,
-        pdfFileName('أعمار الديون', start: now, end: now),
+        pdfFileName('كشف المديونيات', start: now, end: now),
+      );
+    });
+
+Future<void> exportProfitLossPdf(
+  BuildContext context,
+  WidgetRef ref, {
+  required IncomeStatement now,
+  required IncomeStatement before,
+  required ReportPeriod period,
+  required String bookTitle,
+}) =>
+    _share(context, 'reports.profitLossPdf', () async {
+      final pdf = await PdfExport.load();
+      final bytes = await pdf.buildProfitLossReport(
+        now: now,
+        before: before,
+        first: period.first,
+        last: period.last,
+        bookTitle: bookTitle,
+        exportedBy: _exportedBy(ref),
+      );
+      await PdfExport.sharePdf(
+        bytes,
+        pdfFileName('الأرباح والخسائر', start: period.first, end: period.last),
       );
     });

@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0095) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0096) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0095    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0096    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -139,14 +139,24 @@ The owner asked for the reports a money-exchange owner needs, no more and no les
   - the previous period of the same length.
 - `report_debt_aging()`: each debtor's balance aged ≤ 7 / 8–30 / 31–90 / > 90 days. The oldest debts are taken as paid first, so what is owed is the most recent debits adding up to the balance. Also returns over-limit customers and the creditors.
 
+0096 redefines `report_debt_aging()` for BOTH sides with the same details: code, cash / bank, ageing (FIFO on that side's entries), `oldest`, `last_settle` (last collect for a debtor, last pay for a creditor), `last_move`. It keeps 0095's keys, and 0095 refuses to run after it. A customer with no limit (null = no credit) and a debt counts as over the limit.
+
 UI (`lib/features/reports`):
-- The «التقارير» tab lists «تقرير الفترة (إقفال اليوم)», «أداء الموظفين», «أعمار الديون», «تقرير حسب الجهة» and «الحسابات الختامية».
+- The «التقارير» tab lists:
+  - «تقرير الفترة (إقفال اليوم)»;
+  - «الأرباح والخسائر» (`profit_loss_screen.dart`: `ledger_income_statement` of the period and of the one before, per book or both; no migration);
+  - «أداء الموظفين»;
+  - «كشف المديونيات (لنا وعلينا)» (`debt_aging_screen.dart`: the لنا / علينا tabs, search, filters متأخر +30 / +90 / تجاوز الحد / بلا تحصيل 30 يومًا, sort; `debtView`; a tap opens the customer statement);
+  - «تقرير حسب الجهة»;
+  - «الحسابات الختامية».
 - `ReportPeriodPicker` offers اليوم / أمس / آخر 7 أيام / هذا الشهر / الشهر الماضي / فترة. Each choice makes a `ReportPeriod` once, so the provider key is stable.
-- PDFs: `pdf_export_reports.dart` (`buildPeriodReport`, `buildEmployeesReport`, `buildDebtAgingReport`).
+- PDFs: `pdf_export_reports.dart` (`buildPeriodReport`, `buildProfitLossReport`, `buildEmployeesReport`, `buildDebtAgingReport`).
 - «الخزينة» opens with «الأرصدة الآن» (`current_balances_card.dart`): dollars per book and dinars per pocket from the opening on.
 
 Tests:
-- `supabase/tests/reports95_test.mjs` cross-checks against `profit_report`, `lyd_summary`, the books and `customer_balances`. `WRITE_FIXTURES=1` rewrites `test/fixtures/*.json`, the real JSON used by `test/reports_test.dart`.
+- `supabase/tests/reports95_test.mjs` (pinned to `upTo: 95`) cross-checks against `profit_report`, `lyd_summary`, the books and `customer_balances`.
+- `debts96_test.mjs` covers 0096.
+- `WRITE_FIXTURES=1` rewrites `test/fixtures/*.json` (`debt_aging.json` from `debts96_test.mjs`), the real JSON used by `test/reports_test.dart`.
 
 ### Wording: بيع / شراء (2026-10-29)
 

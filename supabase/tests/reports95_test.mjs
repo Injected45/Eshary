@@ -16,7 +16,7 @@ const A_EMP = '33333333-3333-3333-3333-333333333333';
 const PW = 'pass-1234';
 const near = (a, b, eps = 0.011) => Math.abs(Number(a) - Number(b)) <= eps;
 
-const db = await freshDb();
+const db = await freshDb({ upTo: 95 });   // 0095 is run again below; 0096 forbids that
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 await db.exec(`
   insert into auth.users (id, email, encrypted_password) values
@@ -142,7 +142,7 @@ if (process.env.WRITE_FIXTURES) {
   const dir = new URL('../../test/fixtures/', import.meta.url);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(new URL('report_period.json', dir), JSON.stringify(r, null, 1));
-  fs.writeFileSync(new URL('debt_aging.json', dir), JSON.stringify(ag, null, 1));
+  // debt_aging.json comes from debts96_test.mjs (0096's shape)
   console.log('fixtures written');
 }
 

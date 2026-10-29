@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:eshary/core/theme.dart';
+import 'package:eshary/features/ledger/data/ledger_repository.dart';
+import 'package:eshary/features/ledger/domain/ledger.dart';
 import 'package:eshary/features/reports/data/reports_repository.dart';
 import 'package:eshary/features/reports/domain/reports.dart';
 import 'package:eshary/features/reports/presentation/debt_aging_screen.dart';
 import 'package:eshary/features/reports/presentation/employees_report_screen.dart';
 import 'package:eshary/features/reports/presentation/period_report_screen.dart';
+import 'package:eshary/features/reports/presentation/profit_loss_screen.dart';
 import 'package:eshary/features/reports/presentation/reports_screen.dart';
 import 'package:eshary/shared/pdf_export.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +40,45 @@ class _Repo implements ReportsRepository {
       DebtAging.fromJson(_fixture('debt_aging.json'));
 }
 
+// what ledger_income_statement sends: 1,190 of profit now (1,250 from
+// selling, 60 of commissions), 900 in the period before
+final _plNow = IncomeStatement.fromJson(const {
+  'lines': [
+    {'account': '4100', 'name': 'نتيجة بيع العملة', 'amount': 1250},
+    {'account': '5300', 'name': 'عمولات', 'amount': -60},
+  ],
+  'net': 1190,
+});
+final _plBefore = IncomeStatement.fromJson(const {
+  'lines': [
+    {'account': '4100', 'name': 'نتيجة بيع العملة', 'amount': 950},
+    {'account': '5300', 'name': 'عمولات', 'amount': -50},
+  ],
+  'net': 900,
+});
+
+class _Ledger implements LedgerRepository {
+  final books = <String?>[];
+  DateTime? lastFrom;
+
+  @override
+  Future<IncomeStatement> incomeStatement(
+    DateTime from,
+    DateTime to, {
+    String? book,
+    double factor = 1,
+  }) async {
+    books.add(book);
+    // the first of the two reads is the period, the second the one before
+    final isBefore = lastFrom != null && from.isBefore(lastFrom!);
+    lastFrom = from;
+    return isBefore ? _plBefore : _plNow;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 Future<void> _fonts() async {
   final loader = FontLoader('Almarai');
   for (final f in [
@@ -49,14 +91,21 @@ Future<void> _fonts() async {
   await loader.load();
 }
 
-Future<_Repo> _open(WidgetTester tester, Widget screen) async {
+Future<_Repo> _open(
+  WidgetTester tester,
+  Widget screen, {
+  _Ledger? ledger,
+}) async {
   await _fonts();
   final repo = _Repo();
   await tester.binding.setSurfaceSize(const Size(360, 5000));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [reportsRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        reportsRepositoryProvider.overrideWithValue(repo),
+        ledgerRepositoryProvider.overrideWithValue(ledger ?? _Ledger()),
+      ],
       child: MaterialApp(
         theme: buildAppTheme(),
         home: Directionality(textDirection: TextDirection.rtl, child: screen),
@@ -87,14 +136,48 @@ void main() {
       expect(r.byDay.single.saleN, 4);
     });
 
-    test('the ageing', () {
+    // debt_aging.json comes from supabase/tests/debts96_test.mjs: «منير» owes
+    // 50 for 100 days (over his limit of 10, never collected), «كريم» 196
+    // this week; we owe «بائع» 130 (80 for 40 days, 50 new)
+    test('the debts, both sides', () {
       final a = DebtAging.fromJson(_fixture('debt_aging.json'));
       expect(a.debtors.first.name, 'منير');
       expect(a.debtors.first.overLimit, isTrue);
+      expect(a.debtors.first.lastSettle, isNull);
       expect(a.older, 50);
-      expect(a.d7, 100);
-      expect(a.weOwe, 70);
-      expect(a.overLimit, 1);
+      expect(a.d7, 196);
+      expect(a.owedToUs, 246);
+      expect(a.weOwe, 130);
+      expect(a.net, 116);
+      // كريم has no limit at all (null = no credit, 0091): any debt is over it
+      expect(a.overLimit, 2);
+      final s = a.creditors.single;
+      expect(s.code, '7000');
+      expect(s.late30, 80);
+      expect(s.lastSettle, isNotNull);
+      expect(s.title, 'بائع — أنزار · 7000');
+    });
+
+    test('the follow-up filters and the order', () {
+      final a = DebtAging.fromJson(_fixture('debt_aging.json'));
+      List<String> names(List<DebtRow> rows) => rows.map((r) => r.name).toList();
+      expect(names(debtView(a, side: DebtSide.ours)), ['كريم', 'منير']);
+      expect(names(debtView(a, side: DebtSide.ours, sort: DebtSort.oldest)),
+          ['منير', 'كريم']);
+      expect(names(debtView(a, side: DebtSide.ours, filter: DebtFilter.late90)),
+          ['منير']);
+      expect(
+        names(debtView(a, side: DebtSide.ours, filter: DebtFilter.overLimit)),
+        ['كريم', 'منير'],
+      );
+      // never collected for 100 days; كريم paid yesterday
+      expect(
+        names(debtView(a, side: DebtSide.ours, filter: DebtFilter.noSettle30)),
+        ['منير'],
+      );
+      expect(names(debtView(a, side: DebtSide.ours, search: '5521')), ['كريم']);
+      expect(names(debtView(a, side: DebtSide.theirs, filter: DebtFilter.late30)),
+          ['بائع']);
     });
 
     test('the change against the previous period', () {
@@ -128,11 +211,21 @@ void main() {
       expect(find.text('المدير'), findsOneWidget);
     });
 
-    testWidgets('the ageing of the debts', (tester) async {
+    testWidgets('the debts list: ours, then theirs', (tester) async {
       await _open(tester, const DebtAgingScreen());
       expect(find.textContaining('منير'), findsOneWidget);
-      expect(find.text('1 عميل تجاوز حد الدين.'), findsOneWidget);
-      expect(find.text('الدائنون (علينا)'), findsOneWidget);
+      expect(find.textContaining('كريم'), findsOneWidget);
+      expect(find.text('2 تجاوز الحد'), findsOneWidget);
+      await tester.tap(find.text('علينا (1)'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('بائع'), findsOneWidget);
+      expect(find.textContaining('منير'), findsNothing);
+      await tester.tap(find.text('لنا (2)'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('debts-search')), '5521');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('كريم'), findsOneWidget);
+      expect(find.textContaining('منير'), findsNothing);
     });
 
     testWidgets('the reports tab lists them, the daily one first',
@@ -142,12 +235,39 @@ void main() {
       expect(kReports.first.keyName, 'period');
       expect(
         kReports.map((r) => r.keyName),
-        ['period', 'employees', 'aging', 'party', 'ledger'],
+        ['period', 'profit_loss', 'employees', 'aging', 'party', 'ledger'],
       );
+    });
+
+    testWidgets('profit and loss: the lines, the net, the period before',
+        (tester) async {
+      final ledger = _Ledger();
+      await _open(tester, const ProfitLossScreen(), ledger: ledger);
+      expect(ledger.books, [null, null], reason: 'this period and the one before');
+      expect(find.text('+1,190.00 د.ل'), findsWidgets);
+      expect(find.text('نتيجة بيع العملة'), findsOneWidget);
+      expect(find.text('عمولات'), findsOneWidget);
+      expect(find.textContaining('+32 % عن الفترة السابقة'), findsOneWidget);
+      // one book
+      await tester.tap(find.text('النقدي'));
+      await tester.pumpAndSettle();
+      expect(ledger.books.skip(2), ['cash', 'cash']);
     });
   });
 
   group('PDF', () {
+    test('profit and loss builds', () async {
+      final pdf = await PdfExport.load();
+      final bytes = await pdf.buildProfitLossReport(
+        now: _plNow,
+        before: _plBefore,
+        first: DateTime(2026, 10, 1),
+        last: DateTime(2026, 10, 29),
+        bookTitle: 'الدفتران معًا',
+      );
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    });
+
     test('the three reports build', () async {
       final pdf = await PdfExport.load();
       final r = PeriodReport.fromJson(_fixture('report_period.json'));

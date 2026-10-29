@@ -277,13 +277,16 @@ class PeriodReport {
   }
 }
 
-/// One customer who owes us, with what is owed by age (the oldest debts
-/// are taken as paid first).
-class Debtor {
-  const Debtor({
+/// One line of «كشف المديونيات»: a customer who owes us (a debtor) or whom
+/// we owe (a creditor), with what is owed by age (the oldest debts are taken
+/// as settled first), the last settlement (a collection from a debtor, a
+/// payment to a creditor) and the last movement.
+class DebtRow {
+  const DebtRow({
     required this.clientId,
     required this.name,
     this.company,
+    this.code,
     this.limit,
     required this.owed,
     required this.cash,
@@ -293,14 +296,20 @@ class Debtor {
     required this.d90,
     required this.older,
     this.oldest,
-    this.lastCollect,
-    required this.overLimit,
+    this.lastSettle,
+    this.lastMove,
+    this.overLimit = false,
   });
 
   final String clientId;
   final String name;
   final String? company;
+  final String? code;
+
+  /// The credit limit (debtors only); null: none.
   final double? limit;
+
+  /// What is owed, always positive (the side tells who owes whom).
   final double owed;
   final double cash;
   final double bank;
@@ -311,13 +320,37 @@ class Debtor {
   final double d90;
   final double older;
   final DateTime? oldest;
-  final DateTime? lastCollect;
+  final DateTime? lastSettle;
+  final DateTime? lastMove;
   final bool overLimit;
 
-  factory Debtor.fromJson(Map<String, dynamic> j) => Debtor(
+  /// Owed for more than 30 days.
+  double get late30 => d90 + older;
+
+  /// Days since the last settlement, or since the oldest open debt when
+  /// nothing was ever settled.
+  int? daysWaiting(DateTime now) {
+    final from = lastSettle ?? oldest;
+    return from == null ? null : now.difference(from).inDays;
+  }
+
+  /// "name — company · code" for lists.
+  String get title {
+    final parts = [
+      if (company != null && company!.trim().isNotEmpty) company!.trim(),
+      if (code != null && code!.trim().isNotEmpty) code!.trim(),
+    ];
+    return parts.isEmpty ? name : '$name — ${parts.join(' · ')}';
+  }
+
+  static DateTime? _at(Object? v) =>
+      v == null ? null : DateTime.parse(v as String).toLocal();
+
+  factory DebtRow.fromJson(Map<String, dynamic> j) => DebtRow(
         clientId: j['client_id'] as String,
         name: (j['name'] as String?) ?? '—',
         company: j['company'] as String?,
+        code: j['code'] as String?,
         limit: (j['limit'] as num?)?.toDouble(),
         owed: _d(j['owed']),
         cash: _d(j['cash']),
@@ -326,54 +359,37 @@ class Debtor {
         d30: _d(j['d30']),
         d90: _d(j['d90']),
         older: _d(j['older']),
-        oldest: j['oldest'] == null
-            ? null
-            : DateTime.parse(j['oldest'] as String).toLocal(),
-        lastCollect: j['last_collect'] == null
-            ? null
-            : DateTime.parse(j['last_collect'] as String).toLocal(),
+        oldest: _at(j['oldest']),
+        // 0095 sent only last_collect (debtors)
+        lastSettle: _at(j['last_settle'] ?? j['last_collect']),
+        lastMove: _at(j['last_move']),
         overLimit: j['over_limit'] as bool? ?? false,
-      );
-}
-
-/// Someone we owe (a seller paid on credit).
-class Creditor {
-  const Creditor({
-    required this.clientId,
-    required this.name,
-    this.company,
-    required this.owed,
-  });
-
-  final String clientId;
-  final String name;
-  final String? company;
-  final double owed;
-
-  factory Creditor.fromJson(Map<String, dynamic> j) => Creditor(
-        clientId: j['client_id'] as String,
-        name: (j['name'] as String?) ?? '—',
-        company: j['company'] as String?,
-        owed: _d(j['owed']),
       );
 }
 
 class DebtAging {
   const DebtAging({required this.debtors, required this.creditors});
 
-  final List<Debtor> debtors;
-  final List<Creditor> creditors;
+  /// They owe us, the oldest debts first.
+  final List<DebtRow> debtors;
 
-  double get owedToUs => debtors.fold<double>(0, (s, d) => s + d.owed);
-  double get weOwe => creditors.fold<double>(0, (s, c) => s + c.owed);
-  double get d7 => debtors.fold<double>(0, (s, d) => s + d.d7);
-  double get d30 => debtors.fold<double>(0, (s, d) => s + d.d30);
-  double get d90 => debtors.fold<double>(0, (s, d) => s + d.d90);
-  double get older => debtors.fold<double>(0, (s, d) => s + d.older);
+  /// We owe them.
+  final List<DebtRow> creditors;
+
+  static double _sum(List<DebtRow> rows, double Function(DebtRow r) f) =>
+      rows.fold<double>(0, (s, r) => s + f(r));
+
+  double get owedToUs => _sum(debtors, (r) => r.owed);
+  double get weOwe => _sum(creditors, (r) => r.owed);
+  double get net => owedToUs - weOwe;
+  double get d7 => _sum(debtors, (r) => r.d7);
+  double get d30 => _sum(debtors, (r) => r.d30);
+  double get d90 => _sum(debtors, (r) => r.d90);
+  double get older => _sum(debtors, (r) => r.older);
   int get overLimit => debtors.where((d) => d.overLimit).length;
 
   factory DebtAging.fromJson(Map<String, dynamic> j) => DebtAging(
-        debtors: _list(j['debtors']).map(Debtor.fromJson).toList(),
-        creditors: _list(j['creditors']).map(Creditor.fromJson).toList(),
+        debtors: _list(j['debtors']).map(DebtRow.fromJson).toList(),
+        creditors: _list(j['creditors']).map(DebtRow.fromJson).toList(),
       );
 }

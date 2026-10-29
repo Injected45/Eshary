@@ -267,6 +267,9 @@ extension BusinessReports on PdfExport {
     return doc.save();
   }
 
+  /// «كشف المديونيات»: who owes us and whom we owe, by name, with the cash
+  /// and bank parts, what is older than 30 days, the oldest open debt and
+  /// the last settlement.
   Future<Uint8List> buildDebtAgingReport({
     required DebtAging aging,
     String? exportedBy,
@@ -275,6 +278,63 @@ extension BusinessReports on PdfExport {
     final doc = pw.Document(theme: _theme);
     final now = DateTime.now();
     final f = DateFormat('yyyy/MM/dd');
+    String date(DateTime? d) => d == null ? '—' : f.format(d);
+
+    pw.Widget table(List<DebtRow> rows, {required bool ours}) => _reportTable(
+          headers: [
+            'م',
+            'الاسم',
+            'الشركة',
+            'الكود',
+            'نقدي',
+            'مصرفي',
+            'الإجمالي',
+            'أكثر من 30 يومًا',
+            'أقدم دين',
+            ours ? 'آخر تحصيل' : 'آخر سداد',
+            'الحالة',
+          ],
+          widths: const [0.5, 2, 1.5, 1, 1.2, 1.2, 1.3, 1.2, 1.1, 1.1, 1.1],
+          rows: [
+            for (var i = 0; i < rows.length; i++)
+              [
+                '${i + 1}',
+                rows[i].name,
+                rows[i].company ?? '',
+                rows[i].code ?? '',
+                formatMoney(rows[i].cash),
+                formatMoney(rows[i].bank),
+                formatMoney(rows[i].owed),
+                formatMoney(rows[i].late30),
+                date(rows[i].oldest),
+                date(rows[i].lastSettle),
+                rows[i].overLimit
+                    ? 'تجاوز الحد'
+                    : (rows[i].older > 0.005
+                        ? 'متأخر +90'
+                        : (rows[i].late30 > 0.005 ? 'متأخر +30' : '')),
+              ],
+            [
+              '',
+              'المجموع',
+              '',
+              '',
+              formatMoney(rows.fold<double>(0, (s, r) => s + r.cash)),
+              formatMoney(rows.fold<double>(0, (s, r) => s + r.bank)),
+              formatMoney(rows.fold<double>(0, (s, r) => s + r.owed)),
+              formatMoney(rows.fold<double>(0, (s, r) => s + r.late30)),
+              '',
+              '',
+              '',
+            ],
+          ],
+          colorOf: (row, col) => col == 10 &&
+                  row < rows.length &&
+                  (rows[row].overLimit || rows[row].older > 0.005)
+              ? PdfColors.red800
+              : null,
+        );
+
     _addReportPages(
       doc,
       theme: _theme,
@@ -282,74 +342,116 @@ extension BusinessReports on PdfExport {
       by: exportedBy,
       body: [
         _periodHeader(
-          title: 'أعمار الديون',
+          title: 'كشف المديونيات',
           period: periodLabel(now, now),
           logo: await _loadLogo(),
         ),
         pw.SizedBox(height: 6),
         _statRow([
           _statTile('لنا على العملاء', '${formatMoney(a.owedToUs)} د.ل',
-              PdfColors.grey900),
-          _statTile('أكثر من 90 يومًا', '${formatMoney(a.older)} د.ل',
-              a.older > 0 ? PdfColors.red800 : PdfColors.grey900),
+              PdfColors.green800),
+          _statTile('علينا للدائنين', '${formatMoney(a.weOwe)} د.ل',
+              PdfColors.red800),
+          _statTile('الصافي', _signedLyd(a.net), _profitPdfColor(a.net)),
           _statTile('تجاوزوا الحد', '${a.overLimit}',
               a.overLimit > 0 ? PdfColors.red800 : PdfColors.grey900),
-          _statTile('علينا للدائنين', '${formatMoney(a.weOwe)} د.ل',
-              PdfColors.grey900),
         ]),
-        _section('العملاء المدينون'),
-        _reportTable(
-          headers: const [
-            'العميل',
-            'المستحق',
-            'حتى 7 أيام',
-            '8–30',
-            '31–90',
-            'أكثر من 90',
-            'أقدم دين',
-            'آخر تحصيل',
-            'الحد',
-          ],
-          widths: const [2, 1.3, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1],
-          rows: [
-            for (final d in a.debtors)
-              [
-                d.company == null || d.company!.isEmpty
-                    ? d.name
-                    : '${d.name} — ${d.company}',
-                formatMoney(d.owed),
-                formatMoney(d.d7),
-                formatMoney(d.d30),
-                formatMoney(d.d90),
-                formatMoney(d.older),
-                d.oldest == null ? '—' : f.format(d.oldest!),
-                d.lastCollect == null ? '—' : f.format(d.lastCollect!),
-                d.overLimit
-                    ? 'متجاوز'
-                    : (d.limit == null ? '—' : formatMoney(d.limit!)),
-              ],
-          ],
-          colorOf: (row, col) => (col == 8 && a.debtors[row].overLimit) ||
-                  (col == 5 && a.debtors[row].older > 0)
-              ? PdfColors.red800
-              : null,
+        _section('لنا: العملاء المدينون (${a.debtors.length})'),
+        if (a.debtors.isEmpty)
+          _section('لا يوجد عميل مدين.')
+        else
+          table(a.debtors, ours: true),
+        _section('علينا: الدائنون (${a.creditors.length})'),
+        if (a.creditors.isEmpty)
+          _section('لا يوجد دائن.')
+        else
+          table(a.creditors, ours: false),
+      ],
+    );
+    return doc.save();
+  }
+
+  /// «الأرباح والخسائر»: the income statement of the period (every income,
+  /// every expense or loss, the net) beside the previous period.
+  Future<Uint8List> buildProfitLossReport({
+    required IncomeStatement now,
+    required IncomeStatement before,
+    required DateTime first,
+    required DateTime last,
+    required String bookTitle,
+    String? exportedBy,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final at = DateTime.now();
+    double prev(IncomeLine l) => before.lines
+        .where((b) => b.account == l.account)
+        .fold<double>(0, (s, b) => s + b.amount);
+    final income = now.income.fold<double>(0, (s, l) => s + l.amount);
+    final expenses = -now.expenses.fold<double>(0, (s, l) => s + l.amount);
+    String lyd(double v) => '${formatMoney(v)} د.ل';
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: at,
+      by: exportedBy,
+      body: [
+        _periodHeader(
+          title: 'الأرباح والخسائر',
+          period: periodLabel(first, last),
+          logo: await _loadLogo(),
+          extraLines: [bookTitle],
         ),
-        if (a.creditors.isNotEmpty) ...[
-          _section('الدائنون (علينا)'),
-          _reportTable(
-            headers: const ['الجهة', 'المستحق لها'],
-            widths: const [3, 2],
-            rows: [
-              for (final c in a.creditors)
-                [
-                  c.company == null || c.company!.isEmpty
-                      ? c.name
-                      : '${c.name} — ${c.company}',
-                  '${formatMoney(c.owed)} د.ل',
-                ],
-            ],
+        pw.SizedBox(height: 6),
+        _statRow([
+          _statTile(
+            now.net < 0 ? 'صافي الخسارة' : 'صافي الربح',
+            _signedLyd(now.net),
+            _profitPdfColor(now.net),
           ),
-        ],
+          _statTile('الإيرادات', lyd(income), PdfColors.green800),
+          _statTile('المصروفات والخسائر', lyd(expenses), PdfColors.red800),
+          _statTile(
+            'صافي الفترة السابقة',
+            _signedLyd(before.net),
+            _profitPdfColor(before.net),
+          ),
+        ]),
+        _section('الإيرادات'),
+        _reportTable(
+          headers: const ['البند', 'هذه الفترة', 'الفترة السابقة'],
+          widths: const [4, 2, 2],
+          rows: [
+            for (final l in now.income) [l.name, lyd(l.amount), lyd(prev(l))],
+            if (now.income.isEmpty) ['لا شيء', '', ''],
+            ['إجمالي الإيرادات', lyd(income), ''],
+          ],
+        ),
+        _section('المصروفات والخسائر'),
+        _reportTable(
+          headers: const ['البند', 'هذه الفترة', 'الفترة السابقة'],
+          widths: const [4, 2, 2],
+          rows: [
+            for (final l in now.expenses)
+              [l.name, lyd(-l.amount), lyd(-prev(l))],
+            if (now.expenses.isEmpty) ['لا شيء', '', ''],
+            ['إجمالي المصروفات والخسائر', lyd(expenses), ''],
+          ],
+        ),
+        _section('الخلاصة'),
+        _reportTable(
+          headers: const ['البند', 'هذه الفترة', 'الفترة السابقة'],
+          widths: const [4, 2, 2],
+          rows: [
+            [
+              now.net < 0 ? 'صافي الخسارة' : 'صافي الربح',
+              _signedLyd(now.net),
+              _signedLyd(before.net),
+            ],
+          ],
+          colorOf: (row, col) => col == 1
+              ? _profitPdfColor(now.net)
+              : (col == 2 ? _profitPdfColor(before.net) : null),
+        ),
       ],
     );
     return doc.save();
