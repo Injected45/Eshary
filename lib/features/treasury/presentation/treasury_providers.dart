@@ -43,6 +43,11 @@ final profitReportProvider = FutureProvider.autoDispose
       .profitReport(range.start, range.end);
 });
 
+/// Everything since the start, for the balances held NOW (the opening plus
+/// every movement). Fixed: a range ending at "now" would be a new provider
+/// key on every rebuild and reload for ever.
+final kAllTime = DateTimeRange(start: DateTime(2000), end: DateTime(2100));
+
 final lydSummaryProvider =
     FutureProvider.autoDispose.family<LydSummary, DateTimeRange>((ref, range) {
   return ref

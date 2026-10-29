@@ -1,0 +1,46 @@
+{
+ "debtors": [
+  {
+   "d7": 0,
+   "d30": 0,
+   "d90": 0,
+   "bank": 50,
+   "cash": 0,
+   "name": "منير",
+   "owed": 50,
+   "limit": 10,
+   "older": 50,
+   "oldest": "2026-07-21T14:07:13.049+00:00",
+   "company": null,
+   "client_id": "522e4338-2974-4d07-9b69-ff8097435784",
+   "over_limit": true,
+   "last_collect": null
+  },
+  {
+   "d7": 100,
+   "d30": 0,
+   "d90": 0,
+   "bank": 0,
+   "cash": 100,
+   "name": "كريم",
+   "owed": 100,
+   "limit": 100000,
+   "older": 0,
+   "oldest": "2026-10-29T14:07:13+00:00",
+   "company": null,
+   "client_id": "170713ba-9c48-41a0-abf6-ecfa3a16a61f",
+   "over_limit": false,
+   "last_collect": "2026-10-29T14:07:13.048+00:00"
+  }
+ ],
+ "creditors": [
+  {
+   "bank": 0,
+   "cash": 70,
+   "name": "بائع",
+   "owed": 70,
+   "company": null,
+   "client_id": "cad3d57b-5ca5-4932-809f-1d80bd75e166"
+  }
+ ]
+}

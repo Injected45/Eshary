@@ -188,6 +188,10 @@ String friendlyError(Object e) {
   if (s.contains('cancellation_requests_one_pending')) {
     return 'يوجد طلب إلغاء لهذه العملية بانتظار المدير.';
   }
+  // the reports (0095)
+  if (s.contains('period_too_long')) {
+    return 'الفترة أطول من 400 يوم. اختر فترة أقصر.';
+  }
   // «رصيد أول المدة» (0094)
   if (s.contains('opening_already_set')) {
     return 'رصيد أول المدة سُجّل لهذا الدفتر من قبل، أو جرت عليه عمليات. '

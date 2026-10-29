@@ -6,6 +6,7 @@ import 'package:eshary/features/treasury/domain/account_books.dart';
 import 'package:eshary/features/treasury/domain/lyd_treasury.dart';
 import 'package:eshary/features/treasury/domain/profit_report.dart';
 import 'package:eshary/features/treasury/domain/treasury_position.dart';
+import 'package:eshary/features/treasury/presentation/current_balances_card.dart';
 import 'package:eshary/features/treasury/presentation/opening_balances_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -114,7 +115,12 @@ Future<void> _fonts() async {
   await loader.load();
 }
 
-Future<void> _open(WidgetTester tester, _Treasury t, _Books b) async {
+Future<void> _open(
+  WidgetTester tester,
+  _Treasury t,
+  _Books b, {
+  Widget screen = const OpeningBalancesScreen(),
+}) async {
   await _fonts();
   await tester.binding.setSurfaceSize(const Size(400, 2000));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -127,9 +133,9 @@ Future<void> _open(WidgetTester tester, _Treasury t, _Books b) async {
       ],
       child: MaterialApp(
         theme: buildAppTheme(),
-        home: const Directionality(
+        home: Directionality(
           textDirection: TextDirection.rtl,
-          child: OpeningBalancesScreen(),
+          child: Scaffold(body: screen),
         ),
       ),
     ),
@@ -168,5 +174,38 @@ void main() {
     expect(find.text('حفظ رصيد أول المدة'), findsNWidgets(2));
     // the used book shows what it holds instead of fields
     expect(find.textContaining('\$100.00 ×'), findsOneWidget);
+  });
+
+  testWidgets('the treasury shows the opening balances before any operation',
+      (tester) async {
+    final t = _Treasury(LydSummary.fromJson(const {
+      'open': true,
+      'opening_cash': 5000,
+      'opening_bank': 20000,
+      'cash': 5000,
+      'bank': 20000,
+    }));
+    await _open(
+      tester,
+      t,
+      _Books([_account('a1', cash: 100, cashCost: 9.5)]),
+      screen: const CurrentBalancesCard(),
+    );
+    expect(find.text('\$100.00'), findsOneWidget);
+    expect(find.text('5,000.00 د.ل'), findsOneWidget);
+    expect(find.text('20,000.00 د.ل'), findsOneWidget);
+    expect(find.text('سجّل رصيد أول المدة'), findsNothing);
+  });
+
+  testWidgets('nothing recorded yet: the card leads to the opening',
+      (tester) async {
+    final t = _Treasury(LydSummary.fromJson(const {'open': false}));
+    await _open(
+      tester,
+      t,
+      _Books([_account('a1')]),
+      screen: const CurrentBalancesCard(),
+    );
+    expect(find.text('سجّل رصيد أول المدة'), findsOneWidget);
   });
 }

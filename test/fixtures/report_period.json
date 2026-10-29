@@ -1,0 +1,141 @@
+{
+ "to": "2026-10-29T14:08:13.016+00:00",
+ "lyd": {
+  "open": true,
+  "bank_end": 22080,
+  "cash_end": 3686,
+  "bank_start": 20000,
+  "cash_start": 5000
+ },
+ "from": "2026-10-29T14:07:12.941+00:00",
+ "books": [
+  {
+   "book": "cash",
+   "cogs": 1616.75,
+   "buy_n": 1,
+   "profit": 49.25,
+   "sale_n": 3,
+   "buy_lyd": 2880,
+   "buy_usd": 300,
+   "usd_end": 1130,
+   "sale_lyd": 1666,
+   "sale_usd": 170,
+   "usd_start": 1000,
+   "priced_lyd": 1666,
+   "priced_usd": 170,
+   "unpriced_n": 0,
+   "buy_rated_usd": 300,
+   "sale_rated_usd": 170
+  },
+  {
+   "book": "bank",
+   "cogs": 2000,
+   "buy_n": 0,
+   "profit": 80,
+   "sale_n": 1,
+   "buy_lyd": 0,
+   "buy_usd": 0,
+   "usd_end": 1800,
+   "sale_lyd": 2080,
+   "sale_usd": 200,
+   "usd_start": 2000,
+   "priced_lyd": 2080,
+   "priced_usd": 200,
+   "unpriced_n": 0,
+   "buy_rated_usd": 0,
+   "sale_rated_usd": 200
+  }
+ ],
+ "by_day": [
+  {
+   "day": "2026-10-29",
+   "buy_n": 1,
+   "profit": 129.25,
+   "sale_n": 4,
+   "buy_lyd": 2880,
+   "buy_usd": 300,
+   "sale_lyd": 3746,
+   "sale_usd": 370
+  }
+ ],
+ "credit": {
+  "paid": 0,
+  "given": 196,
+  "taken": 0,
+  "collected": 96
+ },
+ "cancels": {
+  "n": 1,
+  "buy_n": 0,
+  "sale_n": 1,
+  "buy_usd": 0,
+  "sale_usd": 10
+ },
+ "previous": {
+  "buy_n": 0,
+  "profit": 0,
+  "sale_n": 0,
+  "buy_usd": 0,
+  "sale_usd": 0
+ },
+ "by_account": [
+  {
+   "book": "cash",
+   "buy_n": 1,
+   "profit": 49.25,
+   "sale_n": 3,
+   "account": "أ",
+   "buy_lyd": 2880,
+   "buy_usd": 300,
+   "company": "الرحالة",
+   "sale_lyd": 1666,
+   "sale_usd": 170,
+   "exchange_id": "87f64167-4ede-4696-8dbc-414a9fe02f20"
+  },
+  {
+   "book": "bank",
+   "buy_n": 0,
+   "profit": 80,
+   "sale_n": 1,
+   "account": "أ",
+   "buy_lyd": 0,
+   "buy_usd": 0,
+   "company": "الرحالة",
+   "sale_lyd": 2080,
+   "sale_usd": 200,
+   "exchange_id": "87f64167-4ede-4696-8dbc-414a9fe02f20"
+  }
+ ],
+ "credit_end": {
+  "we_owe": 0,
+  "owed_to_us": 100
+ },
+ "by_employee": [
+  {
+   "name": "المدير",
+   "buy_n": 1,
+   "profit": 115.5,
+   "sale_n": 3,
+   "buy_lyd": 2880,
+   "buy_usd": 300,
+   "sale_lyd": 3256,
+   "sale_usd": 320,
+   "cancelled_n": 1,
+   "employee_id": null,
+   "credit_given": 196
+  },
+  {
+   "name": "سالم",
+   "buy_n": 0,
+   "profit": 13.75,
+   "sale_n": 1,
+   "buy_lyd": 0,
+   "buy_usd": 0,
+   "sale_lyd": 490,
+   "sale_usd": 50,
+   "cancelled_n": 0,
+   "employee_id": "f0e31884-560a-4bff-a190-82fd6de15a56",
+   "credit_given": 0
+  }
+ ]
+}

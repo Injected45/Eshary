@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0094) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0095) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0094    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0095    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -126,6 +126,27 @@ Client (data, battery, speed):
   - a locked rate is re-read at save, and an employee is told when the administrator changed it;
   - `Client` compares by id;
   - the sale screen checks the book's dollars (administrator).
+
+### The reports (0095, 2026-10-29)
+
+The owner asked for the reports a money-exchange owner needs, no more and no less. The database adds them up, so the phone never downloads the history. All are administrator only.
+- `report_period(from, to)` (≤ 400 days). Per book: sales and purchases, realized profit (as `profit_report`), average sell / buy rate, cost of what was sold. It also returns:
+  - the dollars of each book at the start and the end (`_usd_book_at(owner, book, at)`: the books now minus every later move);
+  - the dinars of the box and the bank at the start and the end (ledger 1100 / 1110);
+  - credit given, taken, collected and paid, and what is owed at the end;
+  - cancellations;
+  - breakdowns `by_account`, `by_day` and `by_employee` (null = the administrator);
+  - the previous period of the same length.
+- `report_debt_aging()`: each debtor's balance aged ≤ 7 / 8–30 / 31–90 / > 90 days. The oldest debts are taken as paid first, so what is owed is the most recent debits adding up to the balance. Also returns over-limit customers and the creditors.
+
+UI (`lib/features/reports`):
+- The «التقارير» tab lists «تقرير الفترة (إقفال اليوم)», «أداء الموظفين», «أعمار الديون», «تقرير حسب الجهة» and «الحسابات الختامية».
+- `ReportPeriodPicker` offers اليوم / أمس / آخر 7 أيام / هذا الشهر / الشهر الماضي / فترة. Each choice makes a `ReportPeriod` once, so the provider key is stable.
+- PDFs: `pdf_export_reports.dart` (`buildPeriodReport`, `buildEmployeesReport`, `buildDebtAgingReport`).
+- «الخزينة» opens with «الأرصدة الآن» (`current_balances_card.dart`): dollars per book and dinars per pocket from the opening on.
+
+Tests:
+- `supabase/tests/reports95_test.mjs` cross-checks against `profit_report`, `lyd_summary`, the books and `customer_balances`. `WRITE_FIXTURES=1` rewrites `test/fixtures/*.json`, the real JSON used by `test/reports_test.dart`.
 
 ### Wording: بيع / شراء (2026-10-29)
 

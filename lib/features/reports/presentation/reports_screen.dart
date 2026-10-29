@@ -3,7 +3,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
+import '../../ledger/presentation/ledger_screen.dart';
+import 'debt_aging_screen.dart';
+import 'employees_report_screen.dart';
 import 'party_report_screen.dart';
+import 'period_report_screen.dart';
 
 /// One report in the "التقارير" tab.
 class ReportEntry {
@@ -23,13 +27,43 @@ class ReportEntry {
 }
 
 /// The reports the app can produce. New reports are added here, one entry each.
+/// The first three are added up by the database (0095).
 final List<ReportEntry> kReports = [
+  ReportEntry(
+    keyName: 'period',
+    title: 'تقرير الفترة (إقفال اليوم)',
+    subtitle: 'البيع والشراء والربح لكل دفتر، والأرصدة أول الفترة وآخرها، '
+        'والآجل والإلغاءات، ومقارنة بالفترة السابقة',
+    icon: FontAwesomeIcons.chartColumn,
+    open: (_) => const PeriodReportScreen(),
+  ),
+  ReportEntry(
+    keyName: 'employees',
+    title: 'أداء الموظفين',
+    subtitle: 'عمليات كل موظف وحجمها وربح مبيعاته والآجل والإلغاءات',
+    icon: FontAwesomeIcons.userTie,
+    open: (_) => const EmployeesReportScreen(),
+  ),
+  ReportEntry(
+    keyName: 'aging',
+    title: 'أعمار الديون',
+    subtitle: 'من عليه دين ومنذ متى، ومن تجاوز حده، وما علينا للدائنين',
+    icon: FontAwesomeIcons.hourglassHalf,
+    open: (_) => const DebtAgingScreen(),
+  ),
   ReportEntry(
     keyName: 'party',
     title: 'تقرير حسب الجهة',
     subtitle: 'معاملات شركة أو عميل أو كود خلال فترة، مع ملف PDF',
     icon: FontAwesomeIcons.userGroup,
     open: (_) => const PartyReportScreen(),
+  ),
+  ReportEntry(
+    keyName: 'ledger',
+    title: 'الحسابات الختامية',
+    subtitle: 'قائمة الدخل والميزانية وميزان المراجعة واليومية',
+    icon: FontAwesomeIcons.bookOpen,
+    open: (_) => const LedgerScreen(),
   ),
 ];
 

@@ -16,6 +16,7 @@ import '../../customers/presentation/customers_screen.dart';
 import '../../ledger/presentation/ledger_screen.dart';
 import '../../ledger/presentation/reconcile_dialog.dart';
 import 'books_section.dart';
+import 'current_balances_card.dart';
 import 'dinar_treasury_screen.dart';
 import 'treasury_pdf.dart';
 import 'profit_section.dart';
@@ -60,6 +61,8 @@ class TreasuryScreen extends ConsumerWidget {
             onPressed: () {
               ref.invalidate(treasuryProvider);
               ref.invalidate(profitReportProvider);
+              ref.invalidate(accountBooksProvider);
+              ref.invalidate(lydSummaryProvider);
             },
           ),
         ],
@@ -82,6 +85,9 @@ class TreasuryScreen extends ConsumerWidget {
             padding:
                 EdgeInsets.fromLTRB(16, 16, 16, contentBottomPadding(context)),
             children: [
+              // what is held now, from the opening balances on (0094)
+              const CurrentBalancesCard(),
+              const SizedBox(height: 12),
               // the dinars: the cash box and the bank (0086)
               FilledButton.icon(
                 key: const ValueKey('open-dinar-treasury'),

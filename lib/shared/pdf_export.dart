@@ -18,6 +18,7 @@ import '../features/treasury/domain/lyd_treasury.dart';
 import '../features/treasury/domain/profit_report.dart';
 import '../features/treasury/domain/treasury_position.dart';
 import '../features/customers/domain/customer_account.dart';
+import '../features/reports/domain/reports.dart';
 import '../features/ledger/domain/ledger.dart';
 import 'formatters.dart';
 import 'libya_time.dart';
@@ -26,6 +27,7 @@ import 'period_label.dart';
 
 part 'pdf_export_period.dart';
 part 'pdf_export_treasury.dart';
+part 'pdf_export_reports.dart';
 
 /// Almarai (the PDF body font) has no proper isolated form of the letter ي:
 /// after ا د ذ ر ز و it is drawn as a zero-width stub, so "إشاري" prints as
