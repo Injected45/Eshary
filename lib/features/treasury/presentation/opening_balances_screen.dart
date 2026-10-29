@@ -17,17 +17,19 @@ import 'treasury_providers.dart';
 /// the dinars in the box and in the bank. Without it there is nothing to sell
 /// and nothing to pay a purchase with. Each book is given once; a correction
 /// afterwards is «تسوية الرصيد» / the cost, in «الخزينة».
+/// Everything since the start: only the opening figures and whether the
+/// treasury is open are read from it.
+final _allTime = DateTimeRange(start: DateTime(2000), end: DateTime(2100));
+
 class OpeningBalancesScreen extends ConsumerWidget {
   const OpeningBalancesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final books = ref.watch(accountBooksProvider);
-    final range = DateTimeRange(
-      start: DateTime(2000),
-      end: DateTime.now().add(const Duration(days: 1)),
-    );
-    final lyd = ref.watch(lydSummaryProvider(range));
+    // a FIXED range: one taken from "now" was a new provider key on every
+    // rebuild, so the dinar part reloaded for ever
+    final lyd = ref.watch(lydSummaryProvider(_allTime));
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
