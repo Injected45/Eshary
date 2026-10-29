@@ -20,19 +20,19 @@ EmployeeAlert _alert(String kind,
 }
 
 void main() {
-  test('exit alert reads: تم تنفيذ "خروج" من الموظف … بقيمة … إلى المستفيد',
+  test('exit alert reads: تم تنفيذ "بيع" من الموظف … بقيمة … إلى المستفيد',
       () {
     final text = alertText(_alert('transfer'));
-    expect(text, contains('تم تنفيذ "خروج" من الموظف سامي'));
+    expect(text, contains('تم تنفيذ "بيع" من الموظف سامي'));
     expect(text, contains('بقيمة 1,250.00\$ إلى المستفيد أحمد'));
   });
 
-  test('entry alert says دخول and العميل; pending is an entry too', () {
-    expect(alertText(_alert('buy')), contains('"دخول"'));
+  test('entry alert says شراء and العميل; pending is an entry too', () {
+    expect(alertText(_alert('buy')), contains('"شراء"'));
     expect(alertText(_alert('buy')), contains('إلى العميل'));
     final p = _alert('pending_buy');
     expect(p.kind, AlertKind.pendingBuy);
-    expect(p.directionLabel, 'دخول');
+    expect(p.directionLabel, 'شراء');
   });
 
   test('a missing party shows a dash instead of "null"', () {

@@ -80,7 +80,7 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
                   if (seesExits)
                     Expanded(
                       child: _TotalTile(
-                        label: 'إجمالي ما نفّذته خروجاً',
+                        label: 'إجمالي ما نفّذته بيعًا',
                         total: outTotal,
                         color: AppColors.negative,
                       ),
@@ -89,7 +89,7 @@ class EmployeeMyAccountScreen extends ConsumerWidget {
                   if (seesEntries)
                     Expanded(
                       child: _TotalTile(
-                        label: 'إجمالي ما نفّذته دخولاً',
+                        label: 'إجمالي ما نفّذته شراءً',
                         total: inTotal,
                         color: AppColors.positive,
                       ),
@@ -190,14 +190,14 @@ class _AccountCard extends StatelessWidget {
           const Divider(color: AppColors.glassBorder, height: 20),
           if (showOutgoing)
             _Line(
-              label: 'خروج',
+              label: 'بيع',
               count: row.outOpenCount + row.outClosedCount,
               total: row.outOpenTotal + row.outClosedTotal,
               color: AppColors.negative,
             ),
           if (showIncoming)
             _Line(
-              label: 'دخول',
+              label: 'شراء',
               count: row.inOpenCount + row.inClosedCount,
               total: row.inOpenTotal + row.inClosedTotal,
               color: AppColors.positive,

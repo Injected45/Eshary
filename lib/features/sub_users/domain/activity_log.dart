@@ -37,11 +37,11 @@ String activityEventLabel(ActivityEventType t) {
     case ActivityEventType.logout:
       return 'تسجيل خروج';
     case ActivityEventType.transferCreated:
-      return 'إنشاء حوالة خروج';
+      return 'إنشاء حوالة بيع';
     case ActivityEventType.currencyBuyCreated:
-      return 'إنشاء حوالة دخول';
+      return 'إنشاء حوالة شراء';
     case ActivityEventType.pendingBuyCreated:
-      return 'دخول قيد التنفيذ';
+      return 'شراء قيد التنفيذ';
     case ActivityEventType.deviceReset:
       return 'فك ربط الجهاز (بواسطة المدير)';
     case ActivityEventType.qrIssued:

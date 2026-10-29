@@ -82,8 +82,8 @@ void main() {
       (tester) async {
     await _open(tester);
     // the title line of each cancellation, with its arrow
-    expect(find.textContaining('خروج ملغى'), findsOneWidget);
-    expect(find.textContaining('دخول ملغى'), findsOneWidget);
+    expect(find.textContaining('بيع ملغى'), findsOneWidget);
+    expect(find.textContaining('شراء ملغى'), findsOneWidget);
     expect(find.byKey(const ValueKey('cancellation-header-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('cancellation-header-2')), findsOneWidget);
     // none of the details

@@ -161,9 +161,9 @@ class CostEvent {
   String get label => switch (kind) {
         'opening' => 'سعر أول المدة',
         'correction' => 'تصحيح السعر',
-        'buy' => 'دخول',
-        'buy_cancel' => 'إلغاء دخول',
-        'sell_cancel' => 'إلغاء خروج',
+        'buy' => 'شراء',
+        'buy_cancel' => 'إلغاء شراء',
+        'sell_cancel' => 'إلغاء بيع',
         _ => kind,
       };
 

@@ -110,7 +110,7 @@ class _ArchiveScreenState extends ConsumerState<ArchiveScreen> {
           const GlassCard(
             child: Text(
               'لا توجد أنواع عمليات مفعّلة لحسابك بعد. '
-              'تواصل مع المدير لتفعيل الخروج أو الدخول.',
+              'تواصل مع المدير لتفعيل البيع أو الشراء.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textLow, fontSize: 13),
             ),
@@ -218,7 +218,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tint = income ? AppColors.positive : AppColors.negative;
     final hasArchive = archivedCount > 0;
-    final baseTitle = income ? 'إجمالي الدخول' : 'إجمالي الخروج';
+    final baseTitle = income ? 'إجمالي الشراء' : 'إجمالي البيع';
     return GlassCard(
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       child: Column(
@@ -299,7 +299,7 @@ class _DiffNavTile extends StatelessWidget {
         ? 'لا توجد إقفالات بعد'
         : (diff == 0
             ? 'متوازن'
-            : (isPositive ? 'الدخول أكثر من الخروج' : 'الخروج أكثر من الدخول'));
+            : (isPositive ? 'الشراء أكثر من البيع' : 'البيع أكثر من الشراء'));
 
     return Material(
       color: Colors.transparent,
@@ -490,7 +490,7 @@ class _DetailNavTile extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  income ? 'عرض تفاصيل الدخول' : 'عرض تفاصيل الخروج',
+                  income ? 'عرض تفاصيل الشراء' : 'عرض تفاصيل البيع',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: tint,

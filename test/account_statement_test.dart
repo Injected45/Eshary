@@ -68,7 +68,7 @@ Transfer _out(String id, double amount, DateTime at,
 
 void main() {
   _periodDefaultsTests();
-  group('the statement (دخول / خروج / الرصيد)', () {
+  group('the statement (شراء / بيع / الرصيد)', () {
     // admin: +1000 (9:00) −350 (10:00); Sami: +200 (11:00) −50 (12:00);
     // Omar: −75 (13:00); another account e2: +40 (14:00) by Sami.
     final buys = [
@@ -109,7 +109,7 @@ void main() {
       expect(s.balance, 765);
     });
 
-    test('the accountant example: دخول 1000, خروج 350 → الرصيد 650', () {
+    test('the accountant example: شراء 1000, بيع 350 → الرصيد 650', () {
       final s = run(scope: StatementScope.me);
       expect(s.entries.map((e) => (e.income, e.outgoing, e.balance)),
           [(1000.0, null, 1000.0), (null, 350.0, 650.0)]);
@@ -394,11 +394,11 @@ void main() {
     testWidgets('الكل by default: the three columns and everyone\'s totals',
         (tester) async {
       await open(tester);
-      expect(find.text('دخول'), findsOneWidget);
-      expect(find.text('خروج'), findsOneWidget);
+      expect(find.text('شراء'), findsOneWidget);
+      expect(find.text('بيع'), findsOneWidget);
       expect(find.text('الرصيد'), findsWidgets);
-      expect(find.text('+\$1,200.00'), findsOneWidget, reason: 'إجمالي الدخول');
-      expect(find.text('-\$425.00'), findsOneWidget, reason: 'إجمالي الخروج');
+      expect(find.text('+\$1,200.00'), findsOneWidget, reason: 'إجمالي الشراء');
+      expect(find.text('-\$425.00'), findsOneWidget, reason: 'إجمالي البيع');
       expect(find.text('\$778.00'), findsOneWidget,
           reason: 'الرصيد = رصيد الحسابات');
       expect(find.text('\$3.00'), findsOneWidget, reason: 'رصيد افتتاحي: tile');
@@ -436,7 +436,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('عمر').last);
       await tester.pumpAndSettle();
-      // إجمالي الخروج and الرصيد both read -$75.00
+      // إجمالي البيع and الرصيد both read -$75.00
       expect(find.text('-\$75.00'), findsNWidgets(2));
     });
 

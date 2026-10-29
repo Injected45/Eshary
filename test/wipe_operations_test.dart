@@ -11,8 +11,41 @@ void main() {
     // that produced "حُذفت جزئيًا. أخطاء: 2" once the API refused direct deletes
     expect(src, isNot(contains('حُذفت جزئيًا')));
     expect(src, isNot(contains(".from(table).delete()")));
-    expect(src, contains('wipeOperations()'));
+    // since 0087 the wipe asks for the administrator's password
+    expect(src, contains('wipeOperations(password)'));
     expect(src, contains('تم حذف كل العمليات المالية'));
+  });
+
+  test('a refused wipe (the password) deleted nothing and says why', () {
+    final r = WipeResult.fromJson(
+      {'ok': false, 'error': 'wrong_password', 'remaining': 3},
+    );
+    expect(r.ok, isFalse);
+    expect(r.error, 'wrong_password');
+    expect(r.remaining, 3);
+    expect(WipeResult.fromJson({'ok': true, 'transfers': 1}).ok, isTrue);
+  });
+
+  test(
+      '0087: the password, everything that depends on the operations, and '
+      'the numbering goes on', () {
+    final sql = File('supabase/migrations/0087_operations_integrity.sql')
+        .readAsStringSync();
+    expect(sql, contains('owner_wipe_operations(p_password text)'));
+    expect(sql, contains('_admin_password_error(v_owner, p_password)'));
+    for (final t in [
+      'lyd_treasury',
+      'lyd_movements',
+      'lyd_counts',
+      'operation_costs',
+      'account_cost_events',
+      'account_costs',
+      'balance_adjustments',
+    ]) {
+      expect(sql, contains('delete from $t where owner_id = v_owner'),
+          reason: t);
+    }
+    expect(sql, contains('set start_ref = next_reference(r.id)'));
   });
 
   test('the answer of the database is read', () {

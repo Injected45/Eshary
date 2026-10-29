@@ -136,8 +136,8 @@ String friendlyError(Object e) {
     return 'هذه العملية ملغاة مسبقاً.';
   }
   if (s.contains('cancel_insufficient_balance')) {
-    return 'لا يمكن إلغاء هذا الدخول: رصيد الحساب الآن أقل من قيمته '
-        '(خرج المبلغ أو جزء منه). ألغِ عمليات الخروج المرتبطة أولاً.';
+    return 'لا يمكن إلغاء هذا الشراء: رصيد الحساب الآن أقل من قيمته '
+        '(بِيع المبلغ أو جزء منه). ألغِ عمليات البيع المرتبطة أولاً.';
   }
   if (s.contains('cancel_reason_required')) {
     return 'اكتب سبب الإلغاء (3 أحرف على الأقل).';
@@ -234,6 +234,53 @@ String friendlyError(Object e) {
   // The dinar exchange rate (0081).
   if (s.contains('rate_not_set')) {
     return 'لم يحدد المدير سعر الصرف بعد. تواصل مع المدير.';
+  }
+  // Operations and accounts integrity (0087).
+  if (s.contains('rate_unusual')) {
+    return 'السعر بعيد عن آخر سعر حدده المدير بأكثر من 15%. '
+        'راجع السعر أو اطلب من المدير تحديثه.';
+  }
+  if (s.contains('client_not_found_or_forbidden')) {
+    return 'العميل غير موجود في قائمتك. اختره من جديد.';
+  }
+  if (s.contains('opening_cost_required')) {
+    return 'اكتب تكلفة الإفتتاحي: سعر الدولار بالدينار.';
+  }
+  if (s.contains('account_has_history')) {
+    return 'لا يمكن حذف حساب فيه رصيد أو له عمليات أو تسويات. '
+        'العمليات المالية لا تُحذف.';
+  }
+  if (s.contains('account_name_required')) {
+    return 'اكتب اسم الحساب.';
+  }
+  // Selling and buying on credit (0091).
+  if (s.contains('credit_limit_exceeded')) {
+    return 'تجاوز حد الدين المسموح لهذا العميل (أو لم يُحدَّد له حد). '
+        'اطلب من المدير رفع الحد أو تحصيل جزء من دينه.';
+  }
+  if (s.contains('customer_required')) {
+    return 'البيع أو الشراء بالآجل يحتاج اختيار العميل.';
+  }
+  if (s.contains('lyd_paid_invalid')) {
+    return 'المدفوع الآن غير صحيح: يجب أن يكون بين صفر وقيمة العملية بالدينار.';
+  }
+  if (s.contains('credit_limit_direct_edit') ||
+      s.contains('credit_limit_invalid')) {
+    return 'حد الدين غير صحيح. يُحدَّد من «ذمم العملاء».';
+  }
+  if (s.contains('transfers_customer_id_fkey') ||
+      s.contains('customer_lyd_entries_client_id_fkey')) {
+    return 'لا يمكن حذف عميل له حساب بالدينار أو عمليات بالآجل.';
+  }
+  if (s.contains('owner_not_in_backup')) {
+    return 'هذا المشترك غير موجود في هذه النسخة، فلا يُسترجع منها. '
+        'لم يتغير شيء.';
+  }
+  if (s.contains('backup_not_found')) {
+    return 'النسخة الاحتياطية غير موجودة.';
+  }
+  if (s.contains('transfers_owner_ref_active_uq')) {
+    return 'تكرر الرقم الإشاري. أعد المحاولة.';
   }
   // Balance adjustments and the dinar treasury (0086).
   if (s.contains('balance_direct_edit')) {

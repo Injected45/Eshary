@@ -40,6 +40,7 @@ class CurrencyBuy {
     required this.createdByEmployeeId,
     this.cancelledAt,
     this.lydMethod,
+    this.lydPaid,
   });
 
   final String id;
@@ -56,8 +57,16 @@ class CurrencyBuy {
   final double? rate;
   final double? lydAmount;
 
-  /// How the dinars were paid: 'cash' or 'bank' (migration 0086).
+  /// How the dinars were paid: 'cash' or 'bank' (migration 0086); null when
+  /// nothing was paid now (all on credit, 0091).
   final String? lydMethod;
+
+  /// The dinars we paid at the purchase; the rest we owe the seller (0091).
+  final double? lydPaid;
+
+  /// What we still owed the seller for this entry when it was saved.
+  double get lydOnCredit =>
+      lydAmount == null ? 0 : lydAmount! - (lydPaid ?? lydAmount!);
   final String reference;
   final CurrencyBuyStatus status;
   final DateTime createdAt;
@@ -93,6 +102,7 @@ class CurrencyBuy {
         rate: (json['rate'] as num?)?.toDouble(),
         lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
         lydMethod: json['lyd_method'] as String?,
+        lydPaid: (json['lyd_paid'] as num?)?.toDouble(),
         reference: (json['reference'] as String?) ?? '',
         status: _parseStatus(json['status'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),

@@ -270,15 +270,15 @@ class _EmployeeHomeShellState extends ConsumerState<EmployeeHomeShell>
     return [
       if (canExit)
         _EmployeeTab(
-          title: 'تنفيذ خروج حوالة',
-          label: 'خروج',
+          title: 'تنفيذ بيع حوالة',
+          label: 'بيع',
           icon: FontAwesomeIcons.paperPlane,
           screen: TransfersScreen(key: transfersScreenKey),
         ),
       if (canEntry)
         const _EmployeeTab(
-          title: 'تنفيذ دخول حوالة',
-          label: 'دخول',
+          title: 'تنفيذ شراء حوالة',
+          label: 'شراء',
           icon: FontAwesomeIcons.moneyBillTransfer,
           screen: CurrencyBuyScreen(),
         ),

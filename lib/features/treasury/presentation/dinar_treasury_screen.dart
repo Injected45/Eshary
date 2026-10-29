@@ -283,7 +283,7 @@ class _OpeningCardState extends State<_OpeningCard> {
           const SizedBox(height: 8),
           const Text(
             'اكتب ما في الصندوق وما في المصرف الآن بالدينار. من هذه اللحظة '
-            'يضيف كل خروج ما قبضته من دينار، ويخصم كل دخول ما دفعته، حسب '
+            'يضيف كل بيع ما قبضته من دينار، ويخصم كل شراء ما دفعته، حسب '
             'طريقة الدفع (نقدًا أو مصرفي). يُفتح مرة واحدة.',
             style:
                 TextStyle(fontSize: 12, color: AppColors.textLow, height: 1.5),
@@ -394,6 +394,16 @@ class _FlowsCard extends StatelessWidget {
           _Row('قبض من البيع مصرفي', _lyd(s.salesBank), AppColors.positive),
           _Row('دفع للشراء نقدًا', _lyd(s.buysCash), AppColors.negative),
           _Row('دفع للشراء مصرفي', _lyd(s.buysBank), AppColors.negative),
+          if (s.collectCash != 0)
+            _Row('تحصيل من العملاء نقدًا', _lyd(s.collectCash),
+                AppColors.positive),
+          if (s.collectBank != 0)
+            _Row('تحصيل من العملاء مصرفي', _lyd(s.collectBank),
+                AppColors.positive),
+          if (s.payCash != 0)
+            _Row('سداد للبائعين نقدًا', _lyd(s.payCash), AppColors.negative),
+          if (s.payBank != 0)
+            _Row('سداد للبائعين مصرفي', _lyd(s.payBank), AppColors.negative),
           const Divider(height: 16),
           _Row(
             'صافي الصندوق من العمليات',

@@ -6,10 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_provider.dart';
 import '../features/cancellations/presentation/cancellations_providers.dart';
 import '../features/clients/presentation/clients_providers.dart';
+import '../features/companies/presentation/account_statement_providers.dart';
 import '../features/companies/presentation/companies_providers.dart';
 import '../features/exchange_companies/presentation/exchange_companies_providers.dart';
 import '../features/currency_buy/presentation/currency_buys_providers.dart';
 import '../features/employee_alerts/presentation/employee_alerts_providers.dart';
+import '../features/employee_auth/presentation/employee_auth_providers.dart';
 import '../features/notifications/presentation/notifications_providers.dart';
 import '../features/transfers/presentation/transfers_providers.dart';
 import 'logger.dart';
@@ -29,7 +31,7 @@ import 'logger.dart';
 /// 0027_enable_realtime.sql migration.
 final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
   AppLogger.info('[sync] realtimeSyncProvider initialised — '
-      'polling every 5s + Realtime channel attached');
+      'Realtime channel attached, polling only as a safety net');
 
   final client = ref.watch(supabaseClientProvider);
   var tick = 0;
@@ -47,6 +49,9 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     ref.invalidate(allExchangesProvider);
     ref.invalidate(todayTransfersProvider);
     ref.invalidate(todayBuysProvider);
+    // an open account statement reads its operations again together with the
+    // balances, so its opening and running balances never drift apart
+    ref.invalidate(statementDataProvider);
     // Notifications: admin alerts / sent messages, and the employee inbox.
     // Unwatched providers are not re-read, so this costs nothing on screens
     // that do not show them.
@@ -73,15 +78,34 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
     });
   }
 
-  // Safety net: poll every 5s in case WebSocket / Realtime is blocked
-  // (corporate proxy, browser tab throttling, Supabase realtime quota).
-  // Riverpod won't re-fetch providers that no one is watching, so the
-  // cost is bounded to whatever screen the user is currently on.
-  final pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+  // Safety net for a blocked WebSocket (proxy, throttled tab, realtime
+  // quota). It used to re-read everything every 5 s on every device — the
+  // whole history, ~1 GB an hour per phone. Now: every 15 s only while the
+  // realtime channel is NOT connected, and once a minute while it is.
+  var connected = false;
+  final pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
     tick++;
-    AppLogger.info('[sync] poll tick #$tick — refreshing workflow data');
+    if (connected && tick % 4 != 0) return;
+    AppLogger.info('[sync] poll tick #$tick (realtime '
+        '${connected ? 'on' : 'off'}) — refreshing workflow data');
     invalidateWorkflow();
   });
+
+  // Only this administrator's rows are sent to this phone (RLS checks them
+  // anyway; the filter spares the server checking every other company's).
+  // An employee's administrator is not known on the phone, and while it is
+  // not yet known who is signed in nothing is filtered: RLS alone.
+  final identity = ref.read(currentEmployeeProvider);
+  final ownerId = identity.hasValue && identity.value == null
+      ? client.auth.currentUser?.id
+      : null;
+  final ownerFilter = ownerId == null
+      ? null
+      : PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'owner_id',
+          value: ownerId,
+        );
 
   // The saved clients and the customers' companies change rarely, so they are
   // re-read every 30 s (not every 5 s): an addition made from another device
@@ -97,6 +121,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'transfers',
+        filter: ownerFilter,
         callback: (payload) {
           AppLogger.info('[realtime] transfers event: ${payload.eventType}');
           scheduleInvalidate();
@@ -106,6 +131,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'currency_buys',
+        filter: ownerFilter,
         callback: (payload) {
           AppLogger.info(
               '[realtime] currency_buys event: ${payload.eventType}');
@@ -125,6 +151,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         event: PostgresChangeEvent.insert,
         schema: 'public',
         table: 'admin_alerts',
+        filter: ownerFilter,
         callback: (payload) {
           AppLogger.info('[realtime] admin_alerts insert');
           scheduleInvalidate();
@@ -134,6 +161,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'cancellation_requests',
+        filter: ownerFilter,
         callback: (payload) {
           AppLogger.info('[realtime] cancellation_requests event');
           scheduleInvalidate();
@@ -149,6 +177,7 @@ final realtimeSyncProvider = Provider<RealtimeChannel>((ref) {
         },
       )
       .subscribe((status, [error]) {
+    connected = status == RealtimeSubscribeStatus.subscribed;
     AppLogger.info('[realtime] subscribe status=$status error=$error');
   });
 

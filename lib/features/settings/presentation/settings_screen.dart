@@ -32,6 +32,7 @@ import '../../logs/presentation/logs_screen.dart';
 import '../../profile/presentation/profile_details_screen.dart';
 import '../../sub_users/presentation/sub_users_screen.dart';
 import '../../transfers/presentation/transfers_providers.dart';
+import '../../treasury/presentation/treasury_providers.dart';
 import '../data/wipe_repository.dart';
 import '../../../shared/top_message.dart';
 
@@ -251,13 +252,16 @@ class TransferSettingsScreen extends ConsumerWidget {
   }
 }
 
-Future<bool?> _showWipeConfirmDialog(
+/// The administrator's password when confirmed (the word "احذف" typed and the
+/// password given), null when cancelled.
+Future<String?> _showWipeConfirmDialog(
   BuildContext context, {
   required String title,
   required String body,
 }) {
   final controller = TextEditingController();
-  return showGlassDialog<bool>(
+  final password = TextEditingController();
+  return showGlassDialog<String>(
     context: context,
     builder: (dialogContext) => Dialog(
       backgroundColor: Colors.transparent,
@@ -269,7 +273,7 @@ Future<bool?> _showWipeConfirmDialog(
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
               final typed = controller.text.trim();
-              final canDelete = typed == 'احذف';
+              final canDelete = typed == 'احذف' && password.text.isNotEmpty;
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -310,11 +314,22 @@ Future<bool?> _showWipeConfirmDialog(
                       hintText: 'احذف',
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    key: const ValueKey('wipe-password'),
+                    controller: password,
+                    obscureText: true,
+                    textAlign: TextAlign.center,
+                    onChanged: (_) => setLocal(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'كلمة مرور حسابك',
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Row(children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                         child: const Text('إلغاء'),
                       ),
                     ),
@@ -326,7 +341,8 @@ Future<bool?> _showWipeConfirmDialog(
                           foregroundColor: Colors.white,
                         ),
                         onPressed: canDelete
-                            ? () => Navigator.of(dialogContext).pop(true)
+                            ? () =>
+                                Navigator.of(dialogContext).pop(password.text)
                             : null,
                         child: const Text('حذف'),
                       ),
@@ -339,22 +355,26 @@ Future<bool?> _showWipeConfirmDialog(
         ),
       ),
     ),
-  ).whenComplete(controller.dispose);
+  ).whenComplete(() {
+    controller.dispose();
+    password.dispose();
+  });
 }
 
 Future<void> _confirmAndWipeEntries(
   BuildContext context,
   WidgetRef ref,
 ) async {
-  final confirmed = await _showWipeConfirmDialog(
+  final password = await _showWipeConfirmDialog(
     context,
     title: 'حذف المدخلات؟',
     body:
-        'ستُحذف كل العمليات المالية: عمليات الخروج والدخول وما يتصل بها من إلغاءات '
-        'وإشعارات، وتُصفَّر أرصدة الحسابات. تبقى الشركات وشركات الصرافة والعملاء '
-        'كما هي. تُحفظ نسخة احتياطية قبل الحذف يمكنك استعادتها من شاشة النسخ الاحتياطي.',
+        'ستُحذف كل العمليات المالية: عمليات البيع والشراء وما يتصل بها من إلغاءات '
+        'وإشعارات وتسويات، وسعر التكلفة وخزينة الدينار، وتُصفَّر أرصدة الحسابات. '
+        'تبقى الشركات وشركات الصرافة والعملاء كما هي، ويستمر ترقيم الإشاري بعد آخر '
+        'رقم استُخدم. تُحفظ نسخة احتياطية قبل الحذف.',
   );
-  if (confirmed != true) return;
+  if (password == null) return;
 
   final uid = ref.read(currentUserIdProvider);
   if (uid == null) {
@@ -371,14 +391,26 @@ Future<void> _confirmAndWipeEntries(
   WipeResult? result;
   Object? failure;
   try {
-    result = await ref.read(wipeRepositoryProvider).wipeOperations();
+    result = await ref.read(wipeRepositoryProvider).wipeOperations(password);
   } catch (e, st) {
     AppLogger.error('settings.wipeOperations', e, st);
     failure = e;
   }
 
+  // refused (the password): nothing was deleted
+  if (result != null && !result.ok) {
+    if (!context.mounted) return;
+    showTopSnackBar(
+      context,
+      SnackBar(content: Text(wipeRefusedMessage(result))),
+    );
+    return;
+  }
+
   await ref.read(jsonCacheProvider).clear();
 
+  ref.invalidate(treasuryProvider);
+  ref.invalidate(accountCostsProvider);
   ref.invalidate(allExchangesProvider);
   ref.invalidate(dailyTransfersProvider);
   ref.invalidate(todayTransfersProvider);
@@ -400,12 +432,22 @@ Future<void> _confirmAndWipeEntries(
         failure != null
             ? friendlyError(failure)
             : 'تم حذف كل العمليات المالية: '
-                '${result!.transfers} خروج و${result.currencyBuys} دخول. '
+                '${result!.transfers} بيع و${result.currencyBuys} شراء. '
                 'حُفظت نسخة احتياطية قبل الحذف.',
       ),
     ),
   );
 }
+
+/// Why a wipe was refused, in the words of the balance adjustment.
+String wipeRefusedMessage(WipeResult r) => switch (r.error) {
+      'wrong_password' => r.remaining > 0
+          ? 'كلمة المرور غير صحيحة. بقي ${r.remaining} محاولات. لم يُحذف شيء.'
+          : 'كلمة المرور غير صحيحة. تم الإيقاف 15 دقيقة. لم يُحذف شيء.',
+      'locked' => 'تم الإيقاف مؤقتاً بسبب محاولات خاطئة. حاول بعد 15 دقيقة.',
+      _ => 'حسابك بلا كلمة مرور (الدخول بجوجل). '
+          'عيّن كلمة مرور من الإعدادات أولاً.',
+    };
 
 /// "القفل بالبصمة": asks for the fingerprint / face / screen lock when the app
 /// opens and after a minute in the background. Off by default.

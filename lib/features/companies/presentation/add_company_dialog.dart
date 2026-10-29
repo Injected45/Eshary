@@ -12,7 +12,6 @@ import '../../exchange_companies/domain/exchange_company.dart';
 import '../../exchange_companies/presentation/exchange_companies_providers.dart';
 import '../../exchange_companies/presentation/exchange_companies_screen.dart'
     show AddExchangeCompanyDialog, kExchangeCompanyCountries;
-import '../../treasury/data/treasury_repository.dart';
 import '../../treasury/presentation/treasury_providers.dart';
 import '../data/companies_repository.dart';
 import '../data/exchanges_repository.dart';
@@ -42,6 +41,9 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
   Exchange? _existingExchange;
   bool _loading = false;
   bool _hasTx = false;
+
+  /// The company created by a «حفظ» whose account then failed.
+  Company? _createdCompany;
 
   bool get _isEdit => widget.existing != null;
   bool get _locked => _isEdit && _hasTx;
@@ -155,21 +157,26 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
       } else {
         final ownerId = ref.read(currentUserIdProvider);
         if (ownerId == null) throw StateError('not signed in');
-        final company = await ref.read(companiesRepositoryProvider).create(
-              ownerId: ownerId,
-              name: _name.text.trim(),
-              startRef: _ref.text.trim(),
-            );
-        final exchange = await ref.read(exchangesRepositoryProvider).create(
+        // a second «حفظ» after the account failed reuses the company already
+        // created instead of creating it twice
+        final company = _createdCompany ??=
+            await ref.read(companiesRepositoryProvider).create(
+                  ownerId: ownerId,
+                  name: _name.text.trim(),
+                  startRef: _ref.text.trim(),
+                );
+        // the balance, its opening line and its cost in one transaction (0087)
+        await ref.read(exchangesRepositoryProvider).create(
               companyId: company.id,
               name: _exName.text.trim(),
               balance: parseMoney(_balance.text),
               ourCode: _ourCode.text.trim(),
               country:
                   _country.text.trim().isEmpty ? null : _country.text.trim(),
+              costRate: _withCost ? _costRate : null,
             );
-        final rate = _withCost ? _costRate : null;
-        if (rate != null) await _saveCost(exchange.id, rate);
+        ref.invalidate(treasuryProvider);
+        ref.invalidate(accountCostsProvider);
       }
       widget.onSaved();
       if (mounted) Navigator.of(context).pop();
@@ -179,29 +186,6 @@ class _AddCompanyDialogState extends ConsumerState<AddCompanyDialog> {
       showTopSnackBar(context, SnackBar(content: Text(friendlyError(e))));
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  /// The account is already saved: a failure here must not keep the dialog
-  /// open (a second «حفظ» would create the account twice), so it is reported
-  /// and the cost is left to be set from the treasury.
-  Future<void> _saveCost(String exchangeId, double rate) async {
-    try {
-      await ref.read(treasuryRepositoryProvider).setCost(exchangeId, rate);
-      ref.invalidate(treasuryProvider);
-      ref.invalidate(accountCostsProvider);
-    } catch (e, st) {
-      AppLogger.error('companies.addCompany.cost', e, st);
-      if (!mounted) return;
-      showTopSnackBar(
-        context,
-        SnackBar(
-          content: Text(
-            'حُفظ الحساب ولم تُحفظ تكلفة الإفتتاحي (${friendlyError(e)}). '
-            'حدّدها من «الخزينة وسعر التكلفة».',
-          ),
-        ),
-      );
     }
   }
 

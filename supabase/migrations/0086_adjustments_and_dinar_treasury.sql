@@ -28,6 +28,11 @@ begin
   if to_regprocedure('public.profit_report(timestamptz, timestamptz)') is null then
     raise exception 'شغّل الترحيل 0085 أولًا (الأرباح)، ثم هذا الملف. لم يتغير شيء.';
   end if;
+  -- run again after 0087 it would bring back the old save functions (the
+  -- phone's reference, no request id) and the update-only balance trigger
+  if to_regprocedure('public.admin_open_account(uuid, text, numeric, text, text, numeric)') is not null then
+    raise exception 'هذا الملف (0086) طُبِّق سابقًا وتبعه 0087. لا تشغّله مرة أخرى. لم يتغير شيء.';
+  end if;
 end $$;
 
 -- =============================================================================

@@ -11,8 +11,10 @@ import '../../../shared/logger.dart';
 import '../../../shared/pdf_export.dart';
 import '../../../shared/pdf_file_name.dart';
 import '../../../shared/transaction_details.dart';
+import '../../adjustments/domain/balance_adjustment.dart';
 import '../../clients/domain/client.dart';
 import '../../clients/presentation/clients_providers.dart';
+import '../../expenses/domain/account_expense.dart';
 import '../../companies/domain/account_statement.dart';
 import '../../companies/presentation/account_statement_providers.dart';
 import '../../companies/domain/company.dart';
@@ -131,14 +133,11 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     final archivedTransfers =
         ref.watch(archivedTransfersProvider).value ?? const <Transfer>[];
 
-    // Employee mode pulls in daily / pending rows alongside the archived
-    // ones so the jurd reflects everything the caller has authored, not
-    // just what the admin has closed.
+    // Employee mode pulls in daily rows alongside the archived ones so the
+    // jurd reflects everything the caller has authored, not just what the
+    // admin has closed.
     final dailyBuys = widget.includeDaily
         ? (ref.watch(dailyBuysProvider).value ?? const <CurrencyBuy>[])
-        : const <CurrencyBuy>[];
-    final pendingBuys = widget.includeDaily
-        ? (ref.watch(pendingBuysProvider).value ?? const <CurrencyBuy>[])
         : const <CurrencyBuy>[];
     final dailyTransfers = widget.includeDaily
         ? (ref.watch(dailyTransfersProvider).value ?? const <Transfer>[])
@@ -158,10 +157,10 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
       return creatorPasses(f, createdByEmployeeId);
     }
 
+    // a pending (legacy) buy never moved a balance: it stays out of the totals
     final filteredBuys = [
       ...archivedBuys,
       ...dailyBuys,
-      ...pendingBuys,
     ]
         .where((b) => inDateRange(_stampForBuy(b), r.start, r.end))
         .where((b) => creatorOk(b.createdByEmployeeId))
@@ -198,6 +197,10 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     // closing balance matches the real balance. Only for the whole treasury:
     // a single person's operations have no opening balance of their own.
     var opening = 0.0;
+    // the commissions and the balance adjustments of the period: they move
+    // the whole treasury too, so the closing balance needs them
+    var periodExpenses = const <AccountExpense>[];
+    var periodAdjustments = const <BalanceAdjustment>[];
     final wholeTreasury = !ref.watch(isEmployeeProvider) &&
         (widget.creatorFilter == null || widget.creatorFilter == kCreatorAll);
     if (wholeTreasury) {
@@ -218,8 +221,25 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
           start: r.start,
         );
         if (opening.abs() < 0.005) opening = 0;
+        periodExpenses = [
+          for (final x in data.expenses)
+            if (inDateRange(x.createdAt, r.start, r.end)) x,
+        ];
+        periodAdjustments = [
+          for (final x in data.adjustments)
+            if (inDateRange(x.createdAt, r.start, r.end)) x,
+        ];
       }
     }
+    var otherMoves = 0.0;
+    for (final x in periodAdjustments) {
+      otherMoves += x.delta;
+    }
+    for (final x in periodExpenses) {
+      otherMoves -= x.amount;
+      if (inDateRange(x.cancelledAt, r.start, r.end)) otherMoves += x.amount;
+    }
+    final closing = opening + diff + otherMoves;
 
     final buckets = _bucketize(
       buys: filteredBuys,
@@ -245,6 +265,8 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
                       start: r.start,
                       end: r.end,
                       opening: opening,
+                      expenses: periodExpenses,
+                      adjustments: periodAdjustments,
                     )
                 : null,
             icon: const FaIcon(FontAwesomeIcons.filePdf, size: 16),
@@ -283,9 +305,9 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
             outgoingTotal: outgoingTotal,
             diff: diff,
           ),
-          if (opening != 0) ...[
+          if (opening != 0 || otherMoves != 0) ...[
             const SizedBox(height: 8),
-            _OpeningRow(opening: opening, closing: opening + diff),
+            _OpeningRow(opening: opening, closing: closing),
           ],
           const SizedBox(height: 14),
           _OperationsTable(
@@ -306,6 +328,8 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
     required DateTime start,
     required DateTime end,
     double opening = 0,
+    List<AccountExpense> expenses = const [],
+    List<BalanceAdjustment> adjustments = const [],
   }) async {
     try {
       final companies =
@@ -346,9 +370,11 @@ class _DiffDetailsScreenState extends ConsumerState<DiffDetailsScreen> {
         exportedBy: exportedBy,
         notificationText: notif,
         employeeName: employeeName,
+        expenses: expenses,
+        adjustments: adjustments,
       );
       final filename = pdfFileName(
-        'تفاصيل حركة الدخول والخروج للحوالات',
+        'تفاصيل حركة الشراء والبيع للحوالات',
         who: _whoForFile(employeeName),
         start: start,
         end: end,
@@ -451,7 +477,7 @@ class _BigDiffCard extends StatelessWidget {
         ? 'لا توجد إقفالات بعد'
         : (diff == 0
             ? 'متوازن'
-            : (isPositive ? 'الدخول أكثر من الخروج' : 'الخروج أكثر من الدخول'));
+            : (isPositive ? 'الشراء أكثر من البيع' : 'البيع أكثر من الشراء'));
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
@@ -551,7 +577,7 @@ class _ChartCard extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.only(left: 8, right: 8, bottom: 6),
             child: Text(
-              'حركة الدخول والخروج',
+              'حركة الشراء والبيع',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textHigh,
@@ -564,9 +590,9 @@ class _ChartCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              _LegendDot(label: 'الدخول', color: AppColors.positive),
+              _LegendDot(label: 'الشراء', color: AppColors.positive),
               SizedBox(width: 16),
-              _LegendDot(label: 'الخروج', color: AppColors.negative),
+              _LegendDot(label: 'البيع', color: AppColors.negative),
             ],
           ),
           const SizedBox(height: 8),
@@ -752,7 +778,7 @@ class _LineChart extends StatelessWidget {
                   ),
                   children: [
                     TextSpan(
-                      text: 'الدخول  \$${formatMoney(b.income)}\n',
+                      text: 'الشراء  \$${formatMoney(b.income)}\n',
                       style: const TextStyle(
                         color: AppColors.positive,
                         fontWeight: FontWeight.w700,
@@ -760,7 +786,7 @@ class _LineChart extends StatelessWidget {
                       ),
                     ),
                     TextSpan(
-                      text: 'الخروج  \$${formatMoney(b.outgoing)}',
+                      text: 'البيع  \$${formatMoney(b.outgoing)}',
                       style: const TextStyle(
                         color: AppColors.negative,
                         fontWeight: FontWeight.w700,
@@ -862,7 +888,7 @@ class _SummaryRow extends StatelessWidget {
           // RTL order: rightmost = إجمالي الدخول
           Expanded(
             child: _SummaryTile(
-              label: 'إجمالي الدخول',
+              label: 'إجمالي الشراء',
               value: '\$${formatMoney(incomeTotal)}',
               tint: AppColors.positive,
             ),
@@ -870,7 +896,7 @@ class _SummaryRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _SummaryTile(
-              label: 'إجمالي الخروج',
+              label: 'إجمالي البيع',
               value: '\$${formatMoney(outgoingTotal)}',
               tint: AppColors.negative,
             ),
@@ -1059,7 +1085,7 @@ class _OperationsTable extends ConsumerWidget {
     for (final b in buys) {
       final row = _OperationRow(
         t: b.archivedAt ?? b.createdAt,
-        kind: 'دخول',
+        kind: 'شراء',
         amountSigned: b.usdAmount,
         account: companyName[b.myCompanyId] ?? '—',
         party: b.clientId != null
@@ -1076,7 +1102,7 @@ class _OperationsTable extends ConsumerWidget {
     for (final t in transfers) {
       final row = _OperationRow(
         t: t.archivedAt ?? t.createdAt,
-        kind: 'خروج',
+        kind: 'بيع',
         amountSigned: -t.amount,
         account: '${exchangeName[t.exchangeId] ?? '—'} / '
             '${companyName[t.companyId] ?? '—'}',

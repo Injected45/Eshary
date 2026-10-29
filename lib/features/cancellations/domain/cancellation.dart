@@ -9,7 +9,7 @@ String operationKindToDb(OperationKind k) =>
 
 /// خروج / دخول.
 String operationKindLabel(OperationKind k) =>
-    k == OperationKind.buy ? 'دخول' : 'خروج';
+    k == OperationKind.buy ? 'شراء' : 'بيع';
 
 /// One cancellation as recorded by `admin_cancel_operation` (0048). The row
 /// is append-only: nobody can edit or delete it from the app.

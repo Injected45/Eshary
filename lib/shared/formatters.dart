@@ -80,7 +80,10 @@ double parseMoney(String input) {
       .map(_arabicDigitToLatin)
       .join()
       .trim();
-  return double.tryParse(normalized) ?? 0;
+  // digits and one decimal point only: "NaN", "Infinity" and "1e9" are 0
+  if (!RegExp(r'^[0-9]*\.?[0-9]*$').hasMatch(normalized)) return 0;
+  final v = double.tryParse(normalized) ?? 0;
+  return v.isFinite ? v : 0;
 }
 
 String _arabicDigitToLatin(String c) {

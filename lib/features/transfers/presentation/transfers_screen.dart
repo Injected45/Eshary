@@ -38,6 +38,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../data/transfers_repository.dart';
 import '../domain/transfer.dart';
 import 'transfers_providers.dart';
+import '../../../shared/request_id.dart';
 import '../../../shared/top_message.dart';
 
 final transfersScreenKey = GlobalKey<TransfersScreenState>();
@@ -61,6 +62,11 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   Company? _company;
   Exchange? _exchange;
   String? _reference;
+
+  /// The request id of the exit being saved, kept while the form is the same
+  /// (see [_saveAndOpenMessages]).
+  String? _requestId;
+  String? _requestSignature;
   String? _exchangeCompanyName;
   int? _activeSection;
 
@@ -70,8 +76,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
   final _amount = TextEditingController();
   final _rate = TextEditingController();
 
-  /// How the customer pays the dinars (migration 0086).
+  /// How the customer pays the dinars (migration 0086): cash, bank, or on
+  /// credit — all of it or the part not in [_lydPaid] (0091).
   String _lydMethod = kLydCash;
+  final _lydPaid = TextEditingController();
+  String _paidPocket = kLydCash;
+
+  /// Who owes the dinars left on credit.
+  Client? _creditCustomer;
   final _beneficiaryName = TextEditingController();
   final _beneficiaryAccount = TextEditingController();
   final _beneficiaryCode = TextEditingController();
@@ -151,6 +163,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
     _amount.dispose();
     _rate.removeListener(_onFormTyped);
     _rate.dispose();
+    _lydPaid.dispose();
     _beneficiaryName.dispose();
     _beneficiaryAccount.dispose();
     _beneficiaryCode.dispose();
@@ -186,6 +199,9 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _amount.clear();
       _rate.clear();
       _lydMethod = kLydCash;
+      _lydPaid.clear();
+      _paidPocket = kLydCash;
+      _creditCustomer = null;
       _beneficiaryName.clear();
       _beneficiaryAccount.clear();
       _beneficiaryCode.clear();
@@ -325,7 +341,14 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           await confirmUnusualRate(context, rate: rate, last: rates.sell!);
       if (!sure || !mounted) return;
     }
-    // the administrator: selling below the account's cost loses money
+    // the administrator: selling below the account's cost loses money. When
+    // the cost could not be read, say so instead of skipping the check.
+    if (!ref.read(isEmployeeProvider) &&
+        ref.read(accountCostsProvider).hasError) {
+      ref.invalidate(accountCostsProvider);
+      _snack('تعذّر التحقق من سعر التكلفة. تحقق من الاتصال وحاول مرة أخرى.');
+      return;
+    }
     final cost = _accountCost;
     if (cost != null && rate < cost) {
       final usd = parseMoney(_amount.text);
@@ -347,20 +370,87 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       _snack('اكتب شركة المستفيد أو اسم حسابه أو كوده');
       return;
     }
+    // on credit (0091): who owes it, and what was paid now
+    final credit = lydOnCredit(_lydMethod);
+    if (credit && _creditCustomer == null) {
+      _snack('اختر العميل الذي يدفع الدينار (البيع بالآجل)');
+      return;
+    }
+    final lyd = lydFor(amount, rate);
+    final partialPaid = parseMoney(_lydPaid.text);
+    if (_lydMethod == kLydPartial && (partialPaid <= 0 || partialPaid >= lyd)) {
+      _snack('اكتب المدفوع الآن: أكثر من صفر وأقل من '
+          '${formatMoney(lyd)} د.ل');
+      return;
+    }
+    final pay = lydPaymentArgs(
+      _lydMethod,
+      partialPaid: partialPaid,
+      pocket: _paidPocket,
+    );
+
+    // the same exit pressed again (the network dropped after the server saved
+    // it) keeps its request id, so it is not saved a second time; any change
+    // to the form makes it a new request
+    final signature = [
+      _company!.id,
+      _exchange!.id,
+      _beneficiaryNameToStore,
+      _beneficiaryAccount.text.trim(),
+      _beneficiaryCode.text.trim(),
+      amount,
+      rate,
+      _lydMethod,
+      pay.paid,
+      credit ? _creditCustomer!.id : null,
+    ].join('|');
+    if (_requestSignature != signature) {
+      _requestSignature = signature;
+      _requestId = newRequestId();
+    }
 
     setState(() => _busy = true);
     try {
-      final saved = await ref.read(transfersRepositoryProvider).create(
-            companyId: _company!.id,
-            exchangeId: _exchange!.id,
-            beneficiaryName: _beneficiaryNameToStore,
-            beneficiaryAccountCompany: _beneficiaryAccount.text.trim(),
-            beneficiaryCode: _beneficiaryCode.text.trim(),
-            amount: amount,
-            reference: _reference!,
-            rate: rate,
-            lydMethod: _lydMethod,
-          );
+      Future<Transfer> save({bool overLimit = false}) =>
+          ref.read(transfersRepositoryProvider).create(
+                companyId: _company!.id,
+                exchangeId: _exchange!.id,
+                beneficiaryName: _beneficiaryNameToStore,
+                beneficiaryAccountCompany: _beneficiaryAccount.text.trim(),
+                beneficiaryCode: _beneficiaryCode.text.trim(),
+                amount: amount,
+                reference: _reference!,
+                rate: rate,
+                lydMethod: pay.method,
+                lydPaid: pay.paid,
+                customerId: credit ? _creditCustomer!.id : null,
+                overLimit: overLimit,
+                requestId: _requestId,
+              );
+      Transfer saved;
+      try {
+        saved = await save();
+      } catch (e) {
+        // over the customer's credit limit: the administrator may decide to
+        // go over it (an employee is refused by the database)
+        if (!'$e'.contains('credit_limit_exceeded') ||
+            ref.read(isEmployeeProvider) ||
+            !mounted) {
+          rethrow;
+        }
+        final sure = await confirmOverCreditLimit(
+          context,
+          customer: _creditCustomer!.name,
+          limit: _creditCustomer!.creditLimit,
+        );
+        if (!sure) return;
+        saved = await save(overLimit: true);
+      }
+      _requestSignature = null;
+      _requestId = null;
+      // the number the database gave at save time (0087): the messages carry
+      // it. Their text is unchanged.
+      _reference = saved.reference;
       await _persistBeneficiaryCode();
       ref.invalidate(exchangeRatesProvider);
       ref.invalidate(accountCostsProvider);
@@ -437,6 +527,17 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         ),
       ),
     );
+  }
+
+  /// The customer who owes the dinars left on credit, from the saved customers.
+  Future<void> _pickCreditCustomer() async {
+    final picked = await showGlassDialog<Client>(
+      context: context,
+      builder: (_) => const SavedClientsDialog(),
+    );
+    if (picked != null && mounted) {
+      setState(() => _creditCustomer = picked);
+    }
   }
 
   Future<void> _openSavedBeneficiariesDialog() async {
@@ -556,7 +657,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
       await PdfExport.sharePdf(
         bytes,
         pdfFileName(
-          'سجل خروج الحوالات اليوم',
+          'سجل بيع الحوالات اليوم',
           who: employeeName == null ? null : 'الموظف $employeeName',
         ),
       );
@@ -612,7 +713,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
           color: AppColors.negative,
           header: const _NumberedSectionTitle(
             1,
-            'خروج من حسابي',
+            'بيع من حسابي',
             color: AppColors.negative,
           ),
           expanded: _activeSection == 1,
@@ -909,7 +1010,23 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
                   value: _lydMethod,
                   sell: true,
                   onChanged: (m) => setState(() => _lydMethod = m),
+                  allowCredit: true,
+                  paidController: _lydPaid,
+                  pocket: _paidPocket,
+                  onPocketChanged: (p) => setState(() => _paidPocket = p),
+                  onPaidChanged: () => setState(() {}),
+                  total: _sellRate > 0
+                      ? lydFor(parseMoney(_amount.text), _sellRate)
+                      : null,
                 ),
+                if (lydOnCredit(_lydMethod)) ...[
+                  const SizedBox(height: 8),
+                  CreditCustomerField(
+                    customer: _creditCustomer,
+                    sell: true,
+                    onPick: _pickCreditCustomer,
+                  ),
+                ],
               ],
             ],
           ),
@@ -1043,7 +1160,7 @@ class TransfersScreenState extends ConsumerState<TransfersScreen> {
         _CollapsibleSection(
           header: Row(children: [
             Expanded(
-              child: _SectionTitle('خروج منفذ'),
+              child: _SectionTitle('بيع منفذ'),
             ),
             IconButton(
               tooltip: 'تصدير PDF',

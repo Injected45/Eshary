@@ -117,20 +117,198 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         await _saveFile(data, b.createdAt.toLocal());
       }, 'backup.download');
 
-  /// One press, no questions: the app goes back to what it was when this
-  /// backup was taken. The database saves a safety copy of the CURRENT state
-  /// first (kind "قبل استعادة"), so even a wrong press is one press to undo.
+  /// First the choice: ONE subscriber (the usual case: undo one subscriber's
+  /// mistake, everyone else untouched, 0088) or the whole platform (a real
+  /// disaster: every subscriber goes back to the backup and loses what they
+  /// did since). The database saves a safety copy of the CURRENT state first
+  /// (kind "قبل استعادة") either way.
   Future<void> _restoreFromStored(BackupInfo b) async {
     final when =
         LibyaDateFormat('yyyy/MM/dd HH:mm').format(b.createdAt.toLocal());
+    final scope = await _chooseRestoreScope(when);
+    if (scope == null || !mounted) return;
+    if (scope == 'one') {
+      await _restoreOneOwner(b, when);
+      return;
+    }
+    // the choice above says what it does: no second question (the owner's
+    // "one press" decision), and the safety copy makes it one press to undo
     await _run(() async {
       final data = await ref.read(backupRepositoryProvider).get(b.id);
       await _applyRestore(
         data,
-        message: 'عاد التطبيق إلى نسخة $when. '
+        message: 'عاد التطبيق كله إلى نسخة $when. '
             'حُفظت نسخة أمان بحالته السابقة.',
       );
     }, 'backup.restoreStored');
+  }
+
+  Future<String?> _chooseRestoreScope(String when) {
+    Widget option(
+      BuildContext ctx, {
+      required String value,
+      required String title,
+      required String body,
+      required Color color,
+    }) =>
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: OutlinedButton(
+            key: ValueKey('restore-scope-$value'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color.withValues(alpha: 0.6)),
+              padding: const EdgeInsets.all(12),
+              alignment: AlignmentDirectional.centerStart,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(value),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.textLow),
+                ),
+              ],
+            ),
+          ),
+        );
+    return showGlassDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: GlassCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'استعادة نسخة $when',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHigh,
+                  ),
+                ),
+                option(
+                  ctx,
+                  value: 'one',
+                  title: 'مشترك واحد',
+                  body: 'يرجع مشترك واحد تختاره كما كان في النسخة. '
+                      'بقية المشتركين لا يتأثرون.',
+                  color: AppColors.accent,
+                ),
+                option(
+                  ctx,
+                  value: 'all',
+                  title: 'المنصة كلها (للكوارث فقط)',
+                  body: 'يرجع كل المشتركين إلى النسخة، وتضيع كل عملياتهم '
+                      'التي تمت بعدها.',
+                  color: AppColors.negative,
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('إلغاء'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreOneOwner(BackupInfo b, String when) async {
+    List<BackupOwner> owners;
+    try {
+      owners = await ref.read(backupRepositoryProvider).owners(b.id);
+    } catch (e, st) {
+      AppLogger.error('backup.owners', e, st);
+      _snack(friendlyError(e), error: true);
+      return;
+    }
+    if (!mounted) return;
+    if (owners.isEmpty) {
+      _snack('لا يوجد مشتركون في هذه النسخة', error: true);
+      return;
+    }
+    final chosen = await showGlassDialog<BackupOwner>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
+          child: GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'اختر المشترك',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textHigh,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final o in owners)
+                        ListTile(
+                          key: ValueKey('restore-owner-${o.ownerId}'),
+                          enabled: o.exists,
+                          title: Text(o.name),
+                          subtitle: Text(
+                            o.exists
+                                ? '${o.email ?? ''}\n'
+                                    '${o.transfers} بيع · ${o.currencyBuys} شراء'
+                                : 'حُذف هذا الحساب: لا يمكن استعادته',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          isThreeLine: o.exists,
+                          onTap: () => Navigator.of(ctx).pop(o),
+                        ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('إلغاء'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    await _run(() async {
+      await ref
+          .read(backupRepositoryProvider)
+          .restoreOwner(b.id, chosen.ownerId);
+      await ref.read(jsonCacheProvider).clearUserData();
+      _refreshAppData();
+      ref.invalidate(backupsListProvider);
+      playAlert();
+      _snack('عاد ${chosen.name} إلى نسخة $when. '
+          'حُفظت نسخة أمان بالحالة السابقة.');
+    }, 'backup.restoreOwner');
   }
 
   Future<void> _uploadAndRestore() async {

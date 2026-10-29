@@ -61,7 +61,7 @@ class EmployeeAlert {
       kind == AlertKind.transfer || kind == AlertKind.cancelRequestTransfer;
 
   /// خروج (transfer) or دخول (currency buy).
-  String get directionLabel => isExit ? 'خروج' : 'دخول';
+  String get directionLabel => isExit ? 'بيع' : 'شراء';
 
   /// The counterpart: المستفيد for an exit, العميل for an entry.
   String get partyLabel => isExit ? 'المستفيد' : 'العميل';

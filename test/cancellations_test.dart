@@ -198,7 +198,7 @@ void main() {
   });
 
   group('statement: the operation and its reversing entry, both sides', () {
-    test('a cancelled entry: دخول 1000 then خروج 1000, balance back', () {
+    test('a cancelled entry: شراء 1000 then بيع 1000, balance back', () {
       final s = buildAccountStatement(
         buys: [_buy('b', 1000, _at(9), cancelledAt: _at(10))],
         transfers: [_out('t', 200, _at(11))],
@@ -220,7 +220,7 @@ void main() {
       expect(s.totalOutgoing, 1200);
     });
 
-    test('a cancelled exit: خروج then دخول, net zero', () {
+    test('a cancelled exit: بيع then شراء, net zero', () {
       final s = buildAccountStatement(
         buys: const [],
         transfers: [_out('t', 300, _at(9), cancelledAt: _at(9, 5))],
@@ -294,9 +294,9 @@ void main() {
 
     test('the notification text says it is a request', () {
       final text = alertText(alert('cancel_request_transfer'));
-      expect(text, startsWith('طلب إلغاء "خروج" من الموظف رافع المهدي'));
+      expect(text, startsWith('طلب إلغاء "بيع" من الموظف رافع المهدي'));
       expect(text, contains('50.00'));
-      expect(alertText(alert('transfer')), startsWith('تم تنفيذ "خروج"'));
+      expect(alertText(alert('transfer')), startsWith('تم تنفيذ "بيع"'));
     });
   });
 

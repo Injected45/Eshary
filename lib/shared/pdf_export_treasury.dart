@@ -104,7 +104,7 @@ extension TreasuryReports on PdfExport {
           pw.Directionality(
             textDirection: pw.TextDirection.rtl,
             child: _ArText(
-              '${t.exitsUnpriced} خروج بقيمة \$${formatMoney(t.unpricedUsd)} '
+              '${t.exitsUnpriced} بيع بقيمة \$${formatMoney(t.unpricedUsd)} '
               'بلا سعر أو بلا تكلفة: لم يدخل في الربح.',
               style:
                   const pw.TextStyle(fontSize: 10, color: PdfColors.orange800),
@@ -226,6 +226,110 @@ extension TreasuryReports on PdfExport {
             ),
           ]),
         ],
+      ],
+    );
+    return doc.save();
+  }
+}
+
+extension CustomerReports on PdfExport {
+  /// "كشف حساب عميل بالدينار" (migration 0091): the balance before the
+  /// period, every line with its running balance, and the balance now.
+  Future<Uint8List> buildCustomerStatement({
+    required String customer,
+    double? creditLimit,
+    required CustomerStatement statement,
+    required DateTime start,
+    required DateTime end,
+    String? exportedBy,
+  }) async {
+    final doc = pw.Document(theme: _theme);
+    final at = DateTime.now();
+    final dayFmt = _LibyaFmt('yyyy/MM/dd HH:mm');
+    String side(double v) => v.abs() < 0.005
+        ? 'مسدَّد'
+        : (v > 0
+            ? 'لنا ${formatMoney(v)} د.ل'
+            : 'علينا ${formatMoney(-v)} د.ل');
+    final header = _periodHeader(
+      title: 'كشف حساب عميل بالدينار',
+      period: periodLabel(start, end),
+      logo: await _loadLogo(),
+      extraLines: [
+        customer,
+        creditLimit == null
+            ? 'بلا حد دين'
+            : 'حد الدين ${formatMoney(creditLimit)} د.ل',
+      ],
+    );
+    final running = statement.running;
+    _addReportPages(
+      doc,
+      theme: _theme,
+      at: at,
+      by: exportedBy,
+      body: [
+        header,
+        _reportTable(
+          headers: const [
+            'ت',
+            'التاريخ',
+            'البيان',
+            'الإشاري',
+            'الدولار',
+            'السعر',
+            'مدين',
+            'دائن',
+            'الرصيد',
+          ],
+          widths: const [0.5, 1.6, 1.6, 1.2, 1.2, 0.9, 1.3, 1.3, 1.8],
+          rows: [
+            [
+              '',
+              '',
+              'الرصيد قبل الفترة',
+              '',
+              '',
+              '',
+              '',
+              '',
+              side(statement.opening),
+            ],
+            for (var i = 0; i < statement.entries.length; i++)
+              () {
+                final e = statement.entries[i];
+                return [
+                  '${i + 1}',
+                  dayFmt.format(e.createdAt),
+                  e.label,
+                  (e.reference ?? '').isEmpty ? '—' : e.reference!,
+                  e.usd == null ? '—' : '\$${formatMoney(e.usd!)}',
+                  e.rate == null ? '—' : formatRate(e.rate!),
+                  e.amount > 0 ? formatMoney(e.amount) : '',
+                  e.amount < 0 ? formatMoney(-e.amount) : '',
+                  side(running[i]),
+                ];
+              }(),
+          ],
+          colorOf: (row, column) => row == 0
+              ? null
+              : column == 6
+                  ? PdfColors.green800
+                  : (column == 7 ? PdfColors.red800 : null),
+        ),
+        pw.SizedBox(height: 12),
+        _statRow([
+          _statTile('قبل الفترة', side(statement.opening), PdfColors.grey800),
+          _statTile(
+            'الرصيد الآن',
+            side(statement.closing),
+            statement.closing > 0
+                ? PdfColors.green800
+                : (statement.closing < 0
+                    ? PdfColors.red800
+                    : PdfColors.grey800),
+          ),
+        ]),
       ],
     );
     return doc.save();

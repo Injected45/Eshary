@@ -14,17 +14,14 @@ final treasuryProvider =
 });
 
 /// The account's cost for the exit / entry screens: the administrator only
-/// (an employee never sees a cost; the database refuses it anyway). Empty
-/// for an employee or when it cannot be read.
+/// (an employee never sees a cost; the database refuses it anyway). Empty for
+/// an employee. A failed read stays an error, so the exit screen can say the
+/// cost could not be checked instead of skipping the below-cost warning.
 final accountCostsProvider =
     FutureProvider.autoDispose<Map<String, TreasuryPosition>>((ref) async {
   if (ref.watch(isEmployeeProvider)) return const {};
-  try {
-    final rows = await ref.watch(treasuryRepositoryProvider).positions();
-    return {for (final p in rows) p.exchangeId: p};
-  } catch (_) {
-    return const {};
-  }
+  final rows = await ref.watch(treasuryRepositoryProvider).positions();
+  return {for (final p in rows) p.exchangeId: p};
 });
 
 final profitReportProvider = FutureProvider.autoDispose

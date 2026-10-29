@@ -12,6 +12,7 @@ import '../../companies/presentation/companies_providers.dart';
 import '../data/treasury_repository.dart';
 import '../domain/treasury_position.dart';
 import 'cost_history_screen.dart';
+import '../../customers/presentation/customers_screen.dart';
 import 'dinar_treasury_screen.dart';
 import 'treasury_pdf.dart';
 import 'profit_section.dart';
@@ -89,6 +90,21 @@ class TreasuryScreen extends ConsumerWidget {
                 icon: const FaIcon(FontAwesomeIcons.moneyBillWave, size: 13),
                 label: const Text('خزينة الدينار (الصندوق والمصرف)'),
                 style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // what customers owe us and what we owe sellers (0091)
+              OutlinedButton.icon(
+                key: const ValueKey('open-customers'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CustomersScreen(),
+                  ),
+                ),
+                icon: const FaIcon(FontAwesomeIcons.handshake, size: 13),
+                label: const Text('ذمم العملاء (البيع والشراء بالآجل)'),
+                style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),
                 ),
               ),
@@ -210,7 +226,7 @@ class _SummaryCard extends StatelessWidget {
           ],
           const SizedBox(height: 10),
           const Text(
-            'يتغير سعر التكلفة مع كل دخول بسعره، ولا يغيّره الخروج.',
+            'يتغير سعر التكلفة مع كل شراء بسعره، ولا يغيّره البيع.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 11, color: AppColors.textLow),
           ),

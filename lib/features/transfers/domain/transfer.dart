@@ -25,6 +25,8 @@ class Transfer {
     this.rate,
     this.lydAmount,
     this.lydMethod,
+    this.customerId,
+    this.lydPaid,
   });
 
   final String id;
@@ -55,8 +57,21 @@ class Transfer {
   final double? rate;
   final double? lydAmount;
 
-  /// How the customer paid the dinars: 'cash' or 'bank' (migration 0086).
+  /// How the customer paid the dinars: 'cash' or 'bank' (migration 0086);
+  /// null when nothing was paid now (all on credit, 0091).
   final String? lydMethod;
+
+  /// The customer who pays the dinars (0091); set when part or all of them
+  /// is on credit.
+  final String? customerId;
+
+  /// The dinars paid at the sale; the rest is the customer's debt (0091).
+  /// Null on an exit without a rate.
+  final double? lydPaid;
+
+  /// What the customer still owed for this exit when it was saved.
+  double get lydOnCredit =>
+      lydAmount == null ? 0 : lydAmount! - (lydPaid ?? lydAmount!);
 
   bool get isCancelled => cancelledAt != null;
 
@@ -91,5 +106,7 @@ class Transfer {
         rate: (json['rate'] as num?)?.toDouble(),
         lydAmount: (json['lyd_amount'] as num?)?.toDouble(),
         lydMethod: json['lyd_method'] as String?,
+        customerId: json['customer_id'] as String?,
+        lydPaid: (json['lyd_paid'] as num?)?.toDouble(),
       );
 }

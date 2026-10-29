@@ -13,14 +13,22 @@ class AccountExpensesRepository {
 
   /// Every expense recorded since [start], oldest first.
   Future<List<AccountExpense>> listSince(DateTime start) async {
-    final rows = await _client
-        .from('account_expenses')
-        .select()
-        .gte('created_at', start.toUtc().toIso8601String())
-        .order('created_at', ascending: true);
-    return (rows as List)
-        .map((r) => AccountExpense.fromJson(r as Map<String, dynamic>))
-        .toList();
+    // page by page: a statement's opening balance needs every one
+    const page = 1000;
+    final out = <AccountExpense>[];
+    for (var from = 0;; from += page) {
+      final rows = await _client
+          .from('account_expenses')
+          .select()
+          .gte('created_at', start.toUtc().toIso8601String())
+          .order('created_at', ascending: true)
+          .order('id')
+          .range(from, from + page - 1);
+      final chunk = (rows as List).cast<Map<String, dynamic>>();
+      out.addAll(chunk.map(AccountExpense.fromJson));
+      if (chunk.length < page) break;
+    }
+    return out;
   }
 
   /// Deducts [amount] from the account, with the optional [code] and the

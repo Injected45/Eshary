@@ -8,7 +8,6 @@ import 'package:eshary/features/companies/presentation/add_company_dialog.dart';
 import 'package:eshary/features/employee_auth/presentation/employee_auth_providers.dart';
 import 'package:eshary/features/exchange_companies/domain/exchange_company.dart';
 import 'package:eshary/features/exchange_companies/presentation/exchange_companies_providers.dart';
-import 'package:eshary/features/treasury/data/treasury_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +39,11 @@ class _Companies implements CompaniesRepository {
 }
 
 class _Exchanges implements ExchangesRepository {
+  _Exchanges({this.failures = 0});
+
+  /// How many first calls fail (the network, the licence).
+  int failures;
+
   @override
   Future<Exchange> create({
     required String companyId,
@@ -47,8 +51,13 @@ class _Exchanges implements ExchangesRepository {
     required double balance,
     String? ourCode,
     String? country,
+    double? costRate,
   }) async {
-    _calls.add('exchange $balance');
+    if (failures > 0) {
+      failures--;
+      throw Exception('license_inactive');
+    }
+    _calls.add('exchange $balance cost $costRate');
     return Exchange(
       id: 'e1',
       companyId: companyId,
@@ -64,24 +73,10 @@ class _Exchanges implements ExchangesRepository {
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
 }
 
-class _Treasury implements TreasuryRepository {
-  _Treasury({this.fail = false});
-  final bool fail;
-
-  @override
-  Future<void> setCost(String exchangeId, double rate) async {
-    if (fail) throw Exception('license_inactive');
-    _calls.add('cost $exchangeId $rate');
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
-}
-
 Future<void> _open(
   WidgetTester tester, {
   bool employee = false,
-  bool costFails = false,
+  int accountFailures = 0,
 }) async {
   _calls.clear();
   await tester.binding.setSurfaceSize(const Size(420, 1000));
@@ -90,9 +85,8 @@ Future<void> _open(
     ProviderScope(
       overrides: [
         companiesRepositoryProvider.overrideWithValue(_Companies()),
-        exchangesRepositoryProvider.overrideWithValue(_Exchanges()),
-        treasuryRepositoryProvider
-            .overrideWithValue(_Treasury(fail: costFails)),
+        exchangesRepositoryProvider
+            .overrideWithValue(_Exchanges(failures: accountFailures)),
         currentUserIdProvider.overrideWithValue('o'),
         isEmployeeProvider.overrideWithValue(employee),
         exchangeCompaniesListProvider.overrideWith(
@@ -143,12 +137,11 @@ Future<void> _fill(WidgetTester tester, {String balance = '100'}) async {
   await tester.pump();
 }
 
-String? _total(WidgetTester tester) => tester
-    .widget<Text>(find.byKey(const ValueKey('opening-cost-total')))
-    .data;
+String? _total(WidgetTester tester) =>
+    tester.widget<Text>(find.byKey(const ValueKey('opening-cost-total'))).data;
 
 void main() {
-  testWidgets('100\$ at 9.5 costs 950 dinars, saved after the account',
+  testWidgets('100\$ at 9.5 costs 950 dinars, saved with the account',
       (tester) async {
     await _open(tester);
     await _fill(tester);
@@ -160,8 +153,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_calls, [
       'company الرحالة',
-      'exchange 100.0',
-      'cost e1 9.5',
+      'exchange 100.0 cost 9.5',
       'saved',
     ]);
   });
@@ -202,18 +194,21 @@ void main() {
     await _fill(tester, balance: '0');
     await tester.tap(find.text('حفظ'));
     await tester.pumpAndSettle();
-    expect(_calls, ['company الرحالة', 'exchange 0.0', 'saved']);
+    expect(_calls, ['company الرحالة', 'exchange 0.0 cost null', 'saved']);
   });
 
-  testWidgets('the cost failing still closes on a saved account',
+  testWidgets(
+      'the account refused: a second press does not add the company again',
       (tester) async {
-    await _open(tester, costFails: true);
+    await _open(tester, accountFailures: 1);
     await _fill(tester);
     await tester.enterText(find.byKey(const ValueKey('opening-cost')), '9.5');
     await tester.tap(find.text('حفظ'));
     await tester.pumpAndSettle();
-    expect(_calls, ['company الرحالة', 'exchange 100.0', 'saved']);
-    expect(find.textContaining('ولم تُحفظ تكلفة الإفتتاحي'), findsOneWidget);
+    expect(_calls, ['company الرحالة'], reason: 'the account was refused');
+    await tester.tap(find.text('حفظ'));
+    await tester.pumpAndSettle();
+    expect(_calls, ['company الرحالة', 'exchange 100.0 cost 9.5', 'saved']);
   });
 
   testWidgets('an employee never sees the cost', (tester) async {
@@ -222,6 +217,6 @@ void main() {
     await _fill(tester);
     await tester.tap(find.text('حفظ'));
     await tester.pumpAndSettle();
-    expect(_calls, ['company الرحالة', 'exchange 100.0', 'saved']);
+    expect(_calls, ['company الرحالة', 'exchange 100.0 cost null', 'saved']);
   });
 }

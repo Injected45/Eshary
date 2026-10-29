@@ -57,7 +57,7 @@ class ExchangeCompaniesScreen extends ConsumerWidget {
                 key: const ValueKey('kind-mine'),
                 title: 'شركات الصرافة الخاصة بي',
                 subtitle:
-                    'الشركات التي لي حسابات عندها (تظهر في الدخول والخروج وحساباتي)',
+                    'الشركات التي لي حسابات عندها (تظهر في الشراء والبيع وحساباتي)',
                 addTooltip: 'إضافة شركة صرافة لي',
                 onAdd: () => add(kExchangeCompanyMine),
               ),

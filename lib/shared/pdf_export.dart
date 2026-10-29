@@ -6,7 +6,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../features/adjustments/domain/balance_adjustment.dart';
 import '../features/cancellations/domain/cancellation.dart';
+import '../features/expenses/domain/account_expense.dart';
 import '../features/clients/domain/client.dart';
 import '../features/companies/domain/company.dart';
 import '../features/companies/domain/exchange.dart';
@@ -15,6 +17,7 @@ import '../features/transfers/domain/transfer.dart';
 import '../features/treasury/domain/lyd_treasury.dart';
 import '../features/treasury/domain/profit_report.dart';
 import '../features/treasury/domain/treasury_position.dart';
+import '../features/customers/domain/customer_account.dart';
 import 'formatters.dart';
 import 'libya_time.dart';
 import 'ledger.dart';
@@ -195,9 +198,13 @@ class _LibyaFmt {
 /// whom. Used as the `MultiPage` footer (the pdf package paints it on the
 /// page's bottom margin, so it sits at the very bottom whether the page is
 /// full or nearly empty) and at the foot of the single-page layouts.
-pw.Widget _exportFooter({required DateTime at, String? by}) {
+pw.Widget _exportFooter({required DateTime at, String? by, pw.Context? page}) {
   final name = (by ?? '').trim().isEmpty ? 'admin' : by!.trim();
   final when = DateFormat('yyyy-MM-dd | HH:mm').format(libyaTime(at));
+  // "صفحة 2 من 5" on every page of a multi-page report
+  final pages = page == null
+      ? ''
+      : '      |      صفحة ${page.pageNumber} من ${page.pagesCount}';
   return pw.Container(
     width: double.infinity,
     alignment: pw.Alignment.center,
@@ -208,7 +215,7 @@ pw.Widget _exportFooter({required DateTime at, String? by}) {
       ),
     ),
     child: _clockText(
-      'تاريخ التصدير: $when      |      تم التصدير بواسطة: $name',
+      'تاريخ التصدير: $when      |      تم التصدير بواسطة: $name$pages',
       style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
       textDirection: pw.TextDirection.rtl,
       textAlign: pw.TextAlign.center,
@@ -291,10 +298,13 @@ class PdfExport {
       // MultiPage: the export line is its footer, painted on the bottom margin
       // of every page, and a long table continues on the next page.
       pw.MultiPage(
+        // the package stops at 20 pages by default (about 700 rows)
+        maxPages: 1000,
         pageFormat: PdfPageFormat.a4,
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
-        footer: (ctx) => _exportFooter(at: exportedAtTime, by: exportedBy),
+        footer: (ctx) =>
+            _exportFooter(at: exportedAtTime, by: exportedBy, page: ctx),
         build: (context) => [
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -394,7 +404,7 @@ class PdfExport {
                 pw.Expanded(
                   child: pw.Center(
                     child: _ArText(
-                      'سجل خروج الحوالات اليوم',
+                      'سجل بيع الحوالات اليوم',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 22,
@@ -577,16 +587,18 @@ class PdfExport {
 
     final sum = rows.fold<double>(0, (a, r) => a + r.netAmount);
     final totalText = '${formatMoney(sum)} \$';
-    final wordsText = _arabicNumberWords(sum.round());
+    final wordsText = _usdInWords(sum);
 
     doc.addPage(
       pw.MultiPage(
+        // the package stops at 20 pages by default (about 700 rows)
+        maxPages: 1000,
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
         header: (_) => pw.SizedBox(height: 0),
-        footer: (ctx) => _exportFooter(at: now, by: exportedBy),
+        footer: (ctx) => _exportFooter(at: now, by: exportedBy, page: ctx),
         // Separate list items (not one big Column) so MultiPage can break
         // the table across pages instead of throwing TooManyPagesException.
         build: (context) => [
@@ -710,7 +722,7 @@ class PdfExport {
                   ),
                   pw.Expanded(
                     child: _ArText(
-                      'فقط $wordsText دولار أمريكي لا غير',
+                      wordsText,
                       style: pw.TextStyle(
                         fontSize: 11,
                         color: PdfColors.grey800,
@@ -775,7 +787,7 @@ class PdfExport {
                 pw.Expanded(
                   child: pw.Center(
                     child: _ArText(
-                      'سجل دخول الحوالات اليوم',
+                      'سجل شراء الحوالات اليوم',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 22,
@@ -884,7 +896,7 @@ class PdfExport {
     // القيمة | لشركة | حسابي | كود
     const headers = <String>[
       'ت',
-      'دخول من شركة',
+      'شراء من شركة',
       'حساب',
       'الإشاري',
       'القيمة',
@@ -964,16 +976,18 @@ class PdfExport {
 
     final sum = rows.fold<double>(0, (a, r) => a + r.netAmount);
     final totalText = '${formatMoney(sum)} \$';
-    final wordsText = _arabicNumberWords(sum.round());
+    final wordsText = _usdInWords(sum);
 
     doc.addPage(
       pw.MultiPage(
+        // the package stops at 20 pages by default (about 700 rows)
+        maxPages: 1000,
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
         theme: _theme,
         textDirection: pw.TextDirection.rtl,
         header: (_) => pw.SizedBox(height: 0),
-        footer: (ctx) => _exportFooter(at: now, by: exportedBy),
+        footer: (ctx) => _exportFooter(at: now, by: exportedBy, page: ctx),
         // Separate list items (not one big Column) so MultiPage can break
         // the table across pages instead of throwing TooManyPagesException.
         build: (context) => [
@@ -1015,7 +1029,7 @@ class PdfExport {
               5: pw.FlexColumnWidth(1.2), // القيمة
               6: pw.FlexColumnWidth(1.5), // الإشاري
               7: pw.FlexColumnWidth(1.6), // حساب
-              8: pw.FlexColumnWidth(2.0), // دخول من شركة
+              8: pw.FlexColumnWidth(2.0), // شراء من شركة
               9: pw.FlexColumnWidth(0.6), // ت
             },
             children: tableChildren,
@@ -1097,7 +1111,7 @@ class PdfExport {
                   ),
                   pw.Expanded(
                     child: _ArText(
-                      'فقط $wordsText دولار أمريكي لا غير',
+                      wordsText,
                       style: pw.TextStyle(
                         fontSize: 11,
                         color: PdfColors.grey800,
@@ -1238,14 +1252,42 @@ String _wordsLessThan1000(int n) {
   return '$hundredWord و${_wordsLessThan100(r)}';
 }
 
+/// "فقط ... دولار أمريكي [و... سنتًا] لا غير" for [amount], exactly: the cents
+/// are written too (1,234.50 used to print as 1,235).
+String _usdInWords(double amount) {
+  final cents = (amount.abs() * 100).round();
+  final dollars = cents ~/ 100;
+  final rest = cents % 100;
+  final c = rest == 0 ? '' : ' و${_arabicNumberWords(rest)} سنتًا';
+  return 'فقط ${_arabicNumberWords(dollars)} دولار أمريكي$c لا غير';
+}
+
 String _arabicNumberWords(int n) {
   if (n == 0) return 'صفر';
   if (n < 0) return 'سالب ${_arabicNumberWords(-n)}';
 
-  final millions = n ~/ 1000000;
+  final billions = n ~/ 1000000000;
+  final millions = (n ~/ 1000000) % 1000;
   final thousands = (n ~/ 1000) % 1000;
   final units = n % 1000;
   final parts = <String>[];
+
+  if (billions > 0) {
+    if (billions == 1) {
+      parts.add('مليار');
+    } else if (billions == 2) {
+      parts.add('ملياران');
+    } else if (billions <= 10) {
+      parts.add('${_wordsLessThan1000(billions)} مليارات');
+    } else {
+      // above 999 billion: the digits (no amount here comes near it)
+      parts.add(
+        billions < 1000
+            ? '${_wordsLessThan1000(billions)} مليار'
+            : '$billions مليار',
+      );
+    }
+  }
 
   if (millions > 0) {
     if (millions == 1) {

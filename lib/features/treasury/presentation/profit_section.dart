@@ -173,7 +173,7 @@ class ProfitCard extends StatelessWidget {
               style: const TextStyle(fontSize: 12, color: AppColors.textLow),
             ),
           const SizedBox(height: 12),
-          const _Heading('البيع (الخروج)'),
+          const _Heading('البيع'),
           _Row('الدولار المباع', '\$${formatMoney(t.soldUsd)}'),
           _Row('قيمة البيع', '${formatMoney(t.salesLyd)} د.ل'),
           _Row('تكلفة الدولار المباع', '${formatMoney(t.costLyd)} د.ل'),
@@ -185,7 +185,7 @@ class ProfitCard extends StatelessWidget {
             color: t.marginPerUsd == null ? null : profitColor(t.marginPerUsd!),
           ),
           const SizedBox(height: 10),
-          const _Heading('الشراء (الدخول)'),
+          const _Heading('الشراء'),
           _Row('الدولار المشترى', '\$${formatMoney(t.boughtUsd)}'),
           _Row('المدفوع بالدينار', '${formatMoney(t.boughtLyd)} د.ل'),
           _Row('متوسط سعر الشراء', rate(t.avgBuyRate)),
@@ -198,7 +198,7 @@ class ProfitCard extends StatelessWidget {
           if (t.exitsUnpriced > 0) ...[
             const SizedBox(height: 10),
             Text(
-              '${t.exitsUnpriced} خروج بقيمة \$${formatMoney(t.unpricedUsd)} '
+              '${t.exitsUnpriced} بيع بقيمة \$${formatMoney(t.unpricedUsd)} '
               'بلا سعر أو بلا تكلفة: لم يدخل في الربح.',
               key: const ValueKey('profit-unpriced'),
               textAlign: TextAlign.center,

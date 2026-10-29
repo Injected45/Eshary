@@ -4,16 +4,15 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme.dart';
 import '../../../shared/glass.dart';
+import '../../../shared/libya_time.dart';
 
 enum DateFilterMode { today, range }
 
 final DateFormat archiveFilterDateFmt = DateFormat('yyyy/MM/dd');
 
-/// Today at 00:00: the default of every "من / إلى" date in the reports.
-DateTime todayDate() {
-  final n = DateTime.now();
-  return DateTime(n.year, n.month, n.day);
-}
+/// Today's date in Libya (as a calendar date, 00:00): the default of every
+/// "من / إلى" date in the reports.
+DateTime todayDate() => libyaToday();
 
 bool inDateRange(DateTime? dt, DateTime start, DateTime end) =>
     dt != null && !dt.isBefore(start) && !dt.isAfter(end);
@@ -23,17 +22,16 @@ bool inDateRange(DateTime? dt, DateTime start, DateTime end) =>
   required DateTime? from,
   required DateTime? to,
 }) {
-  final now = DateTime.now();
   final ready = from != null && to != null && !from.isAfter(to);
-  if (mode == DateFilterMode.today || !ready) {
-    return (
-      start: DateTime(now.year, now.month, now.day),
-      end: DateTime(now.year, now.month, now.day, 23, 59, 59, 999),
-    );
-  }
+  final first = mode == DateFilterMode.today || !ready ? todayDate() : from;
+  final last = mode == DateFilterMode.today || !ready ? todayDate() : to;
+  // the last microsecond of the last day: nothing falls between two days
   return (
-    start: DateTime(from.year, from.month, from.day),
-    end: DateTime(to.year, to.month, to.day, 23, 59, 59, 999),
+    start: libyaDayStart(first).toLocal(),
+    end: libyaDayStart(last)
+        .add(const Duration(days: 1))
+        .subtract(const Duration(microseconds: 1))
+        .toLocal(),
   );
 }
 

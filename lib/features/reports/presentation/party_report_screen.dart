@@ -287,7 +287,7 @@ class _PartyReportScreenState extends ConsumerState<PartyReportScreen> {
                 children: [
                   Expanded(
                     child: _Tile(
-                      label: 'إجمالي الدخول',
+                      label: 'إجمالي الشراء',
                       value: '\$${formatMoney(incomeTotal)}',
                       tint: AppColors.positive,
                     ),
@@ -295,7 +295,7 @@ class _PartyReportScreenState extends ConsumerState<PartyReportScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _Tile(
-                      label: 'إجمالي الخروج',
+                      label: 'إجمالي البيع',
                       value: '\$${formatMoney(outgoingTotal)}',
                       tint: AppColors.negative,
                     ),
@@ -437,7 +437,7 @@ class _OperationsList extends StatelessWidget {
                 style: const TextStyle(color: AppColors.textHigh, fontSize: 13),
               ),
               subtitle: Text(
-                '${r.income ? 'دخول' : 'خروج'} · ${df.format(r.t)} ${tf.format(r.t)}'
+                '${r.income ? 'شراء' : 'بيع'} · ${df.format(r.t)} ${tf.format(r.t)}'
                 '${r.cancelled ? ' · ملغاة' : ''}',
                 style: const TextStyle(color: AppColors.textLow, fontSize: 11),
               ),

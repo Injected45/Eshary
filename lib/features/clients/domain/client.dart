@@ -7,6 +7,7 @@ class Client {
     required this.code,
     required this.createdAt,
     this.refPrefix,
+    this.creditLimit,
   });
 
   final String id;
@@ -21,6 +22,10 @@ class Client {
   /// typed. Null when the sender has none.
   final String? refPrefix;
 
+  /// The most this customer may owe us in dinars (0091), set by the
+  /// administrator. Null: no credit.
+  final double? creditLimit;
+
   factory Client.fromJson(Map<String, dynamic> json) => Client(
         id: json['id'] as String,
         ownerId: json['owner_id'] as String,
@@ -29,6 +34,7 @@ class Client {
         code: json['code'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
         refPrefix: json['ref_prefix'] as String?,
+        creditLimit: (json['credit_limit'] as num?)?.toDouble(),
       );
 }
 

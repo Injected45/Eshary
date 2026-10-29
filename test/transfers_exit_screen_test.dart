@@ -122,7 +122,7 @@ Future<void> _open(
   );
   await tester.pumpAndSettle();
   if (openFirst) {
-    final header = find.text('خروج من حسابي');
+    final header = find.text('بيع من حسابي');
     if (header.evaluate().isNotEmpty) {
       await tester.tap(header.first);
       await tester.pumpAndSettle();
@@ -139,14 +139,14 @@ void main() {
       openFirst: false,
     );
     // the headers are there, nothing inside them is
-    expect(find.text('خروج من حسابي'), findsOneWidget);
+    expect(find.text('بيع من حسابي'), findsOneWidget);
     expect(find.text('الجهة المستفيدة'), findsOneWidget);
     expect(find.text('X-100'), findsNothing);
     expect(find.text('2,500.00'), findsNothing);
     expect(find.text('REF-0001'), findsNothing);
 
     // tapping opens it
-    await tester.tap(find.text('خروج من حسابي'));
+    await tester.tap(find.text('بيع من حسابي'));
     await tester.pumpAndSettle();
     expect(find.text('X-100'), findsOneWidget);
     expect(find.text('REF-0001'), findsOneWidget);
@@ -269,7 +269,7 @@ void main() {
     },
   );
 
-  group('the four boxes of "خروج من حسابي" are identical in size', () {
+  group('the four boxes of "بيع من حسابي" are identical in size', () {
     /// Sizes of: balance box, account code, reference, amount.
     List<Size> boxes(WidgetTester tester) {
       final fields = find.byType(TextField); // code, reference, amount
@@ -401,7 +401,7 @@ void main() {
 
     testWidgets("the day's list shows today's executed exits", (tester) async {
       await _open(tester, one, today: [row('1', 100), row('2', 250)]);
-      expect(find.text('خروج منفذ'), findsOneWidget);
+      expect(find.text('بيع منفذ'), findsOneWidget);
       expect(find.text('(2)'), findsOneWidget, reason: 'count badge');
     });
 
@@ -444,7 +444,7 @@ void main() {
       expect(save(tester).onPressed, isNull);
     });
 
-    testWidgets('last field of "خروج من حسابي" filled: nothing moves by itself',
+    testWidgets('last field of "بيع من حسابي" filled: nothing moves by itself',
         (tester) async {
       await _open(tester, one);
       await tester.enterText(find.byType(TextField).at(2), '100');

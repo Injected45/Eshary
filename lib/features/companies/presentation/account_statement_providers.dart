@@ -32,25 +32,13 @@ final statementDataProvider = FutureProvider.autoDispose
   final buys = await ref
       .watch(currencyBuysRepositoryProvider)
       .listArchivedBetween(range.start, until);
-  // The commissions deducted from the accounts. A failure here (an old
-  // database without them) never takes the whole statement down.
-  var expenses = const <AccountExpense>[];
-  try {
-    expenses = await ref
-        .watch(accountExpensesRepositoryProvider)
-        .listSince(range.start);
-  } catch (_) {
-    expenses = const <AccountExpense>[];
-  }
-  // The documented balance adjustments (0086), the same way.
-  var adjustments = const <BalanceAdjustment>[];
-  try {
-    adjustments = await ref
-        .watch(adjustmentsRepositoryProvider)
-        .listSince(range.start);
-  } catch (_) {
-    adjustments = const <BalanceAdjustment>[];
-  }
+  // The commissions deducted from the accounts and the documented balance
+  // adjustments (0086). A failed read fails the statement: taken as "none",
+  // it would silently give a wrong opening balance and wrong running balances.
+  final expenses =
+      await ref.watch(accountExpensesRepositoryProvider).listSince(range.start);
+  final adjustments =
+      await ref.watch(adjustmentsRepositoryProvider).listSince(range.start);
   return (
     transfers: transfers,
     buys: buys,

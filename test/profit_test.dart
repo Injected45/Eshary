@@ -117,7 +117,7 @@ void main() {
           'cost_after': 6,
           'created_at': '2026-10-28T12:00:00Z',
         }).label,
-        'إلغاء خروج',
+        'إلغاء بيع',
       );
       expect(
         CostEvent.fromJson(const {
@@ -130,7 +130,7 @@ void main() {
           'cost_after': 7,
           'created_at': '2026-10-28T12:00:00Z',
         }).label,
-        'إلغاء دخول',
+        'إلغاء شراء',
       );
     });
   });

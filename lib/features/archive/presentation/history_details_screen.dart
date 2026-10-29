@@ -60,8 +60,8 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
     return name == null ? null : 'الموظف $name';
   }
 
-  String get _title => _isIncome ? 'تفاصيل الدخول' : 'تفاصيل الخروج';
-  String get _totalLabel => _isIncome ? 'إجمالي الدخول' : 'إجمالي الخروج';
+  String get _title => _isIncome ? 'تفاصيل الشراء' : 'تفاصيل البيع';
+  String get _totalLabel => _isIncome ? 'إجمالي الشراء' : 'إجمالي البيع';
 
   Future<void> _pickRange() async {
     final now = DateTime.now();
@@ -323,7 +323,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
         await PdfExport.sharePdf(
           bytes,
           pdfFileName(
-            'حوالات الدخول إلى حساباتي',
+            'حوالات الشراء إلى حساباتي',
             who: _whoForFile(),
             start: start,
             end: end,
@@ -378,7 +378,7 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       await PdfExport.sharePdf(
         bytes,
         pdfFileName(
-          'حوالات الخروج من حساباتي',
+          'حوالات البيع من حساباتي',
           who: _whoForFile(),
           start: start,
           end: end,
@@ -421,9 +421,9 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
       late final String filename;
       late final List<List<String>> rowsData;
       if (row is CurrencyBuy) {
-        title = 'تفاصيل الدخول — سجل واحد';
+        title = 'تفاصيل الشراء — سجل واحد';
         filename = pdfFileName(
-          'عملية دخول ${row.reference.isEmpty ? '' : row.reference} '
+          'عملية شراء ${row.reference.isEmpty ? '' : row.reference} '
           '${formatMoney(row.usdAmount)}\$',
           start: row.archivedAt ?? row.createdAt,
         );
@@ -453,9 +453,9 @@ class _HistoryDetailsScreenState extends ConsumerState<HistoryDetailsScreen> {
           ],
         ];
       } else if (row is Transfer) {
-        title = 'تفاصيل الخروج — سجل واحد';
+        title = 'تفاصيل البيع — سجل واحد';
         filename = pdfFileName(
-          'عملية خروج ${row.reference} ${formatMoney(row.amount)}\$',
+          'عملية بيع ${row.reference} ${formatMoney(row.amount)}\$',
           start: row.archivedAt ?? row.createdAt,
         );
         rowsData = [
@@ -929,7 +929,7 @@ class _BuyDetailDialog extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _DetailDialogHeader(
-                title: 'تفاصيل عملية دخول',
+                title: 'تفاصيل عملية شراء',
                 accent: AppColors.positive,
                 icon: FontAwesomeIcons.chevronDown,
               ),
@@ -946,7 +946,7 @@ class _BuyDetailDialog extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               _DetailDialogSection(
-                title: 'وجهة الدخول',
+                title: 'وجهة الشراء',
                 accent: AppColors.accent,
                 icon: FontAwesomeIcons.user,
                 rows: [
@@ -1030,7 +1030,7 @@ class _TransferDetailDialog extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _DetailDialogHeader(
-                title: 'تفاصيل عملية خروج',
+                title: 'تفاصيل عملية بيع',
                 accent: AppColors.negative,
                 icon: FontAwesomeIcons.chevronUp,
               ),

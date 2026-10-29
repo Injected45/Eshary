@@ -41,6 +41,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../data/currency_buys_repository.dart';
 import '../domain/currency_buy.dart';
 import 'currency_buys_providers.dart';
+import '../../../shared/request_id.dart';
 import '../../../shared/top_message.dart';
 import '../../../shared/libya_time.dart';
 
@@ -84,9 +85,19 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
 
   /// How the dinars are paid (migration 0086).
   String _lydMethod = kLydCash;
+
+  /// On credit (0091): what we paid now, and through which pocket. The rest
+  /// we owe the sender chosen above.
+  final _lydPaid = TextEditingController();
+  String _paidPocket = kLydCash;
   final _reference = TextEditingController();
 
   bool _busy = false;
+
+  /// The request id of the entry being saved, kept while the form is the same
+  /// (see [_saveAndOpenBuyMessages]).
+  String? _requestId;
+  String? _requestSignature;
   int? _activeSection;
   bool _autoPicked = false;
   bool _executedExpanded = false;
@@ -131,6 +142,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _rate.removeListener(_onFormTyped);
     _reference.removeListener(_onFormTyped);
     _usd.dispose();
+    _lydPaid.dispose();
     _rate.dispose();
     _reference.dispose();
     super.dispose();
@@ -147,6 +159,8 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
     _usd.clear();
     _rate.clear();
     _lydMethod = kLydCash;
+    _lydPaid.clear();
+    _paidPocket = kLydCash;
     _reference.clear();
     _activeSection = null;
     _autoPicked = false; // a single account is filled in again
@@ -207,12 +221,49 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           await confirmUnusualRate(context, rate: rate, last: rates.buy!);
       if (!sure || !mounted) return;
     }
+    // on credit (0091): we owe the sender, so one must be chosen
+    if (lydOnCredit(_lydMethod) && _client == null) {
+      _snack('الشراء بالآجل يُسجَّل على الجهة المرسلة: اخترها أولًا.');
+      return;
+    }
+    final lyd = lydFor(parseMoney(_usd.text), rate);
+    final partialPaid = parseMoney(_lydPaid.text);
+    if (_lydMethod == kLydPartial && (partialPaid <= 0 || partialPaid >= lyd)) {
+      _snack('اكتب ما دفعناه الآن: أكثر من صفر وأقل من '
+          '${formatMoney(lyd)} د.ل');
+      return;
+    }
     await _saveAndOpenBuyMessages(kind: _PendingBuyKind.execute);
   }
 
   Future<void> _saveAndOpenBuyMessages({
     required _PendingBuyKind kind,
   }) async {
+    // the same entry pressed again (the network dropped after the server saved
+    // it) keeps its request id, so it is not saved a second time
+    final signature = [
+      _myCompany!.id,
+      _exchange!.id,
+      _client?.id,
+      _client?.company,
+      parseMoney(_usd.text),
+      _buyRate,
+      _fullReference,
+      _lydMethod,
+      _lydPaid.text,
+      _paidPocket,
+    ].join('|');
+    if (_requestSignature != signature) {
+      _requestSignature = signature;
+      _requestId = newRequestId();
+    }
+
+    final payment = lydPaymentArgs(
+      _lydMethod,
+      partialPaid: parseMoney(_lydPaid.text),
+      pocket: _paidPocket,
+    );
+
     setState(() => _busy = true);
     try {
       final repo = ref.read(currencyBuysRepositoryProvider);
@@ -235,8 +286,12 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
               usdAmount: parseMoney(_usd.text),
               rate: _buyRate,
               reference: _fullReference,
-              lydMethod: _lydMethod,
+              lydMethod: payment.method,
+              lydPaid: payment.paid,
+              requestId: _requestId,
             );
+      _requestSignature = null;
+      _requestId = null;
 
       await _persistSenderCode();
 
@@ -378,7 +433,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
   }) {
     final amountText = '${formatMoney(amountUsd)} \$';
     const tint = AppColors.positive;
-    const title = 'تأكيد تنفيذ الدخول';
+    const title = 'تأكيد تنفيذ الشراء';
     const confirmLabel = 'تنفيذ';
     return showGlassDialog<bool>(
       context: context,
@@ -433,7 +488,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                       ),
                       children: [
                         const TextSpan(
-                          text: 'هل تريد إتمام عملية الدخول بقيمة ',
+                          text: 'هل تريد إتمام عملية الشراء بقيمة ',
                         ),
                         TextSpan(
                           text: amountText,
@@ -557,7 +612,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
       await PdfExport.sharePdf(
         bytes,
         pdfFileName(
-          'سجل دخول الحوالات اليوم',
+          'سجل شراء الحوالات اليوم',
           who: employeeName == null ? null : 'الموظف $employeeName',
         ),
       );
@@ -736,7 +791,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
         _CollapsibleSection(
           color: AppColors.positive,
           header: const _AccentSectionTitle(
-            text: 'دخول لحسابي',
+            text: 'شراء لحسابي',
             color: AppColors.positive,
             icon: FontAwesomeIcons.userTie,
           ),
@@ -1223,7 +1278,23 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
                 value: _lydMethod,
                 sell: false,
                 onChanged: (m) => setState(() => _lydMethod = m),
+                allowCredit: true,
+                paidController: _lydPaid,
+                pocket: _paidPocket,
+                onPocketChanged: (p) => setState(() => _paidPocket = p),
+                onPaidChanged: () => setState(() {}),
+                total: _buyRate > 0
+                    ? lydFor(parseMoney(_usd.text), _buyRate)
+                    : null,
               ),
+              if (lydOnCredit(_lydMethod) && _client == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'الشراء بالآجل يُسجَّل على الجهة المرسلة: اخترها أولًا.',
+                    style: TextStyle(fontSize: 12, color: AppColors.warning),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1258,7 +1329,7 @@ class _CurrencyBuyScreenState extends ConsumerState<CurrencyBuyScreen> {
           header: Row(children: [
             const Expanded(
               child: _AccentSectionTitle(
-                text: 'دخول منفذ',
+                text: 'شراء منفذ',
                 color: AppColors.positive,
                 icon: FontAwesomeIcons.circleCheck,
               ),

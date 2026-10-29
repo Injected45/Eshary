@@ -275,7 +275,7 @@ class _CreatorRow extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _MiniStat(
-                      label: 'الدخول',
+                      label: 'الشراء',
                       value: '+\$${formatMoney(income)}',
                       color: AppColors.positive,
                     ),
@@ -287,7 +287,7 @@ class _CreatorRow extends StatelessWidget {
                   ),
                   Expanded(
                     child: _MiniStat(
-                      label: 'الخروج',
+                      label: 'البيع',
                       value: '-\$${formatMoney(outgoing)}',
                       color: AppColors.negative,
                     ),

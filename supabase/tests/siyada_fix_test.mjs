@@ -21,7 +21,8 @@ async function setup(company, code = '3108', amount = 16000) {
   await db.exec(`insert into exchange_companies (owner_id, name, kind) values ('${A}','بهاروز','mine'), ('${A}','الصحراء','client')`);
   const t = (await as(db, A, (tx) => tx.query(
     `select * from record_transfer($1,$2,'كود 3108',$3,$4,$5,'Rh0101')`, [co.id, ex.id, company, code, amount]))).rows[0];
-  await db.query(`update transfers set id = $1 where id = $2`, [ID, t.id]);
+  // since 0087 the database gives the reference; the operation fixed was Rh0101
+  await db.query(`update transfers set id = $1, reference = 'Rh0101' where id = $2`, [ID, t.id]);
   return { db, A, ex };
 }
 

@@ -436,7 +436,7 @@ class _Totals extends StatelessWidget {
         ],
         Expanded(
           child: _Tile(
-            label: 'إجمالي الدخول',
+            label: 'إجمالي الشراء',
             value: '+\$${formatMoney(statement.totalIncome)}',
             color: AppColors.positive,
           ),
@@ -444,7 +444,7 @@ class _Totals extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _Tile(
-            label: 'إجمالي الخروج',
+            label: 'إجمالي البيع',
             value: '-\$${formatMoney(statement.totalOutgoing)}',
             color: AppColors.negative,
           ),
@@ -568,8 +568,8 @@ class _StatementTable extends StatelessWidget {
                   ),
                 ),
               ),
-              head('دخول'),
-              head('خروج'),
+              head('شراء'),
+              head('بيع'),
               head('الرصيد'),
             ],
           ),

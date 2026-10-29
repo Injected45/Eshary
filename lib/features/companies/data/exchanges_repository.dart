@@ -29,24 +29,29 @@ class ExchangesRepository {
         .toList();
   }
 
+  /// Opens an account (admin_open_account, migration 0087): the balance, its
+  /// «رصيد افتتاحي» line and the opening cost [costRate] (dinars per dollar)
+  /// in one transaction. An opening balance above 0 needs a cost; a direct
+  /// insert with a balance is refused by the database.
   Future<Exchange> create({
     required String companyId,
     required String name,
     required double balance,
     String? ourCode,
     String? country,
+    double? costRate,
   }) async {
-    final row = await _client
-        .from('exchanges')
-        .insert({
-          'company_id': companyId,
-          'name': name,
-          'balance': balance,
-          'our_code': ourCode,
-          'country': country,
-        })
-        .select()
-        .single();
+    final row = await _client.rpc<Map<String, dynamic>>(
+      'admin_open_account',
+      params: {
+        'p_company_id': companyId,
+        'p_name': name,
+        'p_balance': balance,
+        'p_our_code': ourCode,
+        'p_country': country,
+        'p_cost_rate': costRate,
+      },
+    );
     return Exchange.fromJson(row);
   }
 

@@ -11,8 +11,8 @@ import 'package:eshary/shared/pdf_export.dart';
 import 'package:eshary/shared/period_label.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The period reports (تفاصيل حركة الدخول والخروج, حوالات الدخول, حوالات
-/// الخروج) and the account statement share one look and one way of being built
+/// The period reports (تفاصيل حركة الشراء والبيع, حوالات الشراء, حوالات
+/// البيع) and the account statement share one look and one way of being built
 /// (lib/shared/pdf_export_period.dart): centred columns, totals once under the
 /// table, "إشاري/كود" where the column holds a code for an entry and a
 /// reference for an exit.
@@ -37,8 +37,8 @@ void main() {
         .toList();
   }
 
-  group('running balance (دخول / خروج / الرصيد)', () {
-    test('the accountant example: دخول 1000, خروج 350 → الرصيد 650', () {
+  group('running balance (شراء / بيع / الرصيد)', () {
+    test('the accountant example: شراء 1000, بيع 350 → الرصيد 650', () {
       final l = ledgerOf([
         (isIncome: true, amount: 1000),
         (isIncome: false, amount: 350),
@@ -69,7 +69,7 @@ void main() {
       expect(l.map((e) => e.balance), [-120, -20]);
     });
 
-    test('each line fills exactly one of دخول / خروج', () {
+    test('each line fills exactly one of شراء / بيع', () {
       final l = ledgerOf([
         (isIncome: true, amount: 10),
         (isIncome: false, amount: 4),
@@ -84,7 +84,7 @@ void main() {
     });
   });
 
-  group('تفاصيل حركة الدخول والخروج', () {
+  group('تفاصيل حركة الشراء والبيع', () {
     final code = between('Future<Uint8List> buildDetailedTransfersReport',
         'Future<Uint8List> buildAccountStatement');
 
@@ -97,8 +97,8 @@ void main() {
         'حساباتي',
         'الجهة',
         'إشاري/كود-المستفيد',
-        'دخول',
-        'خروج',
+        'شراء',
+        'بيع',
         'الرصيد',
       ]);
     });
@@ -126,8 +126,8 @@ void main() {
     });
 
     test('the totals appear once, under the table', () {
-      expect(RegExp("'إجمالي الدخول'").allMatches(code).length, 1);
-      expect(RegExp("'إجمالي الخروج'").allMatches(code).length, 1);
+      expect(RegExp("'إجمالي الشراء'").allMatches(code).length, 1);
+      expect(RegExp("'إجمالي البيع'").allMatches(code).length, 1);
       expect(code, isNot(contains("'فرق الحركة'")));
       expect(
           code.indexOf('_reportTable('), lessThan(code.indexOf('_statRow(')));
@@ -135,7 +135,7 @@ void main() {
     });
   });
 
-  group('حوالات الدخول إلى حساباتي / حوالات الخروج من حساباتي', () {
+  group('حوالات الشراء إلى حساباتي / حوالات البيع من حساباتي', () {
     // _buildKindReport is the last method of the extension
     final kind =
         src.substring(src.indexOf('Future<Uint8List> _buildKindReport'));

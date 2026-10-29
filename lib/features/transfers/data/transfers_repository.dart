@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../shared/cache.dart';
+import '../../../shared/libya_time.dart';
 import '../domain/transfer.dart';
 
 class TransfersRepository {
@@ -27,15 +28,26 @@ class TransfersRepository {
   }) async {
     final key = _cacheKey(status, createdByEmployeeId);
     try {
-      var filter = _client
-          .from('transfers')
-          .select()
-          .eq('status', transferStatusToDb(status));
-      if (createdByEmployeeId != null) {
-        filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+      // Page by page: one request returns at most 1000 rows, and the archive
+      // and every period report built on it must never be cut short silently.
+      const page = 1000;
+      final list = <Map<String, dynamic>>[];
+      for (var from = 0;; from += page) {
+        var filter = _client
+            .from('transfers')
+            .select()
+            .eq('status', transferStatusToDb(status));
+        if (createdByEmployeeId != null) {
+          filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+        }
+        final rows = await filter
+            .order('created_at', ascending: false)
+            .order('id')
+            .range(from, from + page - 1);
+        final chunk = (rows as List).cast<Map<String, dynamic>>();
+        list.addAll(chunk);
+        if (chunk.length < page) break;
       }
-      final rows = await filter.order('created_at', ascending: false);
-      final list = (rows as List).cast<Map<String, dynamic>>();
       await _cache.writeList(key, list);
       return list.map(Transfer.fromJson).toList();
     } catch (e) {
@@ -45,11 +57,10 @@ class TransfersRepository {
     }
   }
 
-  /// Today's executed exits (posted at save). "Today" is the phone's local
-  /// date, so the list empties by itself when a new day begins.
+  /// Today's executed exits (posted at save). "Today" is the Libya day, so the
+  /// list empties by itself when a new day begins, on every phone at once.
   Future<List<Transfer>> listToday({String? createdByEmployeeId}) async {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day).toUtc();
+    final start = libyaDayStart(libyaToday());
     final key =
         '${_cacheKey(TransferStatus.archived, createdByEmployeeId)}:today';
     try {
@@ -111,7 +122,11 @@ class TransfersRepository {
     required double amount,
     required String reference,
     required double rate,
-    String lydMethod = 'cash',
+    String? lydMethod = 'cash',
+    String? requestId,
+    String? customerId,
+    double? lydPaid,
+    bool overLimit = false,
   }) async {
     final res = await _client.rpc(
       'record_transfer',
@@ -122,12 +137,21 @@ class TransfersRepository {
         'p_beneficiary_account_company': beneficiaryAccountCompany,
         'p_beneficiary_code': beneficiaryCode,
         'p_amount': amount,
+        // shown on the screen before saving; since 0087 the database gives
+        // the number at save time (under a lock), so read it from the result
         'p_reference': reference,
         // the database computes the dinars and may use the administrator's
         // last rate instead (an employee without "rate_edit"), migration 0081
         'p_rate': rate,
         // how the dinars came in: the box or the bank (migration 0086)
         'p_lyd_method': lydMethod,
+        // the same request sent again returns the saved exit (0087)
+        'p_request_id': requestId,
+        // on credit (0091): who pays the dinars and how much was paid now
+        // (null = all of them); the administrator may go over the limit
+        'p_customer_id': customerId,
+        'p_lyd_paid': lydPaid,
+        'p_over_limit': overLimit,
       },
     );
     return Transfer.fromJson(res as Map<String, dynamic>);

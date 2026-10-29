@@ -10,6 +10,7 @@ class BalanceAdjustment {
     required this.delta,
     required this.reason,
     required this.createdAt,
+    this.kind = 'adjust',
   });
 
   final String id;
@@ -22,8 +23,14 @@ class BalanceAdjustment {
   final String reason;
   final DateTime createdAt;
 
+  /// 'adjust', or 'opening' for the balance an account was opened with
+  /// (admin_open_account, migration 0087).
+  final String kind;
+
+  bool get isOpening => kind == 'opening';
+
   /// The line in the account statement.
-  String get label => 'تسوية رصيد: $reason';
+  String get label => isOpening ? 'رصيد افتتاحي' : 'تسوية رصيد: $reason';
 
   factory BalanceAdjustment.fromJson(Map<String, dynamic> j) =>
       BalanceAdjustment(
@@ -34,6 +41,7 @@ class BalanceAdjustment {
         delta: (j['delta'] as num).toDouble(),
         reason: (j['reason'] as String?) ?? '',
         createdAt: DateTime.parse(j['created_at'] as String),
+        kind: (j['kind'] as String?) ?? 'adjust',
       );
 }
 

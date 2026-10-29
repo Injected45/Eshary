@@ -77,7 +77,7 @@ void main() {
       final appBarBottom = tester.getBottomLeft(find.byType(AppBar)).dy;
       // every line of the record is fully inside the visible area, below the bar
       for (final t in [
-        'خروج من حسابي',
+        'بيع من حسابي',
         'جهة الاستلام',
         'معلومات العملية',
         'شركة الصرافة',

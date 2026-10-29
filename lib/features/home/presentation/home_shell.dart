@@ -62,8 +62,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   ];
 
   static const _subTitles = [
-    'تنفيذ خروج حوالة',
-    'تنفيذ دخول حوالة',
+    'تنفيذ بيع حوالة',
+    'تنفيذ شراء حوالة',
   ];
 
   static final _transfersScreen = TransfersScreen(key: transfersScreenKey);
@@ -344,14 +344,14 @@ class _TransfersHub extends StatelessWidget {
         ],
         _HubButton(
           icon: FontAwesomeIcons.paperPlane,
-          label: 'خروج',
+          label: 'بيع',
           color: AppColors.negative,
           onTap: () => onSelect(0),
         ),
         const SizedBox(height: 16),
         _HubButton(
           icon: FontAwesomeIcons.moneyBillTransfer,
-          label: 'دخول',
+          label: 'شراء',
           color: AppColors.positive,
           onTap: () => onSelect(1),
         ),

@@ -12,6 +12,19 @@ extension LibyaTime on DateTime {
   DateTime get libya => libyaTime(this);
 }
 
+/// Today's date in Libya, as a calendar date (00:00, no zone meaning).
+DateTime libyaToday() {
+  final l = libyaTime(DateTime.now());
+  return DateTime(l.year, l.month, l.day);
+}
+
+/// The moment the Libya day of the calendar date [d] begins: the same instant
+/// on every phone, whatever its time zone, so an operation at 23:30 Libya time
+/// always falls in that Libya day — as the database's same-day cancellation
+/// rule counts it.
+DateTime libyaDayStart(DateTime d) =>
+    DateTime.utc(d.year, d.month, d.day).subtract(const Duration(hours: 2));
+
 /// A [DateFormat] that always shows the moment in Libya time (see [libyaTime]).
 /// Give it ANY instant (UTC or the phone's local DateTime: both name the same
 /// moment); it converts exactly once, here. Use it for every time the app

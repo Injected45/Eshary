@@ -127,7 +127,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(senderMarker), findsOneWidget, reason: 'sender open');
     // and the account container shows everything filled in
-    await tester.tap(find.text('دخول لحسابي'));
+    await tester.tap(find.text('شراء لحسابي'));
     await tester.pumpAndSettle();
     expect(find.text('X-100'), findsOneWidget, reason: 'account code');
     expect(find.text('شركة الصرافة'), findsWidgets, reason: 'company');
@@ -160,7 +160,7 @@ void main() {
     await tester.tap(find.text('الجهة المرسلة'));
     await tester.pumpAndSettle();
     expect(find.text(senderMarker), findsOneWidget);
-    await tester.tap(find.text('دخول لحسابي'));
+    await tester.tap(find.text('شراء لحسابي'));
     await tester.pumpAndSettle();
     expect(find.text('X-100'), findsOneWidget);
   });
@@ -247,7 +247,7 @@ void main() {
         createdAt: DateTime(2026, 1, 1),
       );
       await _open(tester, one, clients: [noCompany]);
-      await tester.tap(find.text('دخول لحسابي'));
+      await tester.tap(find.text('شراء لحسابي'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
@@ -275,7 +275,7 @@ void main() {
     testWidgets('no reference at all: the save button still works',
         (tester) async {
       await _open(tester, one, clients: [client]);
-      await tester.tap(find.text('دخول لحسابي'));
+      await tester.tap(find.text('شراء لحسابي'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
@@ -313,7 +313,7 @@ void main() {
         createdAt: DateTime(2026, 1, 1),
       );
       await _open(tester, one, clients: [noCode]);
-      await tester.tap(find.text('دخول لحسابي'));
+      await tester.tap(find.text('شراء لحسابي'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
@@ -349,7 +349,7 @@ void main() {
         refPrefix: 'TRC',
       );
       await _open(tester, one, clients: [client, trc]);
-      await tester.tap(find.text('دخول لحسابي'));
+      await tester.tap(find.text('شراء لحسابي'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الجهة المرسلة'));
       await tester.pumpAndSettle();
@@ -388,7 +388,7 @@ void main() {
         'nothing opens or closes by itself: the containers move only when tapped',
         (tester) async {
       await _open(tester, one, clients: [client]);
-      await tester.tap(find.text('دخول لحسابي'));
+      await tester.tap(find.text('شراء لحسابي'));
       await tester.pumpAndSettle();
       expect(find.text('X-100'), findsOneWidget, reason: 'account open');
 

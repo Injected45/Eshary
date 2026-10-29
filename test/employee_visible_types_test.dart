@@ -1,7 +1,7 @@
 import 'package:eshary/features/employee_auth/presentation/employee_auth_providers.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Which operation types (خروج / دخول) an employee's screens show. The type
+/// Which operation types (بيع / شراء) an employee's screens show. The type
 /// follows what they may execute or close; own/all only widens whose rows.
 void main() {
   test('exit permission shows exits only (Rafe)', () {

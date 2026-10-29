@@ -36,7 +36,7 @@ void showTransferDetails(
   Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => _DetailsPage(
-        title: 'تفاصيل عملية خروج',
+        title: 'تفاصيل عملية بيع',
         accent: AppColors.negative,
         createdAt: transfer.createdAt,
         footer: OperationCancelBar(
@@ -49,7 +49,7 @@ void showTransferDetails(
         ),
         sections: [
           _DetailSection(
-            title: 'خروج من حسابي',
+            title: 'بيع من حسابي',
             icon: FontAwesomeIcons.shop,
             accent: AppColors.negative,
             rows: [
@@ -154,7 +154,7 @@ void showCurrencyBuyDetails(
   Navigator.of(context).push(
     MaterialPageRoute<void>(
       builder: (_) => _DetailsPage(
-        title: 'تفاصيل عملية دخول',
+        title: 'تفاصيل عملية شراء',
         accent: AppColors.positive,
         createdAt: buy.createdAt,
         footer: buy.status == CurrencyBuyStatus.archived
@@ -169,7 +169,7 @@ void showCurrencyBuyDetails(
             : null,
         sections: [
           _DetailSection(
-            title: 'دخول الى حسابي',
+            title: 'شراء إلى حسابي',
             icon: FontAwesomeIcons.shop,
             accent: AppColors.positive,
             rows: [

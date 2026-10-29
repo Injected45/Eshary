@@ -14,7 +14,9 @@ const A_EMP = '33333333-3333-3333-3333-333333333333';
 const OTHER = '44444444-4444-4444-4444-444444444444';
 const n = (v) => (v === null || v === undefined ? null : Number(v));
 
-const db = await freshDb();
+// the database as 0086 left it (0087 changed the save functions; 0086 now
+// refuses to run again after 0087)
+const db = await freshDb({ upTo: 86 });
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 await db.exec(`
   insert into auth.users (id, email, encrypted_password) values

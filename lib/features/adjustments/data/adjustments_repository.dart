@@ -10,14 +10,22 @@ class AdjustmentsRepository {
 
   /// The administrator's adjustments since [start] (RLS: his own only).
   Future<List<BalanceAdjustment>> listSince(DateTime start) async {
-    final rows = await _client
-        .from('balance_adjustments')
-        .select()
-        .gte('created_at', start.toUtc().toIso8601String())
-        .order('created_at');
-    return (rows as List)
-        .map((r) => BalanceAdjustment.fromJson(r as Map<String, dynamic>))
-        .toList();
+    // page by page: a statement's opening balance needs every one
+    const page = 1000;
+    final out = <BalanceAdjustment>[];
+    for (var from = 0;; from += page) {
+      final rows = await _client
+          .from('balance_adjustments')
+          .select()
+          .gte('created_at', start.toUtc().toIso8601String())
+          .order('created_at')
+          .order('id')
+          .range(from, from + page - 1);
+      final chunk = (rows as List).cast<Map<String, dynamic>>();
+      out.addAll(chunk.map(BalanceAdjustment.fromJson));
+      if (chunk.length < page) break;
+    }
+    return out;
   }
 
   Future<AdjustResult> adjust({

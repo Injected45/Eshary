@@ -18,7 +18,7 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 - `flutter pub get` — install deps.
 - `flutter analyze` — lint (config in `analysis_options.yaml`: `flutter_lints` + `strict-casts` / `strict-inference` / `strict-raw-types`, plus `prefer_const_constructors`, `avoid_print`, `require_trailing_commas`).
 - `flutter test` — runs the suite (currently `test/formatters_test.dart`). A single test: `flutter test test/formatters_test.dart --plain-name "<name>"`.
-- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0086) in order.
+- Database: `supabase db reset` (local) or `supabase db push` (linked) applies all migrations (0001–0091) in order.
 
 ## In-app update (direct APK only)
 
@@ -38,7 +38,7 @@ lib/
   core/                           # env, theme, router, supabase_provider
   shared/                         # cache, formatters, share, pdf_export, logger, glass, audio_feedback, liquid_background
   features/<feature>/{data,domain,presentation}
-supabase/migrations/0001..0086    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
+supabase/migrations/0001..0091    # schema, RLS, RPC functions, auth, licence, employees + permissions, notifications, backups, post-on-save, cancellations
 ```
 
 Features: `auth`, `companies`, `clients`, `transfers`, `currency_buy`, `archive`, `home`, `splash`, `onboarding`, `profile`, `settings`, `logs`, `countries`, `exchange_companies`. Each follows the `data` (repository) / `domain` (immutable Dart model with `fromJson`) / `presentation` (Riverpod providers + screens) split.
@@ -79,6 +79,18 @@ Administrator only: `profit_report(from, to)` per account — realized profit = 
 
 A dollar balance moves only inside the database's functions: a trigger refuses a direct `update exchanges set balance` from the app (`balance_direct_edit`), and `ExchangesRepository.update` no longer sends the balance (it used to send back the value read when the dialog opened, undoing any operation saved meanwhile). The administrator corrects a balance with `admin_adjust_balance(account, new balance, reason, password)` (same 5-tries lock as cancellations); `balance_adjustments` is append-only, shown in the account statement (`buildAccountStatement` / `openingBalanceAt` take `adjustments`), and leaves the cost alone. Every rated exit / entry stores `lyd_method` ('cash' / 'bank'; an older build = cash). The dinar treasury (`lyd_treasury`, `lyd_movements`, `lyd_counts`; `lyd_open`, `lyd_add_movement`, `lyd_record_count`, `lyd_summary`) is computed from the opening: box/bank + exits − entries by method ± movements; the end-of-day count may post the difference. UI: «الخزينة» → «خزينة الدينار», «تسوية الرصيد» per account, the cash/bank selector under the rate. PDFs: rate and dinar columns + a dinar total in the daily and period entry/exit reports; `pdf_export_treasury.dart` (part of `pdf_export.dart`) has the profit report and the treasury report. The WhatsApp messages never change.
 
+### Operations integrity (0087, fixed by 0089) and one-subscriber restore (0088)
+
+Phase 1 of `docs/accounting-audit-and-plan.md` (the audit of 2026-10-29). `record_transfer` / `record_currency_buy` take `p_request_id` (the app sends `newRequestId()` from `lib/shared/request_id.dart`, kept while the form is unchanged): the same request again returns the saved row instead of saving and moving the balance twice (unique `(owner_id, request_id)`). The transfer reference is given inside `record_transfer` under `pg_advisory_xact_lock('eshary.ref:'||admin)` and an active reference is unique (`transfers_owner_ref_active_uq`). An employee allowed to type a rate is refused beyond 15 % of the administrator's last rate (`rate_unusual`). An account is opened only through `admin_open_account(company, name, balance, code, country, cost)` — its balance, a `balance_adjustments` row with `kind='opening'` («رصيد افتتاحي» in the statement) and the opening cost in one transaction (a balance above 0 needs a cost); a direct insert with a balance, a negative balance, and deleting an account/company with a balance or history (`account_has_history`) are refused. Dinar movements and counts lock `lyd_treasury`; dinar-paid saves take it `for share`. `owner_wipe_operations(p_password)` needs the password, clears costs, adjustments and the dinar treasury too, and moves each company's `start_ref` to the next number so no reference is ever given twice. `record_pending_buy` is revoked. 0088: `admin_backup_owners(backup)` / `admin_restore_owner(backup, owner)` restore ONE subscriber from a stored backup; the backup screen asks «مشترك واحد» or «المنصة كلها» first. 0089 (review fixes): the wipe takes its safety copy before moving `start_ref` and locks the accounts first; a one-subscriber restore refuses a backup without that subscriber (`owner_not_in_backup`) and never lets a company's numbering go back; an account already below zero may come back up; `next_reference` (now via `_next_reference_for`) grows a digit past 9999 instead of cutting it (lpad). 0086–0088 refuse to run again once a later file is applied. Client side: the archive lists, expenses and adjustments are fetched page by page (no silent 1000-row cut), the 5 s full re-download is gone (realtime filtered by owner; a poll every 15 s only while realtime is down, else every 60 s), day and period limits are Libya days (`libyaToday` / `libyaDayStart` in `lib/shared/libya_time.dart`), the movement report counts commissions and adjustments, PDFs allow 1000 pages with «صفحة س من ص» and the amount in words includes the cents.
+
+### Selling and buying on credit (0091)
+
+Phase 2, part 1. A sale names the customer who pays the dinars (`transfers.customer_id`, picked from the saved customers) and `lyd_paid` (what was paid now; the database treats a missing `p_lyd_paid` as "all of it", so older builds stay paid in full); a purchase has `lyd_paid` too and its sender is the creditor. The unpaid part goes to the append-only `customer_lyd_entries` (+ the customer owes us; kinds sale / buy / sale_cancel / buy_cancel / collect / pay / opening); a cancel trigger reverses it. `clients.credit_limit` (null = no credit) changes only via `set_customer_credit_limit`; an employee's sale over it is refused (`credit_limit_exceeded`, without the amounts), the administrator is asked and resends with `p_over_limit`. `customer_add_entry` (collect / pay with a pocket, opening signed), `customer_balances()`, `customer_statement(client, from, to)` are administrator only. The dinar treasury counts `lyd_paid` plus collections and payments. Lock order: exchanges → clients → lyd_treasury everywhere. Restores fill `lyd_paid = lyd_amount` for backups made before 0091; backups, restores, the redaction, the wipe and `delete_party` know the new table. UI: the payment selector (`lyd_method_selector.dart`: نقدًا / مصرفي / آجل / جزئي, `CreditCustomerField`, `confirmOverCreditLimit`), `lib/features/customers` («ذمم العملاء» from «الخزينة», the statement with collect / pay / opening / limit and its PDF `buildCustomerStatement`). 0089 refuses to run again after 0091.
+
+### Wording: بيع / شراء (2026-10-29)
+
+The owner renamed the operations everywhere the app shows them: an exit («خروج») is «بيع» and an entry («دخول») is «شراء» — screens, totals («إجمالي البيع / الشراء»), PDF reports, permissions, alerts, and the two employee messages sent by the database (0090). Code identifiers stay transfer / buy / exit / entry. NOT renamed: the sign-in wording («تسجيل الدخول», «تسجيل الخروج», «كود الدخول», «دخول حسابي») and the WhatsApp messages (`_composeMessages` / `_composeBuyMessages`), which never change.
+
 ### Database
 
 All currency columns are `numeric(14,2)`; `rate` is `numeric(10,4)`. Per-row RLS on every table; `exchanges` has no `owner_id` and derives ownership by joining through `companies.owner_id`. Profile rows are auto-created by the `on_auth_user_created` trigger in `0005_auth_triggers.sql` — no client-side profile upsert.
@@ -100,7 +112,7 @@ Server-side functions:
 - Money columns stay `numeric(14,2)`. Never use `float`/`double` for amounts.
 - The reference-number formula stays compatible with `project_web.html:711` unless explicitly renegotiated (renegotiated once: 0080, cancelled transfers give their number back).
 - Arabic transfer/buy message strings are preserved verbatim from the source HTML (`generateAllMessages` line 722 / buy variant).
-- Reference field is read-only in the UI; values come from `next_reference(company_id)` only.
+- Reference field is read-only in the UI; values come from `next_reference(company_id)` only. Since 0087 `record_transfer` calls it itself at save time under a per-administrator lock (the number the phone sends is ignored) and the app shows the saved `reference` in the messages.
 - New behaviour beyond the source must be flagged and confirmed before implementation. The intentional additions are listed in the README's "Behavior added beyond source" section (pending blocks archive, atomic RPCs, per-user RLS, offline read cache).
 
 ## Configuration

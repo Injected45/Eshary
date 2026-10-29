@@ -395,11 +395,13 @@ void main() {
       expect(pdf, contains("if (showLabel) 'البيان'"));
     });
 
-    test('a failure reading them never takes the statement down', () {
+    // Changed on purpose (audit of 2026-10-29): read as "none", a failure gave
+    // a wrong opening balance and wrong running balances without a word.
+    test('a failure reading them fails the statement, never "none"', () {
       final prov = File(
               'lib/features/companies/presentation/account_statement_providers.dart')
           .readAsStringSync();
-      expect(prov, contains('} catch (_) {'));
+      expect(prov, isNot(contains('} catch (_) {')));
     });
 
     test('the server side is in 0072', () {

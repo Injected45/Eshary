@@ -93,7 +93,7 @@ class _EmployeeRecordsScreenState extends ConsumerState<EmployeeRecordsScreen> {
             child: GlassCard(
               child: Text(
                 'لا توجد أنواع عمليات مفعّلة لحسابك بعد. '
-                'تواصل مع المدير لتفعيل الخروج أو الدخول.',
+                'تواصل مع المدير لتفعيل البيع أو الشراء.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textLow, fontSize: 13),
               ),
@@ -128,7 +128,7 @@ class _EmployeeRecordsScreenState extends ConsumerState<EmployeeRecordsScreen> {
         const SizedBox(height: 14),
         if (seesExits)
           _Section(
-            title: 'حوالات الخروج',
+            title: 'حوالات البيع',
             count: allOutgoing.length,
             icon: FontAwesomeIcons.paperPlane,
             accent: AppColors.negative,
@@ -139,7 +139,7 @@ class _EmployeeRecordsScreenState extends ConsumerState<EmployeeRecordsScreen> {
         if (seesExits && seesEntries) const SizedBox(height: 12),
         if (seesEntries)
           _Section(
-            title: 'حوالات الدخول',
+            title: 'حوالات الشراء',
             count: allIncoming.length,
             icon: FontAwesomeIcons.moneyBillTransfer,
             accent: AppColors.positive,
@@ -184,7 +184,7 @@ class _SummaryRow extends StatelessWidget {
         if (showOutgoing)
           Expanded(
             child: _SummaryCard(
-              label: 'خروج',
+              label: 'بيع',
               count: outgoingCount,
               total: outgoingTotal,
               icon: FontAwesomeIcons.paperPlane,
@@ -195,7 +195,7 @@ class _SummaryRow extends StatelessWidget {
         if (showIncoming)
           Expanded(
             child: _SummaryCard(
-              label: 'دخول',
+              label: 'شراء',
               count: incomingCount,
               total: incomingTotal,
               icon: FontAwesomeIcons.moneyBillTransfer,
@@ -376,7 +376,7 @@ class _TransferList extends ConsumerWidget {
         padding: EdgeInsets.symmetric(vertical: 14),
         child: Center(
           child: Text(
-            'لا توجد حوالات خروج بعد',
+            'لا توجد حوالات بيع بعد',
             style: TextStyle(color: AppColors.textLow, fontSize: 12),
           ),
         ),
@@ -432,7 +432,7 @@ class _CurrencyBuyList extends ConsumerWidget {
         padding: EdgeInsets.symmetric(vertical: 14),
         child: Center(
           child: Text(
-            'لا توجد حوالات دخول بعد',
+            'لا توجد حوالات شراء بعد',
             style: TextStyle(color: AppColors.textLow, fontSize: 12),
           ),
         ),

@@ -13,6 +13,10 @@ class LydSummary {
     this.salesBank = 0,
     this.buysCash = 0,
     this.buysBank = 0,
+    this.collectCash = 0,
+    this.collectBank = 0,
+    this.payCash = 0,
+    this.payBank = 0,
     this.movements = const [],
     this.counts = const [],
   });
@@ -27,12 +31,20 @@ class LydSummary {
   final double cash;
   final double bank;
 
-  /// The period's dinars: received for dollars sold (exits) and paid for
-  /// dollars bought (entries), by pocket.
+  /// The period's dinars actually paid at the operations: received for
+  /// dollars sold and paid for dollars bought, by pocket (what was left on
+  /// credit is not here, 0091).
   final double salesCash;
   final double salesBank;
   final double buysCash;
   final double buysBank;
+
+  /// The period's later payments of debts (0091): customers who paid us
+  /// (collect) and sellers we paid (pay), by pocket.
+  final double collectCash;
+  final double collectBank;
+  final double payCash;
+  final double payBank;
 
   /// The period's deposits, withdrawals, transfers and count differences.
   final List<LydMovement> movements;
@@ -41,8 +53,8 @@ class LydSummary {
   final List<LydCount> counts;
 
   double get total => _cents(cash + bank);
-  double get netCash => _cents(salesCash - buysCash);
-  double get netBank => _cents(salesBank - buysBank);
+  double get netCash => _cents(salesCash - buysCash + collectCash - payCash);
+  double get netBank => _cents(salesBank - buysBank + collectBank - payBank);
 
   factory LydSummary.fromJson(Map<String, dynamic> j) {
     if (j['open'] != true) return const LydSummary(open: false);
@@ -61,6 +73,10 @@ class LydSummary {
       salesBank: d(f['sales_bank']),
       buysCash: d(f['buys_cash']),
       buysBank: d(f['buys_bank']),
+      collectCash: d(f['collect_cash']),
+      collectBank: d(f['collect_bank']),
+      payCash: d(f['pay_cash']),
+      payBank: d(f['pay_bank']),
       movements: [
         for (final m in (j['movements'] as List? ?? const []))
           LydMovement.fromJson(m as Map<String, dynamic>),

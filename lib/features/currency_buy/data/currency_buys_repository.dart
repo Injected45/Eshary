@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase_provider.dart';
 import '../../../shared/cache.dart';
+import '../../../shared/libya_time.dart';
 import '../domain/currency_buy.dart';
 
 class CurrencyBuysRepository {
@@ -26,15 +27,26 @@ class CurrencyBuysRepository {
   }) async {
     final key = _cacheKey(status, createdByEmployeeId);
     try {
-      var filter = _client
-          .from('currency_buys')
-          .select()
-          .eq('status', currencyBuyStatusToDb(status));
-      if (createdByEmployeeId != null) {
-        filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+      // Page by page: one request returns at most 1000 rows, and the archive
+      // and every period report built on it must never be cut short silently.
+      const page = 1000;
+      final list = <Map<String, dynamic>>[];
+      for (var from = 0;; from += page) {
+        var filter = _client
+            .from('currency_buys')
+            .select()
+            .eq('status', currencyBuyStatusToDb(status));
+        if (createdByEmployeeId != null) {
+          filter = filter.eq('created_by_employee_id', createdByEmployeeId);
+        }
+        final rows = await filter
+            .order('created_at', ascending: false)
+            .order('id')
+            .range(from, from + page - 1);
+        final chunk = (rows as List).cast<Map<String, dynamic>>();
+        list.addAll(chunk);
+        if (chunk.length < page) break;
       }
-      final rows = await filter.order('created_at', ascending: false);
-      final list = (rows as List).cast<Map<String, dynamic>>();
       await _cache.writeList(key, list);
       return list.map(CurrencyBuy.fromJson).toList();
     } catch (e) {
@@ -46,8 +58,8 @@ class CurrencyBuysRepository {
 
   /// Today's executed entries (posted at save), by the phone's local date.
   Future<List<CurrencyBuy>> listToday({String? createdByEmployeeId}) async {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day).toUtc();
+    // the Libya day, the same on every phone (see the exits)
+    final start = libyaDayStart(libyaToday());
     final key =
         '${_cacheKey(CurrencyBuyStatus.archived, createdByEmployeeId)}:today';
     try {
@@ -107,7 +119,9 @@ class CurrencyBuysRepository {
     required double usdAmount,
     required double rate,
     required String reference,
-    String lydMethod = 'cash',
+    String? lydMethod = 'cash',
+    String? requestId,
+    double? lydPaid,
   }) async {
     final res = await _client.rpc(
       'record_currency_buy',
@@ -123,6 +137,10 @@ class CurrencyBuysRepository {
         'p_reference': reference,
         // how the dinars were paid: the box or the bank (migration 0086)
         'p_lyd_method': lydMethod,
+        // the same request sent again returns the saved entry (0087)
+        'p_request_id': requestId,
+        // how much we paid now (null = all of it); the rest we owe (0091)
+        'p_lyd_paid': lydPaid,
       },
     );
     return CurrencyBuy.fromJson(res as Map<String, dynamic>);

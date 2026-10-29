@@ -283,30 +283,27 @@ double openingBalanceAt({
   List<AccountExpense> expenses = const [],
   List<BalanceAdjustment> adjustments = const [],
 }) {
+  // Each posting and each reversing entry counts when IT happened: an
+  // operation saved before [start] but cancelled after it moved the balance
+  // back after [start] (callers pass operations cancelled since [start] too).
   var net = 0.0;
   for (final b in buys) {
-    final at = b.archivedAt ?? b.createdAt;
-    if (at.isBefore(start)) continue;
     if (exchangeId != null && b.exchangeId != exchangeId) continue;
-    net += b.usdAmount;
-    // its reversing entry, when cancelled since [start]
+    if (!(b.archivedAt ?? b.createdAt).isBefore(start)) net += b.usdAmount;
     if (b.cancelledAt != null && !b.cancelledAt!.isBefore(start)) {
       net -= b.usdAmount;
     }
   }
   for (final t in transfers) {
-    final at = t.archivedAt ?? t.createdAt;
-    if (at.isBefore(start)) continue;
     if (exchangeId != null && t.exchangeId != exchangeId) continue;
-    net -= t.amount;
+    if (!(t.archivedAt ?? t.createdAt).isBefore(start)) net -= t.amount;
     if (t.cancelledAt != null && !t.cancelledAt!.isBefore(start)) {
       net += t.amount;
     }
   }
   for (final x in expenses) {
-    if (x.createdAt.isBefore(start)) continue;
     if (exchangeId != null && x.exchangeId != exchangeId) continue;
-    net -= x.amount;
+    if (!x.createdAt.isBefore(start)) net -= x.amount;
     if (x.cancelledAt != null && !x.cancelledAt!.isBefore(start)) {
       net += x.amount;
     }

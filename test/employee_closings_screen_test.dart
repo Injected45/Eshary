@@ -55,21 +55,21 @@ void main() {
           'view_own',
         ]),
       );
-      expect(find.textContaining('إجمالي الخروج'), findsOneWidget);
-      expect(find.textContaining('إجمالي الدخول'), findsNothing);
+      expect(find.textContaining('إجمالي البيع'), findsOneWidget);
+      expect(find.textContaining('إجمالي الشراء'), findsNothing);
       expect(find.textContaining('فرق الحركة'), findsNothing);
-      expect(find.textContaining('تفاصيل الدخول'), findsNothing);
-      expect(find.textContaining('تفاصيل الخروج'), findsOneWidget);
+      expect(find.textContaining('تفاصيل الشراء'), findsNothing);
+      expect(find.textContaining('تفاصيل البيع'), findsOneWidget);
     },
   );
 
   testWidgets('entries-only employee: entries only, no exit anywhere',
       (tester) async {
     await _open(tester, _employee(['buys_create', 'closings_own']));
-    expect(find.textContaining('إجمالي الدخول'), findsOneWidget);
-    expect(find.textContaining('إجمالي الخروج'), findsNothing);
+    expect(find.textContaining('إجمالي الشراء'), findsOneWidget);
+    expect(find.textContaining('إجمالي البيع'), findsNothing);
     expect(find.textContaining('فرق الحركة'), findsNothing);
-    expect(find.textContaining('تفاصيل الخروج'), findsNothing);
+    expect(find.textContaining('تفاصيل البيع'), findsNothing);
   });
 
   testWidgets('full closings permission and the admin see both types',
@@ -79,8 +79,8 @@ void main() {
       null
     ]) {
       await _open(tester, id);
-      expect(find.textContaining('إجمالي الدخول'), findsOneWidget);
-      expect(find.textContaining('إجمالي الخروج'), findsOneWidget);
+      expect(find.textContaining('إجمالي الشراء'), findsOneWidget);
+      expect(find.textContaining('إجمالي البيع'), findsOneWidget);
       expect(find.textContaining('فرق الحركة'), findsOneWidget);
     }
   });

@@ -23,6 +23,35 @@ class _FakeBackups implements BackupRepository {
   }
 
   @override
+  Future<List<BackupOwner>> owners(String id) async {
+    calls.add('owners:$id');
+    return const [
+      BackupOwner(
+        ownerId: 'o1',
+        name: 'الرحالة',
+        email: 'a@x.ly',
+        exists: true,
+        transfers: 12,
+        currencyBuys: 4,
+      ),
+      BackupOwner(
+        ownerId: 'o2',
+        name: 'محذوف',
+        email: null,
+        exists: false,
+        transfers: 1,
+        currencyBuys: 0,
+      ),
+    ];
+  }
+
+  @override
+  Future<Map<String, dynamic>> restoreOwner(String id, String ownerId) async {
+    calls.add('restoreOwner:$id:$ownerId');
+    return {};
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('${invocation.memberName}');
 }
@@ -75,18 +104,21 @@ void main() {
     expect(find.text('استعادة'), findsNWidgets(2));
   });
 
-  testWidgets('one press restores that backup at once, no questions asked',
+  // Since 0088 the one question is WHO goes back: one subscriber, or every
+  // subscriber (a full restore takes everyone back and loses what they did
+  // since). After that choice: no confirmation, as before.
+  testWidgets('the whole platform: the choice, then at once, no more questions',
       (tester) async {
     final fake = await _open(tester);
     await tester.tap(find.byKey(const ValueKey('backup-restore-b1')));
     await tester.pumpAndSettle();
-    // no confirmation dialog in between
-    expect(find.text('استعادة نسخة احتياطية؟'), findsNothing);
+    expect(fake.calls, isEmpty, reason: 'nothing before the choice');
+    await tester.tap(find.byKey(const ValueKey('restore-scope-all')));
+    await tester.pumpAndSettle();
     expect(find.text('تأكيد نهائي'), findsNothing);
     // the stored backup was fetched and applied, in that order, exactly once
     expect(fake.calls, ['get:b1', 'restore:b1']);
-    // and the user is told what happened
-    expect(find.textContaining('عاد التطبيق إلى نسخة'), findsOneWidget);
+    expect(find.textContaining('عاد التطبيق كله إلى نسخة'), findsOneWidget);
     expect(find.textContaining('نسخة أمان'), findsWidgets);
   });
 
@@ -94,6 +126,35 @@ void main() {
     final fake = await _open(tester);
     await tester.tap(find.byKey(const ValueKey('backup-restore-b2')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('restore-scope-all')));
+    await tester.pumpAndSettle();
     expect(fake.calls, ['get:b2', 'restore:b2']);
+  });
+
+  testWidgets('one subscriber: only that one goes back', (tester) async {
+    final fake = await _open(tester);
+    await tester.tap(find.byKey(const ValueKey('backup-restore-b2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('restore-scope-one')));
+    await tester.pumpAndSettle();
+    expect(find.text('الرحالة'), findsOneWidget);
+    expect(find.textContaining('12 بيع · 4 شراء'), findsOneWidget);
+    // a deleted account is shown but cannot be chosen
+    await tester.tap(find.byKey(const ValueKey('restore-owner-o2')));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['owners:b2']);
+    await tester.tap(find.byKey(const ValueKey('restore-owner-o1')));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['owners:b2', 'restoreOwner:b2:o1']);
+    expect(find.textContaining('عاد الرحالة إلى نسخة'), findsOneWidget);
+  });
+
+  testWidgets('cancelling the choice restores nothing', (tester) async {
+    final fake = await _open(tester);
+    await tester.tap(find.byKey(const ValueKey('backup-restore-b1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
   });
 }

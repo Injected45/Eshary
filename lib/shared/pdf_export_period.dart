@@ -2,7 +2,7 @@ part of 'pdf_export.dart';
 
 // The three period reports share ONE look and ONE way of being built:
 //
-//   تفاصيل حركة الدخول والخروج للحوالات   (entries + exits, with the balance)
+//   تفاصيل حركة الشراء والبيع للحوالات   (entries + exits, with the balance)
 //   حوالات الدخول إلى حساباتي              (entries only)
 //   حوالات الخروج من حساباتي               (exits only)
 //
@@ -332,12 +332,14 @@ void _addReportPages(
 }) {
   doc.addPage(
     pw.MultiPage(
+      // the package stops at 20 pages by default (about 700 rows)
+      maxPages: 1000,
       pageFormat: format ?? PdfPageFormat.a4.landscape,
       margin: pw.EdgeInsets.all(margin),
       theme: theme,
       textDirection: pw.TextDirection.rtl,
       header: (_) => pw.SizedBox(height: 0),
-      footer: (ctx) => _exportFooter(at: at, by: by),
+      footer: (ctx) => _exportFooter(at: at, by: by, page: ctx),
       build: (context) => body,
     ),
   );
@@ -412,7 +414,7 @@ class _KindRow {
 }
 
 extension PeriodReports on PdfExport {
-  /// "تفاصيل حركة الدخول والخروج للحوالات": an accountant-style statement.
+  /// "تفاصيل حركة الشراء والبيع للحوالات": an accountant-style statement.
   /// An entry fills دخول (green), an exit fills خروج (red), and الرصيد is the
   /// running total. إشاري/كود holds the account code for an entry and the
   /// reference for an exit.
@@ -425,17 +427,58 @@ extension PeriodReports on PdfExport {
     required DateTime start,
     required DateTime end,
     double openingBalance = 0,
-    String title = 'تفاصيل حركة الدخول والخروج للحوالات',
+    String title = 'تفاصيل حركة الشراء والبيع للحوالات',
     String? scopeLabel,
     String? exportedBy,
     String? notificationText,
     String? employeeName,
+    List<AccountExpense> expenses = const [],
+    List<BalanceAdjustment> adjustments = const [],
   }) async {
     final doc = pw.Document(theme: _theme);
     final dayFmt = _LibyaFmt('yyyy/MM/dd');
     final timeFmt = _LibyaFmt('HH:mm');
 
+    String accountOf(String exchangeId) {
+      final ex = exchangeById[exchangeId];
+      return _slash(companyById[ex?.companyId]?.name, ex?.name);
+    }
+
     final ops = <_DetailedOp>[];
+    // the commissions and the balance adjustments move the balance too: without
+    // them the running balance and the closing balance would be wrong
+    for (final x in expenses) {
+      if (x.createdAt.isBefore(start) || x.createdAt.isAfter(end)) continue;
+      final op = _DetailedOp(
+        t: x.createdAt,
+        isIncome: false,
+        reference: (x.code ?? '').trim().isEmpty ? '—' : x.code!.trim(),
+        senderReference: '—',
+        amount: x.amount,
+        myAccount: accountOf(x.exchangeId),
+        party: x.label,
+        cancelled: x.isCancelled,
+      );
+      ops.add(op);
+      final c = x.cancelledAt;
+      if (c != null && !c.isBefore(start) && !c.isAfter(end)) {
+        ops.add(op.reversalAt(c));
+      }
+    }
+    for (final x in adjustments) {
+      if (x.createdAt.isBefore(start) || x.createdAt.isAfter(end)) continue;
+      ops.add(
+        _DetailedOp(
+          t: x.createdAt,
+          isIncome: x.delta > 0,
+          reference: '—',
+          senderReference: '—',
+          amount: x.delta.abs(),
+          myAccount: accountOf(x.exchangeId),
+          party: x.label,
+        ),
+      );
+    }
     for (final b in buys) {
       final myExchangeRow = exchangeById[b.exchangeId];
       final myCode = (myExchangeRow?.ourCode ?? '').trim();
@@ -481,7 +524,13 @@ extension PeriodReports on PdfExport {
       ops.add(op);
       if (t.cancelledAt != null) ops.add(op.reversalAt(t.cancelledAt!));
     }
-    ops.sort((a, b) => a.t.compareTo(b.t));
+    // by time; rows at the same moment keep their order (Dart's sort is not
+    // stable, and a swap would change the running balance shown between them)
+    final order = {for (var i = 0; i < ops.length; i++) ops[i]: i};
+    ops.sort((a, b) {
+      final c = a.t.compareTo(b.t);
+      return c != 0 ? c : order[a]!.compareTo(order[b]!);
+    });
 
     final exportedAtTime = DateTime.now();
     final logo = await _loadLogo();
@@ -517,8 +566,8 @@ extension PeriodReports on PdfExport {
       'حساباتي',
       'الجهة',
       'إشاري/كود-المستفيد',
-      'دخول',
-      'خروج',
+      'شراء',
+      'بيع',
       'الرصيد',
     ];
     const widths = <double>[0.5, 0.9, 1.1, 1.4, 2.0, 2.1, 1.9, 1.4, 1.4, 1.5];
@@ -582,8 +631,8 @@ extension PeriodReports on PdfExport {
             }
             final row = showOpening ? rowIndex - 1 : rowIndex;
             if (ops[row].cancelled && column != 9) return _cancelledColor;
-            if (column == 7) return PdfColors.green800; // دخول
-            if (column == 8) return PdfColors.red800; // خروج
+            if (column == 7) return PdfColors.green800; // شراء
+            if (column == 8) return PdfColors.red800; // بيع
             if (column == 9) {
               return ledger[row].balance >= 0
                   ? PdfColors.green800
@@ -601,12 +650,12 @@ extension PeriodReports on PdfExport {
               PdfColors.grey800,
             ),
           _statTile(
-            'إجمالي الدخول',
+            'إجمالي الشراء',
             '+\$${formatMoney(incomeTotal)}',
             PdfColors.green800,
           ),
           _statTile(
-            'إجمالي الخروج',
+            'إجمالي البيع',
             '-\$${formatMoney(outgoingTotal)}',
             PdfColors.red800,
           ),
@@ -687,8 +736,8 @@ extension PeriodReports on PdfExport {
       if (showAccount) 'الحساب',
       if (showLabel) 'البيان',
       if (showWho) 'المنفذ',
-      'دخول',
-      'خروج',
+      'شراء',
+      'بيع',
       'الرصيد',
     ];
     final widths = <double>[
@@ -702,8 +751,8 @@ extension PeriodReports on PdfExport {
       1.4,
       1.6
     ];
-    final incomeColumn = headers.indexOf('دخول');
-    final outgoingColumn = headers.indexOf('خروج');
+    final incomeColumn = headers.indexOf('شراء');
+    final outgoingColumn = headers.indexOf('بيع');
     final balanceColumn = headers.indexOf('الرصيد');
 
     // رصيد افتتاحي: a first row and a first tile, when there is one.
@@ -783,12 +832,12 @@ extension PeriodReports on PdfExport {
               PdfColors.grey800,
             ),
           _statTile(
-            'إجمالي الدخول',
+            'إجمالي الشراء',
             '+\$${formatMoney(incomeTotal)}',
             PdfColors.green800,
           ),
           _statTile(
-            'إجمالي الخروج',
+            'إجمالي البيع',
             '-\$${formatMoney(outgoingTotal)}',
             PdfColors.red800,
           ),
@@ -843,8 +892,8 @@ extension PeriodReports on PdfExport {
         }(),
     ];
     return _buildKindReport(
-      title: 'حوالات الدخول إلى حساباتي',
-      emptyMessage: 'لا توجد عمليات دخول في الفترة المحددة',
+      title: 'حوالات الشراء إلى حساباتي',
+      emptyMessage: 'لا توجد عمليات شراء في الفترة المحددة',
       income: true,
       rows: rows,
       start: start,
@@ -889,8 +938,8 @@ extension PeriodReports on PdfExport {
         ),
     ];
     return _buildKindReport(
-      title: 'حوالات الخروج من حساباتي',
-      emptyMessage: 'لا توجد عمليات خروج في الفترة المحددة',
+      title: 'حوالات البيع من حساباتي',
+      emptyMessage: 'لا توجد عمليات بيع في الفترة المحددة',
       income: false,
       rows: rows,
       start: start,
@@ -1012,7 +1061,7 @@ extension PeriodReports on PdfExport {
         pw.SizedBox(height: 12),
         _statRow([
           _statTile(
-            income ? 'إجمالي الدخول' : 'إجمالي الخروج',
+            income ? 'إجمالي الشراء' : 'إجمالي البيع',
             '$sign\$${formatMoney(total)}',
             color,
           ),
@@ -1161,12 +1210,12 @@ extension PeriodReports on PdfExport {
             _cancelledColor,
           ),
           _statTile(
-            'خروج ملغى (أُعيد للرصيد)',
+            'بيع ملغى (أُعيد للرصيد)',
             '+\$${formatMoney(outTotal)}',
             PdfColors.green800,
           ),
           _statTile(
-            'دخول ملغى (خُصم من الرصيد)',
+            'شراء ملغى (خُصم من الرصيد)',
             '-\$${formatMoney(inTotal)}',
             PdfColors.red800,
           ),
