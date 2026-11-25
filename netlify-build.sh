@@ -15,7 +15,9 @@ export PATH="$FLUTTER_DIR/bin:$PATH"
 
 flutter --disable-analytics > /dev/null 2>&1 || true
 flutter --version
-flutter pub get
+# exactly the versions in pubspec.lock (the ones that work on the PC):
+# a mismatch fails here instead of picking newer, untested versions
+flutter pub get --enforce-lockfile
 flutter build web --release \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \
   --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"

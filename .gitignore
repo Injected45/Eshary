@@ -30,7 +30,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-pubspec.lock
+# pubspec.lock IS tracked: Netlify must build with exactly the versions that work here
 
 # Symbols
 app.*.symbols
