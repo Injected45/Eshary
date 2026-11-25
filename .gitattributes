@@ -1,0 +1,2 @@
+# shell scripts run on Linux (Netlify builds the web version with one)
+*.sh text eol=lf

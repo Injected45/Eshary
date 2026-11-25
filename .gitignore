@@ -90,3 +90,6 @@ android/key.properties
 
 # built APK / AAB files (delivered to the phone / Play Console, never committed)
 /APK/
+
+# the web build (build-web.bat)
+/WEB/

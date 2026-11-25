@@ -24,6 +24,25 @@ The `.bat` files at the repo root bake in the developer Supabase URL / anon key 
 
 `build-apk.bat` raises the build number (pubspec `version: x.y.N+N`), passes `--dart-define=APP_BUILD=N` and writes `APK/build.json`; `publish-update.bat` uploads both APKs to the public Storage bucket `app-releases`, re-downloads them to check the SHA-256, then inserts the row in `app_releases` (migration 0079). The app (`lib/features/app_update`, mounted in `main.dart` as `UpdateGate`) asks `latest_app_release()` on start and on resume and shows a blocking update screen. Never in the Play build (`kPlayBuild`) or a debug run (`APP_BUILD` = 0). `REQUEST_INSTALL_PACKAGES` and the FileProvider are only in the main manifest, never `src/play`. Withdraw a bad release with `withdraw-update.bat` or from the platform. See `docs/app-updates.md`. The first APK that contains the updater must still be sent by hand.
 
+## Web version (iPhone and browsers)
+
+It is the same Flutter app on the same Supabase project, hosted on Netlify. Supabase cannot host it: tested on 2026-11-25, Storage serves HTML as `text/plain` with a sandbox CSP.
+
+Android-only parts are off on the web: the in-app update (`appUpdateEnabled` checks `kIsWeb`) and the background alerts. Not available in a browser:
+- notifications while the app is closed;
+- fingerprint lock;
+- PDFs download instead of opening the share sheet.
+
+The name, icon and iPhone meta tags are in `web/` (`manifest.json`, `index.html`, icons generated from `assets_src/app_icon_original.png`). `web/_headers` makes every file revalidate, so a new version reaches everyone at once.
+
+Publishing: the Netlify site is linked to this GitHub repository, and Netlify builds it itself (the owner's choice on 2026-11-25, not GitHub Actions).
+- `netlify.toml`: build `bash netlify-build.sh`, publish `build/web`.
+  - `netlify-build.sh` shallow-clones Flutter `FLUTTER_VERSION` (3.41.9, the PC's), then builds with the Supabase URL and anon key from `netlify.toml` (public by design).
+  - When you change Flutter on the PC, change `FLUTTER_VERSION` too.
+- **Only the `web` branch is built** (the `ignore` rule skips every other branch and PR). The owner wants the web to follow releases, not every push.
+- To publish the web, move `web` to the release: `git push origin feature/permissions-notifications:web`. Netlify → Deploys → Trigger deploy rebuilds the last one.
+- Local build: `build-web.bat` → `WEB\` (gitignored).
+
 ## Admin platform (admin-web/)
 
 A separate Next.js + TypeScript web app ("ESHARI Admin") that administers the SAME Supabase project: staff sign in with password + a WhatsApp code, and the code step is enforced in the database (migration 0077: `platform_staff`, `platform_sessions`, `_platform_role()`; `is_caller_admin()` also answers true for a verified super_admin/admin). See `admin-web/README.md`. Commands: `cd admin-web && npm test`, `npx tsc --noEmit`, `npx next build`; DB test: `cd supabase/tests && node platform77_test.mjs`. Never commit `.env*` or the service-role key. When a migration re-creates a CHECK constraint (e.g. `wa_challenges_purpose_check`) keep every value earlier migrations added.

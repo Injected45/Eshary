@@ -1,0 +1,19 @@
+# Netlify builds the WEB version (iPhone and browsers) from this GitHub
+# repository. Only the `web` branch is built and published: it is moved to
+# the new release when the app is published, so work in progress pushed to
+# the working branch never reaches customers. Netlify → Deploys → Trigger
+# deploy rebuilds the last release.
+[build]
+  command = "bash netlify-build.sh"
+  publish = "build/web"
+  # any other branch or pull request: no build (exit 0 = skip)
+  ignore = "test \"$BRANCH\" != \"web\""
+
+[build.environment]
+  # the same Flutter as on the developer's PC
+  FLUTTER_VERSION = "3.41.9"
+  SUPABASE_URL = "https://ashpubvnedhkgamnipky.supabase.co"
+  # public by design: it is in every APK and in the page itself
+  SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzaHB1YnZuZWRoa2dhbW5pcGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzc2MTEsImV4cCI6MjA5MjcxMzYxMX0.aglafY83JjAfHk4SBBv9eAnWKnhe8AO11YX28TjVExw"
+  # so Netlify's secret scan does not stop the build over that public key
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzaHB1YnZuZWRoa2dhbW5pcGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzc2MTEsImV4cCI6MjA5MjcxMzYxMX0.aglafY83JjAfHk4SBBv9eAnWKnhe8AO11YX28TjVExw"
