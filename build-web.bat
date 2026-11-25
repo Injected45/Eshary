@@ -5,14 +5,16 @@ REM  The same app and the same Supabase database as the APK; only the
 REM  page is hosted elsewhere (Supabase serves HTML as plain text, so it
 REM  cannot host the page itself).
 REM
-REM  Output: WEB\  - upload this whole folder to the static host.
+REM  Output: WEB_SITE\ - a local copy only: Netlify builds the site itself
+REM  from GitHub (netlify.toml). NEVER name it "WEB": Windows does not tell
+REM  WEB from web, and wiping it wiped the project's web\ folder.
 REM  The Android-only parts (in-app update, background alerts) are off
 REM  on the web by themselves.
 REM ================================================================
 
 cd /d "%~dp0"
 
-set "OUT=%~dp0WEB"
+set "OUT=%~dp0WEB_SITE"
 
 echo Building the web version (this takes a few minutes)...
 call flutter build web --release ^

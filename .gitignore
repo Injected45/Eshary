@@ -91,5 +91,5 @@ android/key.properties
 # built APK / AAB files (delivered to the phone / Play Console, never committed)
 /APK/
 
-# the web build (build-web.bat)
-/WEB/
+# the web build on the PC (build-web.bat). Not "WEB": git on Windows ignores case, and /WEB/ hid web/
+/WEB_SITE/

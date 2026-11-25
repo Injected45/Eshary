@@ -39,6 +39,7 @@ Publishing: the Netlify site is linked to this GitHub repository, and Netlify bu
 - `netlify.toml`: build `bash netlify-build.sh`, publish `build/web`.
   - `netlify-build.sh` shallow-clones Flutter `FLUTTER_VERSION` (3.41.9, the PC's), then builds with the Supabase URL and anon key from `netlify.toml` (public by design).
   - When you change Flutter on the PC, change `FLUTTER_VERSION` too.
+  - `pubspec.lock` is tracked, and the build runs `flutter pub get --enforce-lockfile`. Without the lock, Netlify picked newer libraries (image 4.11 + archive 4.0.9) that do not compile together. After changing dependencies, push the updated `pubspec.lock`.
 - **Only the `web` branch is built** (the `ignore` rule skips every other branch and PR). The owner wants the web to follow releases, not every push.
 - To publish the web, move `web` to the release: `git push origin feature/permissions-notifications:web`. Netlify → Deploys → Trigger deploy rebuilds the last one.
 - Local build: `build-web.bat` → `WEB\` (gitignored).

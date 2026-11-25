@@ -1,0 +1,4 @@
+# Netlify: every visit asks whether a file changed (a cheap 304 when it did
+# not), so after a new version is published nobody keeps running an old one.
+/*
+  Cache-Control: no-cache
