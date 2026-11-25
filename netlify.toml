@@ -1,13 +1,17 @@
 # Netlify builds the WEB version (iPhone and browsers) from this GitHub
-# repository. Only the `web` branch is built and published: it is moved to
-# the new release when the app is published, so work in progress pushed to
-# the working branch never reaches customers. Netlify → Deploys → Trigger
-# deploy rebuilds the last release.
+# repository. Only the `web` branch is built and published; after every
+# change the working branch is pushed to `web` too (the owner's rule since
+# 2026-11-25), so the link is always the latest app. Netlify → Deploys →
+# Trigger deploy rebuilds the last one.
 [build]
   command = "bash netlify-build.sh"
   publish = "build/web"
-  # any other branch or pull request: no build (exit 0 = skip)
-  ignore = "test \"$BRANCH\" != \"web\""
+  # exit 0 = no build: any other branch or pull request, and a push that
+  # changes nothing the page is built from (docs, migrations, tests, the
+  # admin platform) — the free plan's build minutes are kept for real
+  # changes. The same commit again (Trigger deploy) and an unknown older
+  # commit always build.
+  ignore = "test \"$BRANCH\" != \"web\" || { test \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" && git diff --quiet \"$CACHED_COMMIT_REF\" \"$COMMIT_REF\" -- lib web assets pubspec.yaml pubspec.lock netlify.toml netlify-build.sh; }"
 
 [build.environment]
   # the same Flutter as on the developer's PC
